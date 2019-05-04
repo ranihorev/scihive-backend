@@ -1,0 +1,730 @@
+[
+  {
+    "screen_name": "pulkitology",
+    "name": "Pulkit Agrawal"
+  },
+  {
+    "screen_name": "PeterWBattaglia",
+    "name": "Peter Battaglia"
+  },
+  {
+    "screen_name": "IanOsband",
+    "name": "Ian Osband"
+  },
+  {
+    "screen_name": "ancadianadragan",
+    "name": "Anca Dragan"
+  },
+  {
+    "screen_name": "lilianweng",
+    "name": "Lilian Weng"
+  },
+  {
+    "screen_name": "j_foerst",
+    "name": "Jakob Foerster"
+  },
+  {
+    "screen_name": "aharutyu",
+    "name": "Anna Harutyunyan"
+  },
+  {
+    "screen_name": "david_sontag",
+    "name": "David Sontag"
+  },
+  {
+    "screen_name": "ShaneLegg",
+    "name": "Shane Legg"
+  },
+  {
+    "screen_name": "lal_avantika",
+    "name": "Avantika Lal"
+  },
+  {
+    "screen_name": "liu_mingyu",
+    "name": "Ming-Yu Liu"
+  },
+  {
+    "screen_name": "SoloGen",
+    "name": "Amir-massoud Farahmand"
+  },
+  {
+    "screen_name": "voxmenthe",
+    "name": "Jeff Coggshall"
+  },
+  {
+    "screen_name": "ericrgon",
+    "name": "Eric Gonzalez"
+  },
+  {
+    "screen_name": "dennybritz",
+    "name": "Denny Britz"
+  },
+  {
+    "screen_name": "macjshiggins",
+    "name": "MacCallister Higgins"
+  },
+  {
+    "screen_name": "hardmaru",
+    "name": "hardmaru"
+  },
+  {
+    "screen_name": "yashk2810",
+    "name": "Yash Katariya"
+  },
+  {
+    "screen_name": "cholodovskis",
+    "name": "Marlos C. Machado"
+  },
+  {
+    "screen_name": "marcgbellemare",
+    "name": "Marc G. Bellemare"
+  },
+  {
+    "screen_name": "lqh20",
+    "name": "Leonard Hasenclever"
+  },
+  {
+    "screen_name": "quocleix",
+    "name": "Quoc Le"
+  },
+  {
+    "screen_name": "IAmSamFin",
+    "name": "Samuel Finlayson"
+  },
+  {
+    "screen_name": "kswersk",
+    "name": "Kevin Swersky"
+  },
+  {
+    "screen_name": "cjmaddison",
+    "name": "Chris J. Maddison"
+  },
+  {
+    "screen_name": "poolio",
+    "name": "Ben Poole"
+  },
+  {
+    "screen_name": "georgejtucker",
+    "name": "George Tucker"
+  },
+  {
+    "screen_name": "santoroAI",
+    "name": "Adam Santoro"
+  },
+  {
+    "screen_name": "nikiparmar09",
+    "name": "niki parmar"
+  },
+  {
+    "screen_name": "nickfrosst",
+    "name": "nick frosst"
+  },
+  {
+    "screen_name": "DeepMind_Health",
+    "name": "DeepMind Health"
+  },
+  {
+    "screen_name": "ilyasut",
+    "name": "Ilya Sutskever"
+  },
+  {
+    "screen_name": "StanfordAILab",
+    "name": "The Stanford AI Lab"
+  },
+  {
+    "screen_name": "aureliengeron",
+    "name": "Aurélien Geron"
+  },
+  {
+    "screen_name": "StephenLJames",
+    "name": "Stephen James"
+  },
+  {
+    "screen_name": "dominikgrewe",
+    "name": "Dominik Grewe"
+  },
+  {
+    "screen_name": "clattner_llvm",
+    "name": "Chris Lattner"
+  },
+  {
+    "screen_name": "nanjiang_cs",
+    "name": "Nan Jiang"
+  },
+  {
+    "screen_name": "nsaphra",
+    "name": "Naomi Saphra"
+  },
+  {
+    "screen_name": "facebookai",
+    "name": "Facebook AI"
+  },
+  {
+    "screen_name": "jeremyphoward",
+    "name": "Jeremy Howard"
+  },
+  {
+    "screen_name": "priy2201",
+    "name": "Priya Goyal"
+  },
+  {
+    "screen_name": "2plus2make5",
+    "name": "Emma Pierson"
+  },
+  {
+    "screen_name": "seb_ruder",
+    "name": "Sebastian Ruder"
+  },
+  {
+    "screen_name": "j_gauthier",
+    "name": "Jon Gauthier"
+  },
+  {
+    "screen_name": "jekbradbury",
+    "name": "James Bradbury"
+  },
+  {
+    "screen_name": "ayyar",
+    "name": "Kartik 👨🏾‍💻"
+  },
+  {
+    "screen_name": "Reza_Zadeh",
+    "name": "Reza Zadeh"
+  },
+  {
+    "screen_name": "avdnoord",
+    "name": "Aäron van den Oord"
+  },
+  {
+    "screen_name": "dpkingma",
+    "name": "Durk Kingma"
+  },
+  {
+    "screen_name": "BaldingsWorld",
+    "name": "Not China Naive Balding"
+  },
+  {
+    "screen_name": "aleks_madry",
+    "name": "Aleksander Madry"
+  },
+  {
+    "screen_name": "RandomlyWalking",
+    "name": "Charles Sutton"
+  },
+  {
+    "screen_name": "dianarycai",
+    "name": "Diana Cai"
+  },
+  {
+    "screen_name": "ShalitUri",
+    "name": "Uri Shalit"
+  },
+  {
+    "screen_name": "jacobmbuckman",
+    "name": "Jacob Buckman"
+  },
+  {
+    "screen_name": "fhuszar",
+    "name": "Ferenc Huszár🇪🇺"
+  },
+  {
+    "screen_name": "svlevine",
+    "name": "Sergey Levine"
+  },
+  {
+    "screen_name": "yusufaytar",
+    "name": "Yusuf Aytar"
+  },
+  {
+    "screen_name": "fpedregosa",
+    "name": "Fabian Pedregosa"
+  },
+  {
+    "screen_name": "caglarml",
+    "name": "Caglar Gulcehre"
+  },
+  {
+    "screen_name": "hjpimentel",
+    "name": "Harold Pimentel"
+  },
+  {
+    "screen_name": "AmazonRobotics",
+    "name": "AmazonRobotics"
+  },
+  {
+    "screen_name": "martin_wicke",
+    "name": "Martin Wicke"
+  },
+  {
+    "screen_name": "yablak",
+    "name": "Eugene Brevdo"
+  },
+  {
+    "screen_name": "Azaliamirh",
+    "name": "Azalia Mirhoseini"
+  },
+  {
+    "screen_name": "natashajaques",
+    "name": "Natasha Jaques"
+  },
+  {
+    "screen_name": "catherineols",
+    "name": "Catherine Olsson"
+  },
+  {
+    "screen_name": "ayush_sekhari",
+    "name": "Ayush Sekhari"
+  },
+  {
+    "screen_name": "gstsdn",
+    "name": "augustus odena"
+  },
+  {
+    "screen_name": "bousmalis",
+    "name": "Konstantinos Bousmalis"
+  },
+  {
+    "screen_name": "collinsljas",
+    "name": "Jasmine Collins"
+  },
+  {
+    "screen_name": "AliMakhzani",
+    "name": "Alireza Makhzani"
+  },
+  {
+    "screen_name": "haldaume3",
+    "name": "Hal Daumé III"
+  },
+  {
+    "screen_name": "brendan642",
+    "name": "brendan o'connor"
+  },
+  {
+    "screen_name": "davidandrzej",
+    "name": "David Andrzejewski"
+  },
+  {
+    "screen_name": "zaxtax",
+    "name": "∬ ⌬ + ☢"
+  },
+  {
+    "screen_name": "vnfrombucharest",
+    "name": "Vlad Niculae 📼"
+  },
+  {
+    "screen_name": "agramfort",
+    "name": "Alexandre Gramfort"
+  },
+  {
+    "screen_name": "GaelVaroquaux",
+    "name": "Gael Varoquaux"
+  },
+  {
+    "screen_name": "ogrisel",
+    "name": "Olivier Grisel"
+  },
+  {
+    "screen_name": "amuellerml",
+    "name": "Andreas Mueller"
+  },
+  {
+    "screen_name": "KyleCranmer",
+    "name": "Kyle Cranmer"
+  },
+  {
+    "screen_name": "etzioni",
+    "name": "Oren Etzioni"
+  },
+  {
+    "screen_name": "Miles_Brundage",
+    "name": "Miles Brundage"
+  },
+  {
+    "screen_name": "zacharylipton",
+    "name": "Zachary Lipton"
+  },
+  {
+    "screen_name": "SebastienBubeck",
+    "name": "Sebastien Bubeck"
+  },
+  {
+    "screen_name": "beenwrekt",
+    "name": "Ben Recht"
+  },
+  {
+    "screen_name": "AnimaAnandkumar",
+    "name": "Anima (hiring at NeurIPS)"
+  },
+  {
+    "screen_name": "tdietterich",
+    "name": "Thomas G. Dietterich"
+  },
+  {
+    "screen_name": "roydanroy",
+    "name": "Daniel Roy"
+  },
+  {
+    "screen_name": "DavidDuvenaud",
+    "name": "David Duvenaud"
+  },
+  {
+    "screen_name": "jameshensman",
+    "name": "James Hensman"
+  },
+  {
+    "screen_name": "kchonyc",
+    "name": "Kyunghyun Cho"
+  },
+  {
+    "screen_name": "egrefen",
+    "name": "Edward Grefenstette"
+  },
+  {
+    "screen_name": "notmisha",
+    "name": "Misha Denil"
+  },
+  {
+    "screen_name": "johnplattml",
+    "name": "John Platt"
+  },
+  {
+    "screen_name": "ryan_p_adams",
+    "name": "Ryan Adams"
+  },
+  {
+    "screen_name": "lawrennd",
+    "name": "Neil Lawrence"
+  },
+  {
+    "screen_name": "alexggmatthews",
+    "name": "Alex Matthews"
+  },
+  {
+    "screen_name": "andrewgwils",
+    "name": "Andrew Gordon Wilson"
+  },
+  {
+    "screen_name": "stanfordnlp",
+    "name": "Stanford NLP Group"
+  },
+  {
+    "screen_name": "chrmanning",
+    "name": "Christopher Manning"
+  },
+  {
+    "screen_name": "NandoDF",
+    "name": "Nando de Freitas"
+  },
+  {
+    "screen_name": "yaringal",
+    "name": "Yarin"
+  },
+  {
+    "screen_name": "scott_e_reed",
+    "name": "Scott Reed"
+  },
+  {
+    "screen_name": "dustinvtran",
+    "name": "Dustin Tran"
+  },
+  {
+    "screen_name": "mpd37",
+    "name": "Marc Deisenroth"
+  },
+  {
+    "screen_name": "balajiln",
+    "name": "Balaji Lakshminarayanan"
+  },
+  {
+    "screen_name": "theophaneweber",
+    "name": "Theo Weber"
+  },
+  {
+    "screen_name": "yeewhye",
+    "name": "Yee Whye Teh"
+  },
+  {
+    "screen_name": "tejasdkulkarni",
+    "name": "Tejas Kulkarni"
+  },
+  {
+    "screen_name": "MirowskiPiotr",
+    "name": "Piotr Mirowski"
+  },
+  {
+    "screen_name": "RaiaHadsell",
+    "name": "raia hadsell"
+  },
+  {
+    "screen_name": "_brohrer_",
+    "name": "Brandon Rohrer"
+  },
+  {
+    "screen_name": "_rockt",
+    "name": "Tim Rocktäschel"
+  },
+  {
+    "screen_name": "ch402",
+    "name": "Chris Olah"
+  },
+  {
+    "screen_name": "nkreeger",
+    "name": "nkreeger"
+  },
+  {
+    "screen_name": "loraxorg",
+    "name": "David Soergel"
+  },
+  {
+    "screen_name": "annadgoldie",
+    "name": "Anna D Goldie"
+  },
+  {
+    "screen_name": "pcastr",
+    "name": "Pablo Samuel Castro"
+  },
+  {
+    "screen_name": "SingularMattrix",
+    "name": "Matthew Johnson"
+  },
+  {
+    "screen_name": "niru_m",
+    "name": "Niru Maheswaranathan"
+  },
+  {
+    "screen_name": "rsepassi",
+    "name": "Ryan Sepassi"
+  },
+  {
+    "screen_name": "ConcreteVitamin",
+    "name": "Zongheng Yang"
+  },
+  {
+    "screen_name": "benlee",
+    "name": "Ben Lee"
+  },
+  {
+    "screen_name": "Luke_Metz",
+    "name": "Luke Metz"
+  },
+  {
+    "screen_name": "jesseengel",
+    "name": "Jesse Engel"
+  },
+  {
+    "screen_name": "latentjasper",
+    "name": "Jasper"
+  },
+  {
+    "screen_name": "coreylynch",
+    "name": "Corey Lynch 🌹"
+  },
+  {
+    "screen_name": "SussilloDavid",
+    "name": "David Sussillo ☝️🤓"
+  },
+  {
+    "screen_name": "erwincoumans",
+    "name": "Erwin Coumans"
+  },
+  {
+    "screen_name": "rajatmonga",
+    "name": "Rajat Monga"
+  },
+  {
+    "screen_name": "_beenkim",
+    "name": "Been Kim"
+  },
+  {
+    "screen_name": "lmthang",
+    "name": "Thang Luong"
+  },
+  {
+    "screen_name": "ekindogus",
+    "name": "Ekin Dogus Cubuk"
+  },
+  {
+    "screen_name": "colinraffel",
+    "name": "Colin Raffel"
+  },
+  {
+    "screen_name": "chelseabfinn",
+    "name": "Chelsea Finn"
+  },
+  {
+    "screen_name": "mat_kelcey",
+    "name": "mat kelcey"
+  },
+  {
+    "screen_name": "douglas_eck",
+    "name": "Douglas Eck"
+  },
+  {
+    "screen_name": "ericjang11",
+    "name": "Eric Jang"
+  },
+  {
+    "screen_name": "sarahookr",
+    "name": "Sara Hooker"
+  },
+  {
+    "screen_name": "korymath",
+    "name": "Kory Mathewson"
+  },
+  {
+    "screen_name": "VahidK",
+    "name": "Vahid Kazemi"
+  },
+  {
+    "screen_name": "goodfellow_ian",
+    "name": "Ian Goodfellow"
+  },
+  {
+    "screen_name": "NalKalchbrenner",
+    "name": "Nal Kalchbrenner"
+  },
+  {
+    "screen_name": "sedielem",
+    "name": "Sander Dieleman"
+  },
+  {
+    "screen_name": "DeepSpiker",
+    "name": "Danilo J. Rezende"
+  },
+  {
+    "screen_name": "shakir_za",
+    "name": "Shakir Mohamed"
+  },
+  {
+    "screen_name": "hugo_larochelle",
+    "name": "Hugo Larochelle"
+  },
+  {
+    "screen_name": "OriolVinyalsML",
+    "name": "Oriol Vinyals"
+  },
+  {
+    "screen_name": "AlecRad",
+    "name": "Alec Radford"
+  },
+  {
+    "screen_name": "soumithchintala",
+    "name": "Soumith Chintala"
+  },
+  {
+    "screen_name": "DaphneKoller",
+    "name": "Daphne Koller"
+  },
+  {
+    "screen_name": "woj_zaremba",
+    "name": "Wojciech Zaremba"
+  },
+  {
+    "screen_name": "freenome",
+    "name": "Freenome"
+  },
+  {
+    "screen_name": "pmddomingos",
+    "name": "Pedro Domingos"
+  },
+  {
+    "screen_name": "janexwang",
+    "name": "Jane Wang"
+  },
+  {
+    "screen_name": "drfeifei",
+    "name": "Fei-Fei Li"
+  },
+  {
+    "screen_name": "distillpub",
+    "name": "distillpub"
+  },
+  {
+    "screen_name": "karpathy",
+    "name": "Andrej Karpathy"
+  },
+  {
+    "screen_name": "OpenAI",
+    "name": "OpenAI"
+  },
+  {
+    "screen_name": "ctnzr",
+    "name": "Bryan Catanzaro"
+  },
+  {
+    "screen_name": "AndrewYNg",
+    "name": "Andrew Ng"
+  },
+  {
+    "screen_name": "GoogleAI",
+    "name": "Google AI"
+  },
+  {
+    "screen_name": "yshoham",
+    "name": "Yoav Shoham"
+  },
+  {
+    "screen_name": "sleepinyourhat",
+    "name": "Sam Bowman"
+  },
+  {
+    "screen_name": "baaadas",
+    "name": "Jiaming Song"
+  },
+  {
+    "screen_name": "volkuleshov",
+    "name": "Volodymyr Kuleshov"
+  },
+  {
+    "screen_name": "akelleh",
+    "name": "Adam Kelleher"
+  },
+  {
+    "screen_name": "rohanbafna",
+    "name": "Rohan Bafna"
+  },
+  {
+    "screen_name": "twiecki",
+    "name": "Thomas Wiecki"
+  },
+  {
+    "screen_name": "mark_riedl",
+    "name": "Mark O. Riedl"
+  },
+  {
+    "screen_name": "jeffclune",
+    "name": "Jeff Clune"
+  },
+  {
+    "screen_name": "andrey_kurenkov",
+    "name": "Andrey Kurenkov 🤖"
+  },
+  {
+    "screen_name": "allen_ai",
+    "name": "Allen Institute for Artificial Intelligence (AI2)"
+  },
+  {
+    "screen_name": "Thom_Wolf",
+    "name": "Thomas Wolf"
+  },
+  {
+    "screen_name": "PyTorch",
+    "name": "PyTorch"
+  },
+  {
+    "screen_name": "RichardSocher",
+    "name": "Richard"
+  },
+  {
+    "screen_name": "djpardis",
+    "name": "Pardis Noorzad"
+  },
+  {
+    "screen_name": "lemire",
+    "name": "Daniel Lemire"
+  },
+  {
+    "screen_name": "chrisalbon",
+    "name": "Chris Albon"
+  }
+]

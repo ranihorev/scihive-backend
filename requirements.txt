@@ -1,0 +1,28 @@
+# feedparser is only if you want to scrape arxiv
+feedparser
+
+# twitter
+pytz
+
+# the following are only for serve.py
+python-dateutil
+flask
+flask_limiter
+tornado
+pymongo
+
+fa2l
+requests
+flask-caching
+
+schedule
+
+boto3
+Flask-RESTful
+Flask-JWT-Extended
+flask-cors
+libsass
+
+python-dotenv
+
+tweepy
