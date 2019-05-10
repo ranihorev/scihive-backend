@@ -30,7 +30,7 @@ class TwitterUrl(fields.Raw):
         return links
 
 
-papers_list_fields = {
+papers_fields = {
     '_id': fields.String,
     'title': fields.String,
     'saved_in_library': fields.Boolean,
@@ -41,6 +41,11 @@ papers_list_fields = {
     'twtr_links': TwitterUrl(attribute='twtr_links'),
     'bookmarks_count': fields.Integer(attribute='total_bookmarks'),
     'comments_count': fields.Integer,
+}
+
+papers_list_fields = {
+    'papers': fields.Nested(papers_fields),
+    'count': fields.Integer,
 }
 
 def sort_papers(papers, args):
@@ -90,12 +95,14 @@ def get_papers(library=False, page_size=20):
 
     papers = sort_papers(papers, args)
 
+    count = papers.count() if page_num == 1 else -1;
+
     papers = list(papers.skip(skips).limit(page_size))
 
     # Adds stats to query
     papers = include_stats(papers, user=current_user)
 
-    return papers
+    return {'papers': papers, 'count': count}
 
 
 def get_comments_count():

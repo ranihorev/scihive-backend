@@ -152,7 +152,7 @@ class Comments(Resource):
         parser.add_argument('group', required=False)
         group_id = parser.parse_args().get('group')
         if group_id:
-            visibility_filter = {'visibility.id': group_id}
+            visibility_filter = {'$or': [{'visibility.id': group_id}] + user_filter}
         else:
             visibility_filter = {'$or': [{'visibility.type': {'$in': PUBLIC_TYPES}}, {'visibility': {'$in': PUBLIC_TYPES}}, ] + user_filter}
         comments = list(db_comments.find({'$and': [{'pid': paper_id}, visibility_filter]}).sort([
