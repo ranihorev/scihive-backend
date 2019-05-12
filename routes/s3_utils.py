@@ -25,8 +25,10 @@ def exists(key):
             return True
     return False
 
+
 def key_to_url(key):
     return f'https://{BUCKET}/{key}'
+
 
 def arxiv_to_s3(url):
     id_with_ver = url.split('/')[-1]

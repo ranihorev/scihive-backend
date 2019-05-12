@@ -13,8 +13,7 @@ import argparse
 import urllib.request
 import feedparser
 
-from logger import logger_config
-from utils import catch_exceptions
+from .utils import catch_exceptions
 
 logger = logging.getLogger(__name__)
 BASE_URL = 'http://export.arxiv.org/api/query?' # base api query url
@@ -139,6 +138,7 @@ def fetch_papers_main(start_index=0, max_index=3000, results_per_iteration=200, 
 
 
 if __name__ == "__main__":
+    from logger import logger_config
     logger_config(info_filename='arxiv_fetcher.log')
     # parse input arguments
     parser = argparse.ArgumentParser()

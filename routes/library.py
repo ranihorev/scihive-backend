@@ -2,7 +2,7 @@ from flask import Blueprint, request
 import logging
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restful import Api, Resource, abort, reqparse, fields, marshal_with
-from .paper_utils import get_papers, papers_list_fields
+from .paper_query_utils import get_papers, papers_list_fields
 from . import db_papers
 from .user_utils import add_to_library
 

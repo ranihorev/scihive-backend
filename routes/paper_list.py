@@ -4,7 +4,7 @@ import logging
 from flask_jwt_extended import jwt_optional
 from flask_restful import Api, Resource, reqparse, marshal_with
 
-from .paper_utils import get_papers, papers_list_fields
+from .paper_query_utils import get_papers, papers_list_fields
 from . import db_authors, db_papers
 
 app = Blueprint('paper_list', __name__)

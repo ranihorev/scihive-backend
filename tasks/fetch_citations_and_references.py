@@ -5,8 +5,7 @@ from time import sleep
 import pymongo
 import requests
 
-from logger import logger_config
-from utils import catch_exceptions
+from .utils import catch_exceptions
 
 client = pymongo.MongoClient()
 mdb = client.arxiv
@@ -14,7 +13,6 @@ db_papers = mdb.papers
 sem_sch_papers = mdb.sem_sch_papers  # semantic scholar data
 sem_sch_authors = mdb.sem_sch_authors  # semantic scholar data
 
-logger_config(info_filename='citations_fetcher.log')
 logger = logging.getLogger(__name__)
 
 def send_query(p, is_arxiv):
@@ -87,6 +85,8 @@ def update_all_papers(age_days=5):
 
 
 if __name__ == '__main__':
+    from logger import logger_config
+    logger_config(info_filename='citations_fetcher.log')
     update_all_papers()
 
 

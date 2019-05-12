@@ -4,9 +4,9 @@ import os
 import pymongo
 from datetime import datetime
 
-from papers_utils.fetch_papers import fetch_entry
-from papers_utils.s3_utils import arxiv_to_s3
-from .paper_utils import include_stats
+from tasks.fetch_papers import fetch_entry
+from .s3_utils import arxiv_to_s3
+from .paper_query_utils import include_stats
 from . import db_papers, db_comments
 from bson import ObjectId
 from flask import Blueprint
@@ -66,6 +66,7 @@ def abs_to_pdf(url):
 paper_fields = {
     'url': fields.String(attribute='pdf_link'),
     'saved_in_library': fields.Boolean,
+    'title': fields.String,
 }
 
 
