@@ -109,6 +109,11 @@ def get_comments_count():
     papers_comments = {}
     papers_comments_list = list(db_comments.aggregate([
         {
+            "$match": {
+                "visibility.type": {"$in": ["public", "anonymous"]}
+            }
+        },
+        {
             "$group":
             {
                 "_id": "$pid",
