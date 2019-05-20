@@ -26,3 +26,5 @@ libsass
 python-dotenv
 
 tweepy
+
+TexSoup
