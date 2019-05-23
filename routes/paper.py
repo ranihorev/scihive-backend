@@ -7,7 +7,7 @@ from datetime import datetime
 from tasks.fetch_papers import fetch_entry
 from .s3_utils import arxiv_to_s3
 from .paper_query_utils import include_stats
-from .latex_utils import extract_data_from_latex
+from .latex_utils import extract_sections_from_latex, extract_references_from_latex
 from . import db_papers, db_comments
 from bson import ObjectId
 from flask import Blueprint
@@ -244,26 +244,38 @@ class Reply(Resource):
         return comment
 
 
+def get_paper_item(paper_id, item, latex_fn):
+    paper = db_papers.find_one(paper_id)
+    if not paper:
+        abort(404, message='Paper not found')
+    value = paper.get(item)
+    if not value:
+        try:
+            value = latex_fn(paper_id)
+            db_papers.update({'_id': paper_id}, {"$set": {item: value}})
+        except Exception as e:
+            logger.error(f'Failed to retrieve {item} for {paper_id} - {e}')
+            abort(500, message=f'Failed to retrieve {item}')
+    return value
+
+
 class PaperSection(Resource):
     method_decorators = [jwt_optional]
 
     def get(self, paper_id):
-        paper = db_papers.find_one(paper_id)
-        if not paper:
-            abort(404, message='Paper not found')
-        sections = paper.get('sections')
-        if not sections:
-            try:
-                sections = extract_data_from_latex(paper_id)
-                db_papers.update({'_id': paper_id}, {"$set": {'sections': sections}})
-            except Exception as e:
-                logger.error(f'Failed to retrieve sections for {paper_id} - {e}')
-                abort(500, message='Failed to retrieve sections')
-        return sections
+        return get_paper_item(paper_id, 'sections', extract_sections_from_latex)
+
+
+class PaperReferences(Resource):
+    method_decorators = [jwt_optional]
+
+    def get(self, paper_id):
+        return get_paper_item(paper_id, 'references', extract_references_from_latex)
 
 
 api.add_resource(Comments, "/<paper_id>/comments")
 api.add_resource(PaperSection, "/<paper_id>/sections")
+api.add_resource(PaperReferences, "/<paper_id>/references")
 api.add_resource(NewComment, "/<paper_id>/new_comment")
 api.add_resource(Comment, "/<paper_id>/comment/<comment_id>")
 api.add_resource(Reply, "/<paper_id>/comment/<comment_id>/reply")
