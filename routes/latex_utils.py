@@ -1,3 +1,6 @@
+import shutil
+import subprocess
+
 import requests
 import tarfile
 import os
@@ -29,13 +32,13 @@ def get_extension_from_headers(h):
 
 
 # Extract content of tex files from a compressed tar.gz file
-def extract_tex_files(file):
+def extract_files(file, types):
     files = []
     tar = tarfile.open(f'{TMP_DIR}/{file}', "r:gz")
 
     # Find the tex file
     for member in tar.getmembers():
-        if member.name.lower().endswith('tex'):
+        if any([member.name.lower().endswith(t) for t in types]):
             files.append(tar.extractfile(member).read().decode('utf-8'))
 
     return files
@@ -67,6 +70,21 @@ def download_source_file(arxiv_id):
     return name
 
 
+def find_right_closing_bracket(tex, start_pos, left_char, right_char):
+    # find the right closing brackets
+    level = 0
+    end_pos = start_pos + 1
+    while True:
+        if tex[end_pos] == right_char:
+            if level == 0:
+                break
+            level -= 1
+        elif tex[end_pos] == left_char:
+            level += 1
+        end_pos += 1
+    return end_pos
+
+
 def extract_text(section, tex):
     base_groups = section.groups()
     if '{' not in base_groups[1]:
@@ -78,16 +96,7 @@ def extract_text(section, tex):
         start_pos += 1
 
     # find the right closing brackets
-    level = 0
-    end_pos = start_pos + 1
-    while True:
-        if tex[end_pos] == '}':
-            if level == 0:
-                break
-            level -= 1
-        elif tex[end_pos] == '{':
-            level += 1
-        end_pos += 1
+    end_pos = find_right_closing_bracket(tex=tex, start_pos=start_pos, left_char='{', right_char='}')
 
     # TODO improve this part
     soup = TexSoup(tex[section.start():end_pos+1])
@@ -116,14 +125,65 @@ def get_equations(tex):
     return equations
 
 
+def get_cite_name(item):
+    # find cite name. Remove the first [] if exists
+    if re.match(r'\n\\bibitem\s*\[', item):
+        start_pos = item.find('[')
+        end_pos = find_right_closing_bracket(item, start_pos, '[', ']')
+        item = item[:start_pos] + item[end_pos+1:]
+    cite_name = re.search('{(.*?)}', item).group(1)
+    return cite_name
+
+
+def get_bibliography(tex):
+    # Focus on the relevant section though it can work without it
+    bib_start = tex.find('\\begin{thebibliography}')
+    bib_end = tex.find('\\end{thebibliography}')
+    bib_content = tex[bib_start: bib_end]
+    all_items_matches = list(re.finditer(r'\n\\bibitem\s*[\[\{]', bib_content))
+    all_items_content = []
+
+    # split to bibitems:
+    for i in range(len(all_items_matches)):
+        if i == len(all_items_matches) - 1:
+            end_pos = len(bib_content) + 1
+        else:
+            end_pos = all_items_matches[i + 1].start()
+        all_items_content.append(bib_content[all_items_matches[i].start():end_pos])
+
+    return all_items_content
+
+
+def convert_bib_items_to_html(paper_id, items):
+    curr_dir = f'{TMP_DIR}/{paper_id}'
+    if not os.path.exists(curr_dir):
+        os.makedirs(curr_dir)
+
+    htmls = {}
+    for item in items:
+        filename = f'{curr_dir}/item.txt'
+        with open(filename, 'w') as output:
+            output.write(item)
+        html = subprocess.check_output(['pandoc', filename, '-f', 'latex', '-t', 'html5'])
+        htmls[get_cite_name(item)] = html.decode('utf-8')
+
+    shutil.rmtree(curr_dir)
+    return htmls
+
+
 # Gets the references of a tex file
-def get_references(tex):
-    references = re.findall(r'\\(\bibitem{(.*?)}(.*?))', tex, re.S)
-    return references
-
-
-def extract_data_from_latex(arxiv_id):
+def extract_references_from_latex(arxiv_id):
     file_name = download_source_file(arxiv_id)
-    tex_files = extract_tex_files(file_name)
+    files = extract_files(file_name, ['tex', 'bbl'])
+    all_items = []
+    for f in files:
+        all_items += get_bibliography(f)
+
+    return convert_bib_items_to_html(arxiv_id, all_items)
+
+
+def extract_sections_from_latex(arxiv_id):
+    file_name = download_source_file(arxiv_id)
+    tex_files = extract_files(file_name, ['tex'])
     return get_sections(tex_files)
 
