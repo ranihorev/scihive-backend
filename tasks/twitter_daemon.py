@@ -87,33 +87,30 @@ def calc_papers_twitter_score(papers_to_update):
     papers_to_update = list(set(papers_to_update))
     papers_tweets = list(db_tweets.find({'pids': {'$in': papers_to_update}}))
     score_per_paper = defaultdict(int)
+    simple_score_per_paper = defaultdict(int)
     links_per_paper = defaultdict(list)
     for t in papers_tweets:
         followers_score = max(math.log10(t['user_followers_count'] + 1), 1)
         tot_score = (t['likes'] + 2 * t['retweets']) * (t.get('replies', 0) * 4 + 0.5) / followers_score
+        simple_score = t['likes'] + 2 * t['retweets'] + 4 * t.get('replies', 0)
 
         for cur_p in t['pids']:
+            simple_score_per_paper[cur_p] += simple_score
             score_per_paper[cur_p] += tot_score
             links_per_paper[cur_p].append({'tname': t['user_screen_name'], 'tid': t['_id'], 'rt': t['retweets'],
                                            'name': t.get('user_name', t['user_screen_name']), 'likes': t['likes'],
                                            'replies': t.get('replies', 0)})
-    return score_per_paper, links_per_paper
+    return simple_score_per_paper, score_per_paper, links_per_paper
 
 
 def summarize_tweets(papers_to_update):
-    score_per_paper, links_per_paper = calc_papers_twitter_score(papers_to_update)
-    dnow_utc = datetime.datetime.now()
-    dminus = dnow_utc - datetime.timedelta(days=30)
-    all_papers = list(db_papers.find({'$or': [{'time_published': {'$gt': dminus}}, {'_id': {'$in': papers_to_update}}]}))
+    simple_score_per_paper, score_per_paper, links_per_paper = calc_papers_twitter_score(papers_to_update)
+    all_papers = list(db_papers.find({'_id': {'$in': papers_to_update}}))
     for cur_p in all_papers:
         logger.info(f'Updating paper {cur_p["_id"]}')
-        new_p_score = score_per_paper.get(cur_p['_id'], 0)
-        old_p_score = cur_p.get('twtr_score', 0)
-        twitter_score = max(new_p_score, old_p_score)
+        twitter_score = score_per_paper.get(cur_p['_id'], 0)
         if twitter_score > 0:
-            age_days = (dnow_utc - cur_p['time_published']).total_seconds() / 86400.0
-            twitter_score_decayed = twitter_score * get_age_decay(age_days)
-            data = {'twtr_score': twitter_score, 'twtr_score_dec': twitter_score_decayed}
+            data = {'twtr_score': twitter_score, 'twtr_sum': simple_score_per_paper.get(cur_p['_id'], 0)}
             if cur_p['_id'] in links_per_paper:
                 data['twtr_links'] = links_per_paper[cur_p['_id']]
             db_papers.update({'_id': cur_p['_id']}, {'$set': data}, True)
@@ -237,6 +234,11 @@ def main_twitter_fetcher():
     papers_to_update = process_tweets(tweets)
     summarize_tweets(papers_to_update)
 
+
+@catch_exceptions(logger=logger)
+def recalculate():
+    all_papers = list(db_papers.find({}, {'_id': 1}))
+    summarize_tweets([p['_id'] for p in all_papers])
 
 # -----------------------------------------------------------------------------
 

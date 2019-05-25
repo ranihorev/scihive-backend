@@ -9,7 +9,7 @@ import pymongo
 
 
 SCORE_META = {'$meta': 'textScore'}
-SORT_DICT = {'tweets': 'twtr_score', 'date': 'time_published', 'score': 'score', 'bookmarks': 'total_bookmarks'}
+SORT_DICT = {'tweets': 'twtr_sum', 'date': 'time_published', 'score': 'score', 'bookmarks': 'total_bookmarks'}
 AGE_DICT = {'day': 1, '3days': 3, 'week': 7, 'month': 30, 'year': 365, 'all': -1}
 
 
@@ -26,7 +26,8 @@ class TwitterUrl(fields.Raw):
         links = []
         for obj in objs:
             link = 'https://twitter.com/' + obj['tname'] + '/status/' + obj['tid']
-            links.append({'link': link, 'name': obj['tname']})
+            score = obj['likes'] + 2 * obj['rt'] + 4 * obj.get('replies', 0)
+            links.append({'link': link, 'name': obj['tname'], 'score': score})
         return links
 
 
@@ -37,7 +38,7 @@ papers_fields = {
     'authors': fields.Nested({'name': fields.String}),
     'time_published': fields.DateTime(dt_format='rfc822'),
     'summary': fields.String,
-    'twtr_score': fields.Integer,
+    'twtr_score': fields.Integer(attribute='twtr_sum'),
     'twtr_links': TwitterUrl(attribute='twtr_links'),
     'bookmarks_count': fields.Integer(attribute='total_bookmarks'),
     'comments_count': fields.Integer,
