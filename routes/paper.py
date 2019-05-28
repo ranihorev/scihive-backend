@@ -1,12 +1,9 @@
 import logging
-import os
-
 import pymongo
 from datetime import datetime
 
-from tasks.fetch_papers import fetch_entry
-from .s3_utils import arxiv_to_s3
-from .paper_query_utils import include_stats
+from .acronym_extractor import find_acronyms
+from .paper_query_utils import include_stats, get_paper_with_pdf
 from .latex_utils import extract_sections_from_latex, extract_references_from_latex
 from . import db_papers, db_comments
 from bson import ObjectId
@@ -60,10 +57,6 @@ def add_user_data(data):
         data['user'] = {'username': 'Guest'}
 
 
-def abs_to_pdf(url):
-    return url.replace('abs', 'pdf').replace('http', 'https') + '.pdf'
-
-
 paper_fields = {
     'url': fields.String(attribute='pdf_link'),
     'saved_in_library': fields.Boolean,
@@ -76,19 +69,7 @@ class Paper(Resource):
 
     @marshal_with(paper_fields)
     def get(self, paper_id):
-        paper = db_papers.find_one(paper_id)
-        if not paper:
-            # Fetch from arxiv
-            paper = fetch_entry(paper_id)
-            paper['_id'] = paper['id']
-            if not paper:
-                abort(404, message='Paper not found')
-        pdf_url = abs_to_pdf(paper['link'])
-
-        if os.environ.get('S3_BUCKET_NAME'):
-            pdf_url = arxiv_to_s3(pdf_url)
-
-        paper['pdf_link'] = pdf_url
+        paper = get_paper_with_pdf(paper_id)
         paper = include_stats([paper], user=get_jwt_identity())[0]
 
         return paper
@@ -273,6 +254,14 @@ class PaperReferences(Resource):
         return get_paper_item(paper_id, 'references', extract_references_from_latex)
 
 
+class PaperAcronyms(Resource):
+    method_decorators = [jwt_optional]
+
+    def get(self, paper_id):
+        return get_paper_item(paper_id, 'acronyms', find_acronyms)
+
+
+api.add_resource(PaperAcronyms, "/<paper_id>/acronyms")
 api.add_resource(Comments, "/<paper_id>/comments")
 api.add_resource(PaperSection, "/<paper_id>/sections")
 api.add_resource(PaperReferences, "/<paper_id>/references")

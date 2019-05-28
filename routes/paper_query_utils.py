@@ -1,9 +1,13 @@
 import datetime
+import os
 
 from flask_jwt_extended import get_jwt_identity
+
+from .s3_utils import arxiv_to_s3
+from tasks.fetch_papers import fetch_entry
 from .user_utils import get_user_library
 from . import db_comments
-from flask_restful import reqparse, fields
+from flask_restful import reqparse, fields, abort
 from . import db_papers
 import pymongo
 
@@ -48,6 +52,7 @@ papers_list_fields = {
     'papers': fields.Nested(papers_fields),
     'count': fields.Integer,
 }
+
 
 def sort_papers(papers, args):
     field = 'date'
@@ -145,3 +150,24 @@ def include_stats(papers, library=None, user=None):
         paper['saved_in_library'] = paper_id in library
 
     return papers
+
+
+def abs_to_pdf(url):
+    return url.replace('abs', 'pdf').replace('http', 'https') + '.pdf'
+
+
+def get_paper_with_pdf(paper_id):
+    paper = db_papers.find_one(paper_id)
+    if not paper:
+        # Fetch from arxiv
+        paper = fetch_entry(paper_id)
+        paper['_id'] = paper['id']
+        if not paper:
+            abort(404, message='Paper not found')
+    pdf_url = abs_to_pdf(paper['link'])
+
+    if os.environ.get('S3_BUCKET_NAME'):
+        pdf_url = arxiv_to_s3(pdf_url)
+
+    paper['pdf_link'] = pdf_url
+    return paper
