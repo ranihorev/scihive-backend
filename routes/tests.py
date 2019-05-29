@@ -14,8 +14,8 @@ class TestAcronymExtractor(unittest.TestCase):
         short = 'RGA'
         self.assertIsNone(find_long_form(short, long))
 
-    def test_stopwords(self):
-        long = 'this is a really me good acronym'.split(' ')
+    def test_stopwords_within(self):
+        long = 'this is a really of good acronym'.split(' ')
         short = 'RGA'
         self.assertTrue(find_long_form(short, long), long[-3:])
 
@@ -23,6 +23,11 @@ class TestAcronymExtractor(unittest.TestCase):
         long = ['Alamos', 'National', 'Laboratory', 'Los', 'Alamos', 'NM', '87545', 'United', 'States', 'c', 'Colorado', 'School', 'of', 'Mines', 'Golden']
         short = 'CO'
         self.assertTrue(find_long_form(short, long), ['Colorado'])
+
+    def test_stopwords_before(self):
+        long = 'this is The really good acronym'.split(' ')
+        short = 'RGA'
+        self.assertTrue(find_long_form(short, long), long[-3:])
 
 
 if __name__ == '__main__':

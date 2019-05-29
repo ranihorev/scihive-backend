@@ -36,7 +36,7 @@ def find_long_form(short_form: str, long_form: List[str], result=[], is_same_lon
     cur_long_word_l = cur_long_word.lower()
     cur_short_word = short_form.lower()
 
-    if cur_long_word_l in STOPWORDS and not is_same_long_word:
+    if middle_of_short_word and cur_long_word_l in STOPWORDS and not is_same_long_word:
         # skip a word only if not in the middle of a long form word
         res = find_long_form(short_form, long_form[1:],
                              update_curr_result(result, cur_long_word, is_same_long_word),
