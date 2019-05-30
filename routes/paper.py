@@ -2,7 +2,7 @@ import logging
 import pymongo
 from datetime import datetime
 
-from .acronym_extractor import find_acronyms
+from .acronym_extractor import extract_acronyms
 from .paper_query_utils import include_stats, get_paper_with_pdf
 from .latex_utils import extract_sections_from_latex, extract_references_from_latex
 from . import db_papers, db_comments
@@ -258,7 +258,7 @@ class PaperAcronyms(Resource):
     method_decorators = [jwt_optional]
 
     def get(self, paper_id):
-        return get_paper_item(paper_id, 'acronyms', find_acronyms)
+        return get_paper_item(paper_id, 'acronyms', extract_acronyms)
 
 
 api.add_resource(PaperAcronyms, "/<paper_id>/acronyms")

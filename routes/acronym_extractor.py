@@ -3,6 +3,7 @@ import os
 import shutil
 import string
 import subprocess
+from collections import defaultdict
 from typing import List
 import re
 
@@ -25,6 +26,7 @@ def update_curr_result(result, cur_long_word, is_same_long_word):
     return result + [cur_long_word]
 
 
+# Find the long form if exists. This function does not work if the text includes the short form
 def find_long_form(short_form: str, long_form: List[str], result=[], is_same_long_word=False, middle_of_short_word=False):
     if short_form == '':
         return result
@@ -44,8 +46,8 @@ def find_long_form(short_form: str, long_form: List[str], result=[], is_same_lon
         if res:
             return res
 
-    if cur_short_word == cur_long_word_l:
-        return None
+    # if cur_short_word == cur_long_word_l:
+    #     return None
 
     if cur_short_word[0] == cur_long_word_l[0]:
         # remove the first word of long form or only the first letter of the first word
@@ -97,32 +99,54 @@ def get_pdf_file(paper_id):
     return file_path
 
 
-def find_acronyms(paper_id):
+def find_short_form(txt):
+    return re.findall(r'\b(?:[A-Z][a-z]*){2,}', txt)
+
+
+def get_long_form_candidate(tokens, end_pos, short_form):
+    long_form_candidate = tokens[max(end_pos - MAX_WORDS_DISTANCE, 0):end_pos]
+    long_form_candidate_lower = [w.lower() for w in long_form_candidate]
+    short_form_lower = short_form.lower()
+
+    if short_form_lower not in long_form_candidate_lower:
+        return long_form_candidate
+
+    start_pos = len(long_form_candidate_lower) - long_form_candidate_lower[::-1].index(short_form_lower)
+    return long_form_candidate[start_pos:]
+
+
+def find_acronyms_in_text(txt):
+    acronyms = set(find_short_form(txt))
+    tokens = text_to_tokens(txt)
+    acronym_to_pos = defaultdict(list)
+    for index, token in enumerate(tokens):
+        if token in acronyms:
+            acronym_to_pos[token].append(index)
+
+    results = {}
+
+    for acr, positions in acronym_to_pos.items():
+        for curr_pos in positions:
+            try:
+                long_form_candidate = get_long_form_candidate(tokens, curr_pos, acr)
+                try:
+                    long_form = find_long_form(acr, long_form_candidate)
+                    if long_form:
+                        results[acr] = ' '.join(long_form)
+                        break
+                except Exception as e:
+                    logger.error(f'Failed to find long form - {paper_id} - {acr} - {long_form}')
+            except ValueError:
+                logging.warning(f'Acronym was not found in text - {acr} - {pdf_file_path}')
+
+    return results
+
+
+def extract_acronyms(paper_id):
     pdf_file_path = get_pdf_file(paper_id)
     txt_file_name = pdf_file_path.replace('pdf', 'txt')
     subprocess.check_output(['pdftotext', pdf_file_path, txt_file_name])
     txt = open(txt_file_name, 'r').read()
-
-    acronyms = re.findall(r'\b(?:[A-Z][a-z]*){2,}', txt)
-    tokens = text_to_tokens(txt)
-
-    results = {}
-
-    for acr in acronyms:
-        if acr in results:
-            continue
-
-        try:
-            acr_pos = tokens.index(acr)
-            long_form_candidate = tokens[(acr_pos - MAX_WORDS_DISTANCE):acr_pos]
-            try:
-                long_form = find_long_form(acr, long_form_candidate)
-                if long_form:
-                    results[acr] = ' '.join(long_form)
-            except Exception as e:
-                logger.error(f'Failed to find long form - {paper_id} - {acr} - {long_form}')
-        except ValueError:
-            logging.warning(f'Acronym was not found in text - {acr} - {pdf_file_path}')
-
+    acronyms = find_acronyms_in_text(txt)
     shutil.rmtree(get_dir(paper_id))
-    return results
+    return acronyms

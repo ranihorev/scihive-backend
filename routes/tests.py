@@ -1,9 +1,33 @@
 import unittest
 
-from .acronym_extractor import find_long_form
+from .acronym_extractor import find_long_form, find_short_form, find_acronyms_in_text
 
 
-class TestAcronymExtractor(unittest.TestCase):
+class TestAcronym(unittest.TestCase):
+    def test_simple(self):
+        txt = 'This is a Simple Acronym Test SAT'
+        res = find_acronyms_in_text(txt)
+        self.assertTrue(res, {'SAT': 'Simple Acronym Test'})
+
+    def test_multiple_occurrence(self):
+        txt = 'This is SAT with a Simple Acronym Test SAT'
+        res = find_acronyms_in_text(txt)
+        self.assertTrue(res, {'SAT': 'Simple Acronym Test'})
+
+
+class TestAcronymShortForm(unittest.TestCase):
+    def test_simple(self):
+        text = 'This is ACRO nym'
+        short = find_short_form(text)
+        self.assertTrue(short[0], 'ACRO')
+
+    def test_parenthesis(self):
+        text = 'This is (ACRO) nym'
+        short = find_short_form(text)
+        self.assertTrue(short[0], 'ACRO')
+
+
+class TestAcronymLongForm(unittest.TestCase):
     def test_simple(self):
         long = 'this is a really great acronym'.split(' ')
         short = 'RGA'
@@ -28,6 +52,11 @@ class TestAcronymExtractor(unittest.TestCase):
         long = 'this is The really good acronym'.split(' ')
         short = 'RGA'
         self.assertTrue(find_long_form(short, long), long[-3:])
+
+    def test_two_letter_per_word(self):
+        long = 'this is a really great acronym'.split(' ')
+        short = 'GRAC'
+        self.assertTrue(find_long_form(short, long), long[-2:])
 
 
 if __name__ == '__main__':
