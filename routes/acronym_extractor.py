@@ -46,8 +46,9 @@ def find_long_form(short_form: str, long_form: List[str], result=[], is_same_lon
         if res:
             return res
 
-    # if cur_short_word == cur_long_word_l:
-    #     return None
+    # next word if the long form word contains the entire short form and they are of almost similar length
+    if not middle_of_short_word and cur_short_word in cur_long_word_l and len(cur_short_word) + 2 >= len(cur_long_word_l):
+        return find_long_form(short_form, long_form[1:], [], False, False)
 
     if cur_short_word[0] == cur_long_word_l[0]:
         # remove the first word of long form or only the first letter of the first word
