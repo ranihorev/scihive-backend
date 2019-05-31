@@ -116,11 +116,11 @@ def get_long_form_candidate(tokens, end_pos, short_form):
 
 
 def find_acronyms_in_text(txt):
-    acronyms = set(find_short_form(txt))
+    short_forms = set(find_short_form(txt))
     tokens = text_to_tokens(txt)
     acronym_to_pos = defaultdict(list)
     for index, token in enumerate(tokens):
-        if token in acronyms:
+        if token in short_forms:
             acronym_to_pos[token].append(index)
 
     results = {}
@@ -139,7 +139,7 @@ def find_acronyms_in_text(txt):
             except ValueError:
                 logging.warning(f'Acronym was not found in text - {acr} - {pdf_file_path}')
 
-    return results
+    return {"matches": results, "short_forms": list(short_forms), "version": "1.0"}
 
 
 def extract_acronyms(paper_id):

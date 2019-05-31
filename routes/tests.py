@@ -7,12 +7,18 @@ class TestAcronym(unittest.TestCase):
     def test_simple(self):
         txt = 'This is a Simple Acronym Test SAT'
         res = find_acronyms_in_text(txt)
-        self.assertTrue(res, {'SAT': 'Simple Acronym Test'})
+        self.assertTrue(res['matches'], {'SAT': 'Simple Acronym Test'})
 
     def test_multiple_occurrence(self):
         txt = 'This is SAT with a Simple Acronym Test SAT'
         res = find_acronyms_in_text(txt)
+        self.assertTrue(res['matches'], {'SAT': 'Simple Acronym Test'})
+
+    def test_no_long_form(self):
+        txt = 'This is BLA a Simple Acronym Test SAT'
+        res = find_acronyms_in_text(txt)
         self.assertTrue(res, {'SAT': 'Simple Acronym Test'})
+        self.assertTrue(res['short_forms'], ['BLA', 'SAT'])
 
 
 class TestAcronymShortForm(unittest.TestCase):

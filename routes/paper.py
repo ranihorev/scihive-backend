@@ -5,7 +5,7 @@ from datetime import datetime
 from .acronym_extractor import extract_acronyms
 from .paper_query_utils import include_stats, get_paper_with_pdf
 from .latex_utils import extract_sections_from_latex, extract_references_from_latex
-from . import db_papers, db_comments
+from . import db_papers, db_comments, db_acronyms
 from bson import ObjectId
 from flask import Blueprint
 from flask_jwt_extended import jwt_optional, get_jwt_identity
@@ -227,6 +227,7 @@ class Reply(Resource):
 
 def get_paper_item(paper_id, item, latex_fn):
     paper = db_papers.find_one(paper_id)
+    is_new = False
     if not paper:
         abort(404, message='Paper not found')
     value = paper.get(item)
@@ -234,31 +235,52 @@ def get_paper_item(paper_id, item, latex_fn):
         try:
             value = latex_fn(paper_id)
             db_papers.update({'_id': paper_id}, {"$set": {item: value}})
+            is_new = True
         except Exception as e:
             logger.error(f'Failed to retrieve {item} for {paper_id} - {e}')
             abort(500, message=f'Failed to retrieve {item}')
-    return value
+    return value, is_new
 
 
 class PaperSection(Resource):
     method_decorators = [jwt_optional]
 
     def get(self, paper_id):
-        return get_paper_item(paper_id, 'sections', extract_sections_from_latex)
+        res, _ = get_paper_item(paper_id, 'sections', extract_sections_from_latex)
+        return res
 
 
 class PaperReferences(Resource):
     method_decorators = [jwt_optional]
 
     def get(self, paper_id):
-        return get_paper_item(paper_id, 'references', extract_references_from_latex)
+        res, _ = get_paper_item(paper_id, 'references', extract_references_from_latex)
+        return res
 
 
 class PaperAcronyms(Resource):
     method_decorators = [jwt_optional]
 
+    def _update_acronyms_counter(self, acronyms):
+        for short_form, long_form in acronyms.items():
+            db_acronyms.update({'short_form': short_form}, {'$inc': {f'long_form.{long_form}': 1}}, True)
+
+    def _enrich_matches(self, matches, short_forms):
+        missing_matches = [s for s in short_forms if s not in matches]
+        additional_matches = db_acronyms.find({"short_form": {"$in": missing_matches}})
+        for m in additional_matches:
+            long_forms = m.get('long_form')
+            if long_forms:
+                most_common = max(long_forms, key=long_forms.get)
+                matches[m.get('short_form')] = most_common
+        return matches
+
     def get(self, paper_id):
-        return get_paper_item(paper_id, 'acronyms', extract_acronyms)
+        acronyms, is_new = get_paper_item(paper_id, 'acronyms', extract_acronyms)
+        if is_new:
+            self._update_acronyms_counter(acronyms["matches"])
+        matches = self._enrich_matches(acronyms['matches'], acronyms['short_forms'])
+        return matches
 
 
 api.add_resource(PaperAcronyms, "/<paper_id>/acronyms")

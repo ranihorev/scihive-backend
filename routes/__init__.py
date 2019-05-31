@@ -8,4 +8,5 @@ db_papers = mdb.papers
 db_authors = mdb.authors
 db_users = mdb.users
 db_groups = mdb.groups
+db_acronyms = mdb.acronyms
 revoked_tokens = mdb.revoked_tokens
