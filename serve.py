@@ -14,6 +14,7 @@ from routes.paper_list import app as paper_list_routes
 from routes.user import app as user_routes
 from routes.library import app as library_routes
 from routes.groups import app as groups_routes
+from routes.admin import app as admin_routes
 from dotenv import load_dotenv
 import pymongo
 from logger import logger_config
@@ -52,6 +53,7 @@ app.register_blueprint(paper_routes, url_prefix='/paper')
 app.register_blueprint(user_routes, url_prefix='/user')
 app.register_blueprint(library_routes, url_prefix='/library')
 app.register_blueprint(groups_routes, url_prefix='/groups')
+app.register_blueprint(admin_routes, url_prefix='/admin')
 
 
 # -----------------------------------------------------------------------------

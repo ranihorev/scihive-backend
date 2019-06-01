@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 import logging
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask_restful import Api, Resource, abort, reqparse, fields, marshal_with
+from flask_restful import Api, Resource, abort, marshal_with
 from .paper_query_utils import get_papers, papers_list_fields
 from . import db_papers
 from .user_utils import add_to_library
@@ -9,11 +9,6 @@ from .user_utils import add_to_library
 app = Blueprint('library', __name__)
 api = Api(app)
 logger = logging.getLogger(__name__)
-
-query_parser = reqparse.RequestParser()
-query_parser.add_argument('q', type=str, required=False)
-query_parser.add_argument('author', type=str, required=False)
-query_parser.add_argument('page_num', type=int, required=False)
 
 
 class Library(Resource):
