@@ -269,10 +269,13 @@ class PaperAcronyms(Resource):
         missing_matches = [s for s in short_forms if s not in matches]
         additional_matches = db_acronyms.find({"short_form": {"$in": missing_matches}})
         for m in additional_matches:
-            long_forms = m.get('long_form')
-            if long_forms:
-                most_common = max(long_forms, key=long_forms.get)
-                matches[m.get('short_form')] = most_common
+            if m.get('verified'):
+                matches[m.get('short_form')] = m.get('verified')
+            else:
+                long_forms = m.get('long_form')
+                if long_forms:
+                    most_common = max(long_forms, key=long_forms.get)
+                    matches[m.get('short_form')] = most_common
         return matches
 
     def get(self, paper_id):
