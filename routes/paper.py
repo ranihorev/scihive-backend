@@ -2,7 +2,7 @@ import logging
 import pymongo
 from datetime import datetime
 
-from .acronym_extractor import extract_acronyms
+from .acronym_extractor import extract_acronyms, ACRONYM_VERSION
 from .paper_query_utils import include_stats, get_paper_with_pdf
 from .latex_utils import extract_sections_from_latex, extract_references_from_latex
 from . import db_papers, db_comments, db_acronyms
@@ -261,9 +261,9 @@ class PaperReferences(Resource):
 class PaperAcronyms(Resource):
     method_decorators = [jwt_optional]
 
-    def _update_acronyms_counter(self, acronyms):
+    def _update_acronyms_counter(self, acronyms, inc_value=1):
         for short_form, long_form in acronyms.items():
-            db_acronyms.update({'short_form': short_form}, {'$inc': {f'long_form.{long_form}': 1}}, True)
+            db_acronyms.update({'short_form': short_form}, {'$inc': {f'long_form.{long_form}': inc_value}}, True)
 
     def _enrich_matches(self, matches, short_forms):
         missing_matches = [s for s in short_forms if s not in matches]
@@ -279,6 +279,12 @@ class PaperAcronyms(Resource):
         acronyms, is_new = get_paper_item(paper_id, 'acronyms', extract_acronyms)
         if is_new:
             self._update_acronyms_counter(acronyms["matches"])
+        elif float(acronyms.get('version', 1)) < ACRONYM_VERSION:
+            new_acronyms = extract_acronyms(paper_id)
+            db_papers.update({'_id': paper_id}, {"$set": {"acronyms": new_acronyms}})
+            self._update_acronyms_counter(acronyms["matches"], -1)
+            self._update_acronyms_counter(new_acronyms["matches"], 1)
+            acronyms = new_acronyms
         matches = self._enrich_matches(acronyms['matches'], acronyms['short_forms'])
         return matches
 

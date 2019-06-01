@@ -19,6 +19,8 @@ STOPWORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you',
 MAX_WORDS_DISTANCE = 10
 TMP_DIR = 'acronym_tmp'
 
+ACRONYM_VERSION = 1.1
+
 
 def update_curr_result(result, cur_long_word, is_same_long_word):
     if is_same_long_word:
@@ -47,7 +49,7 @@ def find_long_form(short_form: str, long_form: List[str], result=[], is_same_lon
             return res
 
     # next word if the long form word contains the entire short form and they are of almost similar length
-    if not middle_of_short_word and cur_short_word in cur_long_word_l and len(cur_short_word) + 2 >= len(cur_long_word_l):
+    if not middle_of_short_word and cur_short_word in cur_long_word_l and len(cur_short_word) + 4 >= len(cur_long_word_l):
         return find_long_form(short_form, long_form[1:], [], False, False)
 
     if cur_short_word[0] == cur_long_word_l[0]:
@@ -132,7 +134,7 @@ def find_acronyms_in_text(txt):
                 long_form_candidate = get_long_form_candidate(tokens, curr_pos, acr)
                 try:
                     long_form = find_long_form(acr, long_form_candidate)
-                    if long_form:
+                    if long_form and len(long_form) > 1:
                         results[acr] = ' '.join(long_form)
                         break
                 except Exception as e:
@@ -140,7 +142,7 @@ def find_acronyms_in_text(txt):
             except ValueError:
                 logging.warning(f'Acronym was not found in text - {acr} - {pdf_file_path}')
 
-    return {"matches": results, "short_forms": list(short_forms), "version": "1.0"}
+    return {"matches": results, "short_forms": list(short_forms), "version": ACRONYM_VERSION}
 
 
 def extract_acronyms(paper_id):
