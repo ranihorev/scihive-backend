@@ -55,14 +55,10 @@ papers_list_fields = {
 
 
 def sort_papers(papers, args):
-    field = 'date'
+    field = args.get('sort', 'date')
     order = pymongo.DESCENDING
-    if not args['sort']:
-        if args['q']:
-            field = 'score'
-            order = SCORE_META
-    else:
-        field = args['sort']
+    if field == 'score':
+        order = SCORE_META
     return papers.sort(SORT_DICT[field], order)
 
 
@@ -94,7 +90,6 @@ def get_papers(library=False, page_size=20):
 
     if q:
         filters['$text'] = {'$search': q}
-
         papers = db_papers.find(filters, {'score': SCORE_META})
     else:
         papers = db_papers.find(filters)
