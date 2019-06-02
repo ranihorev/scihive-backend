@@ -39,7 +39,10 @@ def extract_files(file, types):
     # Find the tex file
     for member in tar.getmembers():
         if any([member.name.lower().endswith(t) for t in types]):
-            files.append(tar.extractfile(member).read().decode('utf-8'))
+            try:
+                files.append(tar.extractfile(member).read().decode('utf-8'))
+            except Exception as e:
+                logger.warning(f'Failed to extract reference file - {file} - {member.name}')
 
     return files
 
