@@ -156,9 +156,10 @@ def get_paper_with_pdf(paper_id):
     if not paper:
         # Fetch from arxiv
         paper = fetch_entry(paper_id)
-        paper['_id'] = paper['id']
         if not paper:
             abort(404, message='Paper not found')
+
+        paper['_id'] = paper['id']
     pdf_url = abs_to_pdf(paper['link'])
 
     if os.environ.get('S3_BUCKET_NAME'):
