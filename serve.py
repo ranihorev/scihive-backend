@@ -5,6 +5,7 @@ import json
 from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from flask_jwt_extended.exceptions import NoAuthorizationError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from sassutils.wsgi import SassMiddleware
@@ -22,18 +23,35 @@ import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 
 load_dotenv()
+env = os.environ.get('ENV', 'development')
+
+logger_config()
+logger = logging.getLogger(__name__)
 
 SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
+
+
+def before_send(event, hint):
+    if 'exc_info' in hint:
+        exc_type, exc_value, tb = hint['exc_info']
+        if isinstance(exc_value, NoAuthorizationError):
+            req = event.get('request', '')
+            logger.warning(f'Unauthorized access - {req}')
+            return None
+    return event
+
+
 if SENTRY_DSN:
     sentry_sdk.init(
         dsn=SENTRY_DSN,
-        integrations=[FlaskIntegration()]
+        integrations=[FlaskIntegration()],
+        environment=env,
+        before_send=before_send
     )
 
 app = Flask(__name__)
 app.config.from_object(__name__)
 
-env = os.environ.get('ENV', 'development')
 app.config['ENV'] = env
 cors = CORS(app, supports_credentials=True, origins=['*'])
 
@@ -70,9 +88,6 @@ app.register_blueprint(admin_routes, url_prefix='/admin')
 # -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    logger_config()
-    logger = logging.getLogger(__name__)
-
     port = int(os.environ.get('PORT', 5000))
     logger.info('connecting to mongodb...')
     client = pymongo.MongoClient()
