@@ -29,3 +29,5 @@ tweepy
 
 TexSoup
 spacy
+
+sentry-sdk[flask]==0.8.0

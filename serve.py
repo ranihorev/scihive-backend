@@ -18,8 +18,17 @@ from routes.admin import app as admin_routes
 from dotenv import load_dotenv
 import pymongo
 from logger import logger_config
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
 
 load_dotenv()
+
+SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[FlaskIntegration()]
+    )
 
 app = Flask(__name__)
 app.config.from_object(__name__)
