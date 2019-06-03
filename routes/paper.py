@@ -266,16 +266,18 @@ class PaperAcronyms(Resource):
             db_acronyms.update({'short_form': short_form}, {'$inc': {f'long_form.{long_form}': inc_value}}, True)
 
     def _enrich_matches(self, matches, short_forms):
-        missing_matches = [s for s in short_forms if s not in matches]
-        additional_matches = db_acronyms.find({"short_form": {"$in": missing_matches}})
+        additional_matches = db_acronyms.find({"short_form": {"$in": short_forms}})
         for m in additional_matches:
+            cur_short_form = m.get('short_form')
             if m.get('verified'):
-                matches[m.get('short_form')] = m.get('verified')
+                matches[cur_short_form] = m.get('verified')
+            elif cur_short_form in matches:
+                pass
             else:
                 long_forms = m.get('long_form')
                 if long_forms:
                     most_common = max(long_forms, key=long_forms.get)
-                    matches[m.get('short_form')] = most_common
+                    matches[cur_short_form] = most_common
         return matches
 
     def get(self, paper_id):
