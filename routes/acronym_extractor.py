@@ -53,6 +53,13 @@ def find_long_form(short_form: str, long_form: List[str], result=[], is_same_lon
         return find_long_form(short_form, long_form[1:], [], False, False)
 
     if cur_short_word[0] == cur_long_word_l[0]:
+        if not is_same_long_word:
+            # if not in the middle of a long word, the long word has to be longer than 2 and capitalized
+            if len(cur_long_word_l) <= 2 or not cur_long_word[0].isupper():
+                if middle_of_short_word:
+                    return None
+                return find_long_form(short_form, long_form[1:], [], False, False)
+
         # remove the first word of long form or only the first letter of the first word
         res_next_word = find_long_form(short_form[1:], long_form[1:],
                                        update_curr_result(result, cur_long_word, is_same_long_word),

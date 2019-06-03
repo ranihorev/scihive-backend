@@ -35,17 +35,22 @@ class TestAcronymShortForm(unittest.TestCase):
 
 class TestAcronymLongForm(unittest.TestCase):
     def test_simple(self):
-        long = 'this is a really great acronym'.split(' ')
+        long = 'this is a Really Great Acronym'.split(' ')
         short = 'RGA'
         self.assertTrue(find_long_form(short, long), long[-3:])
 
     def test_no_match(self):
-        long = 'this is a really bad acronym'.split(' ')
+        long = 'this is a Really Bad Acronym'.split(' ')
+        short = 'RGA'
+        self.assertIsNone(find_long_form(short, long))
+
+    def test_not_capitalized(self):
+        long = 'this is a Really Great acronym'.split(' ')
         short = 'RGA'
         self.assertIsNone(find_long_form(short, long))
 
     def test_stopwords_within(self):
-        long = 'this is a really of good acronym'.split(' ')
+        long = 'this is a Really of Good Acronym'.split(' ')
         short = 'RGA'
         self.assertTrue(find_long_form(short, long), long[-3:])
 
@@ -55,12 +60,12 @@ class TestAcronymLongForm(unittest.TestCase):
         self.assertTrue(find_long_form(short, long), ['Colorado'])
 
     def test_stopwords_before(self):
-        long = 'this is The really good acronym'.split(' ')
+        long = 'this is The Really Good Acronym'.split(' ')
         short = 'RGA'
         self.assertTrue(find_long_form(short, long), long[-3:])
 
     def test_two_letter_per_word(self):
-        long = 'this is a really great acronym'.split(' ')
+        long = 'this is a Really Great Acronym'.split(' ')
         short = 'GRAC'
         self.assertTrue(find_long_form(short, long), long[-2:])
 
