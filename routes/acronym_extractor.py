@@ -19,7 +19,7 @@ STOPWORDS = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you',
 MAX_WORDS_DISTANCE = 10
 TMP_DIR = 'acronym_tmp'
 
-ACRONYM_VERSION = 1.1
+ACRONYM_VERSION = 1.2
 
 
 def update_curr_result(result, cur_long_word, is_same_long_word):
