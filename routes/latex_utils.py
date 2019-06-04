@@ -167,8 +167,11 @@ def convert_bib_items_to_html(paper_id, items):
         filename = f'{curr_dir}/item.txt'
         with open(filename, 'w') as output:
             output.write(item)
-        html = subprocess.check_output(['pandoc', filename, '-f', 'latex', '-t', 'html5'])
-        htmls[get_cite_name(item)] = html.decode('utf-8')
+        try:
+            html = subprocess.check_output(['pandoc', filename, '-f', 'latex', '-t', 'html5'])
+            htmls[get_cite_name(item)] = html.decode('utf-8')
+        except subprocess.CalledProcessError as e:
+            logger.error(f'Failed to render bib item of paper - {paper_id} - {e}')
 
     shutil.rmtree(curr_dir)
     return htmls
