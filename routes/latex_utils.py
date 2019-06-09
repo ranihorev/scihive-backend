@@ -56,7 +56,7 @@ def arxiv_id_to_source_url(arxiv_id):
 def download_source_file(arxiv_id):
     source_url = arxiv_id_to_source_url(arxiv_id)
     headers = {
-        'User-Agent': 'arXivVanity (https://www.arxiv-vanity.com)',
+        'User-Agent': 'SciHive',
     }
     res = requests.get(source_url, headers=headers)
     res.raise_for_status()

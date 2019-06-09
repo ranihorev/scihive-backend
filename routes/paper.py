@@ -108,12 +108,18 @@ comment_fields = {
 }
 
 
+def get_visibility(comment):
+    if isinstance(comment['visibility'], dict):
+        return comment['visibility'].get('type', '')
+    return comment['visibility']
+
+
 def add_metadata(comments):
     current_user = get_jwt_identity()
 
     def add_single_meta(comment):
         comment['canEdit'] = (current_user and current_user == comment['user'].get('email', -1))
-        if comment['visibility'] == 'anonymous':
+        if get_visibility(comment) == 'anonymous':
             comment['user']['username'] = 'Anonymous'
 
     if isinstance(comments, list):
