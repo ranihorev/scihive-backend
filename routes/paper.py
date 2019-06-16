@@ -18,9 +18,6 @@ app = Blueprint('paper', __name__)
 api = Api(app)
 logger = logging.getLogger(__name__)
 
-
-MAX_ITEMS = 20
-
 tot_votes = 0
 last_reddit_update = None
 

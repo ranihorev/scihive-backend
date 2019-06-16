@@ -23,6 +23,7 @@ query_parser.add_argument('author', type=str, required=False)
 query_parser.add_argument('page_num', type=int, required=False, default=1)
 query_parser.add_argument('sort', type=str, required=False, choices=list(SORT_DICT.keys()))
 query_parser.add_argument('age', type=str, required=False, choices=list(AGE_DICT.keys()), default='week')
+query_parser.add_argument('categories', type=str, required=False)
 
 
 class TwitterUrl(fields.Raw):
@@ -71,6 +72,7 @@ def get_papers(library=False, page_size=20):
     author = args['author']
     page_num = args['page_num']
     age = args['age']
+    categories = args['categories']
 
     # Calculates skip for pagination
     skips = page_size * (page_num - 1)
@@ -87,6 +89,9 @@ def get_papers(library=False, page_size=20):
         dnow_utc = datetime.datetime.now()
         dminus = dnow_utc - datetime.timedelta(days=int(AGE_DICT[age]))
         filters['time_published'] = {'$gt': dminus}
+
+    if categories:
+        filters['tags.term'] = {"$in": categories.split(';')}
 
     if q:
         filters['$text'] = {'$search': q}

@@ -1,6 +1,7 @@
 import re
 from flask import Blueprint, jsonify
 import logging
+import json
 from flask_jwt_extended import jwt_optional
 from flask_restful import Api, Resource, reqparse, marshal_with
 
@@ -59,5 +60,14 @@ class Papers(Resource):
         return papers
 
 
+categories = json.load(open('relevant_arxiv_categories.json', 'r'))
+
+
+class Categories(Resource):
+    def get(self):
+        return categories
+
+
+api.add_resource(Categories, "/categories")
 api.add_resource(Autocomplete, "/autocomplete")
 api.add_resource(Papers, "/all")
