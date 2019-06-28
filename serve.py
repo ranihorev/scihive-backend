@@ -72,7 +72,7 @@ if app.debug:
     })
 
 limiter = Limiter(app, key_func=get_remote_address, default_limits=[
-                  "5000 per hour", "100 per minute"])
+                  "5000 per hour", "200 per minute"])
 cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
 app.register_blueprint(paper_list_routes, url_prefix='/papers')

@@ -4,13 +4,14 @@ from datetime import datetime
 
 from .acronym_extractor import extract_acronyms, ACRONYM_VERSION
 from .paper_query_utils import include_stats, get_paper_with_pdf
-from .latex_utils import extract_sections_from_latex, extract_references_from_latex
+from .latex_utils import extract_references_from_latex, REFERNCES_VERSION
 from . import db_papers, db_comments, db_acronyms
 from bson import ObjectId
 from flask import Blueprint
 from flask_jwt_extended import jwt_optional, get_jwt_identity
 from flask_restful import Resource, Api, reqparse, abort, fields, marshal_with
 import uuid
+from enum import Enum
 
 from routes.user import find_by_email
 
@@ -20,6 +21,12 @@ logger = logging.getLogger(__name__)
 
 tot_votes = 0
 last_reddit_update = None
+
+
+class ItemState(Enum):
+    existing = 1
+    updated = 2
+    new = 3
 
 
 def visibilityObj(obj):
@@ -228,37 +235,29 @@ class Reply(Resource):
         return comment
 
 
-def get_paper_item(paper_id, item, latex_fn):
+def get_paper_item(paper_id, item, latex_fn, version=None):
     paper = db_papers.find_one(paper_id)
-    is_new = False
+    state = ItemState.existing
     if not paper:
         abort(404, message='Paper not found')
-    value = paper.get(item)
-    if not value:
+    new_value = old_value = paper.get(item)
+    if not old_value or (version is not None and float(old_value.get('version', 0)) < version):
+        state = ItemState.new if not old_value else ItemState.updated
         try:
-            value = latex_fn(paper_id)
-            db_papers.update({'_id': paper_id}, {"$set": {item: value}})
-            is_new = True
+            new_value = latex_fn(paper_id)
+            db_papers.update({'_id': paper_id}, {"$set": {item: new_value}})
         except Exception as e:
             logger.error(f'Failed to retrieve {item} for {paper_id} - {e}')
             abort(500, message=f'Failed to retrieve {item}')
-    return value, is_new
-
-
-class PaperSection(Resource):
-    method_decorators = [jwt_optional]
-
-    def get(self, paper_id):
-        res, _ = get_paper_item(paper_id, 'sections', extract_sections_from_latex)
-        return res
+    return new_value, old_value, state
 
 
 class PaperReferences(Resource):
     method_decorators = [jwt_optional]
 
     def get(self, paper_id):
-        res, _ = get_paper_item(paper_id, 'references', extract_references_from_latex)
-        return res
+        references, _, _ = get_paper_item(paper_id, 'references', extract_references_from_latex, REFERNCES_VERSION)
+        return references['data']
 
 
 class PaperAcronyms(Resource):
@@ -284,22 +283,18 @@ class PaperAcronyms(Resource):
         return matches
 
     def get(self, paper_id):
-        acronyms, is_new = get_paper_item(paper_id, 'acronyms', extract_acronyms)
-        if is_new:
-            self._update_acronyms_counter(acronyms["matches"])
-        elif float(acronyms.get('version', 1)) < ACRONYM_VERSION:
-            new_acronyms = extract_acronyms(paper_id)
-            db_papers.update({'_id': paper_id}, {"$set": {"acronyms": new_acronyms}})
-            self._update_acronyms_counter(acronyms["matches"], -1)
+        new_acronyms, old_acronyms, state = get_paper_item(paper_id, 'acronyms', extract_acronyms)
+        if state == ItemState.new:
+            self._update_acronyms_counter(new_acronyms["matches"])
+        elif state == ItemState.updated:
+            self._update_acronyms_counter(old_acronyms["matches"], -1)
             self._update_acronyms_counter(new_acronyms["matches"], 1)
-            acronyms = new_acronyms
-        matches = self._enrich_matches(acronyms['matches'], acronyms['short_forms'])
+        matches = self._enrich_matches(new_acronyms['matches'], new_acronyms['short_forms'])
         return matches
 
 
 api.add_resource(PaperAcronyms, "/<paper_id>/acronyms")
 api.add_resource(Comments, "/<paper_id>/comments")
-api.add_resource(PaperSection, "/<paper_id>/sections")
 api.add_resource(PaperReferences, "/<paper_id>/references")
 api.add_resource(NewComment, "/<paper_id>/new_comment")
 api.add_resource(Comment, "/<paper_id>/comment/<comment_id>")

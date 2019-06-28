@@ -11,7 +11,7 @@ from TexSoup import TexSoup
 
 logger = logging.getLogger(__name__)
 TMP_DIR = 'tmp'
-
+REFERNCES_VERSION = 1.0
 
 def get_extension_from_headers(h):
     c_type = h.get('content-type')
@@ -164,6 +164,7 @@ def convert_bib_items_to_html(paper_id, items):
 
     htmls = {}
     for item in items:
+        item = item.replace('\\newblock', ' ')  # the command \newblock messes up pandoc, so we get rid of it
         filename = f'{curr_dir}/item.txt'
         with open(filename, 'w') as output:
             output.write(item)
@@ -185,7 +186,7 @@ def extract_references_from_latex(arxiv_id):
     for f in files:
         all_items += get_bibliography(f)
 
-    return convert_bib_items_to_html(arxiv_id, all_items)
+    return {'data': convert_bib_items_to_html(arxiv_id, all_items), 'version': REFERNCES_VERSION}
 
 
 def extract_sections_from_latex(arxiv_id):
