@@ -28,12 +28,22 @@ def fetch_data():
 def update_db(data):
     for row in data:
         cur_id = {'_id': row['arxiv_id']}
-        del row['arxiv_id']
-        del row['title']
+        {'github_link': 'https://github.com/Novemser/deep-imitation', 'high_conf': 'False', 'proceeding': '',
+         'datasets': '', 'stars': '4', 'framework': 'pytorch',
+         'tasks': 'Image-to-Image Translation|Video Generation|Image-To-Image Translation|Face Generation'}
 
         if papers.find(cur_id).count() > 0:
+            obj = {
+                'github_link': row.get('github_link'),
+                'extraction_conf': row.get('high_conf', '') == 'True',
+                'conferences': row.get('proceeding', ''),
+                'stars': int(row.get('stars', 0)),
+                'framework': row.get('framework'),
+                'datasets': row.get('datasets', '').split('|'),
+                'tasks': row.get('tasks', '').split('|')
+            }
             try:
-                papers.update(cur_id, {'$set': {'code': row}})
+                papers.update(cur_id, {'$set': {'code': obj}})
             except Exception as e:
                 logger.error('Failed to update paper {} - {}'.format(cur_id['_id'], e))
         else:
