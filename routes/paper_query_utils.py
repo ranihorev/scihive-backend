@@ -36,6 +36,13 @@ class TwitterUrl(fields.Raw):
         return links
 
 
+class Github(fields.Raw):
+    def format(self, obj):
+        if not obj.get('github_link'):
+            return None
+        return {'link': obj['github_link'], 'stars': obj.get('stars', 0)}
+
+
 papers_fields = {
     '_id': fields.String,
     'title': fields.String,
@@ -47,6 +54,7 @@ papers_fields = {
     'twtr_links': TwitterUrl(attribute='twtr_links'),
     'bookmarks_count': fields.Integer(attribute='total_bookmarks'),
     'comments_count': fields.Integer,
+    'github': Github(attribute='code'),
 }
 
 papers_list_fields = {
