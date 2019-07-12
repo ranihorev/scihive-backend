@@ -6,6 +6,8 @@ import logging
 from dotenv import load_dotenv
 import os
 
+from .utils import catch_exceptions
+
 logger = logging.getLogger(__name__)
 
 client = pymongo.MongoClient()
@@ -50,6 +52,7 @@ def update_db(data):
             logger.info('Paper not found - {}'.format(cur_id['_id']))
 
 
+@catch_exceptions(logger=logger)
 def fetch_code_data():
     logger.info('Fetching data from papers with code')
     data = fetch_data()
