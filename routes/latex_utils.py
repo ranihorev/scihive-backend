@@ -11,7 +11,7 @@ from TexSoup import TexSoup
 
 logger = logging.getLogger(__name__)
 TMP_DIR = 'tmp'
-REFERNCES_VERSION = 1.0
+REFERNCES_VERSION = 1.1
 
 def get_extension_from_headers(h):
     c_type = h.get('content-type')
@@ -157,6 +157,13 @@ def get_bibliography(tex):
     return all_items_content
 
 
+def find_arxiv_id_in_bib_item(item):
+    arxiv_links = re.search('\d{4}.\d{4,5}', item)
+    if arxiv_links:
+        return arxiv_links.group(0)
+    return None
+
+
 def convert_bib_items_to_html(paper_id, items):
     curr_dir = f'{TMP_DIR}/{paper_id}'
     if not os.path.exists(curr_dir):
@@ -169,8 +176,8 @@ def convert_bib_items_to_html(paper_id, items):
         with open(filename, 'w') as output:
             output.write(item)
         try:
-            html = subprocess.check_output(['pandoc', filename, '-f', 'latex', '-t', 'html5'])
-            htmls[get_cite_name(item)] = html.decode('utf-8')
+            html = subprocess.check_output(['pandoc', filename, '-f', 'latex', '-t', 'html5']).decode('utf-8')
+            htmls[get_cite_name(item)] = {'html': html, 'arxivId': find_arxiv_id_in_bib_item(item)}
         except subprocess.CalledProcessError as e:
             logger.error(f'Failed to render bib item of paper - {paper_id} - {e}')
 
