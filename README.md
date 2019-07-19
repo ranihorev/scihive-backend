@@ -23,6 +23,12 @@ If you're having issues more information can be found [here](https://docs.python
 `pip3 install -r requirements.txt`  
 This retrieves and installs all the required modules at once. 
 
+- This website uses data from Twitter to measure the popularity of certain papers. Thus you will need access to Twitter's [developer API](https://docs.inboundnow.com/guide/create-twitter-application/).  
+Your Twitter API key and secret key can be placed in an .env file as demonstrated in the example.
+
+- Next, make sure MongoDB is installed and running. Of course, the installation process will depend on your OS.  
+Then execute "single-background-tasks-run.py". This will gather data from the Arxiv website and store it in the database. 
+
 - Now all that is left to do is to run `python3 serve.py`.  
 **You will need the back-end to be running in order to host the website locally!**
 
@@ -33,7 +39,7 @@ This retrieves and installs all the required modules at once.
 ```python
 pip3 install spacy 
 python3 -m spacy download en_core_web_sm
-```
+``` 
 
 ### Changelog
 
