@@ -187,13 +187,17 @@ def convert_bib_items_to_html(paper_id, items):
 
 # Gets the references of a tex file
 def extract_references_from_latex(arxiv_id):
-    file_name = download_source_file(arxiv_id)
-    files = extract_files(file_name, ['tex', 'bbl'])
-    all_items = []
-    for f in files:
-        all_items += get_bibliography(f)
+    try:
+        file_name = download_source_file(arxiv_id)
+        files = extract_files(file_name, ['tex', 'bbl'])
+        all_items = []
+        for f in files:
+            all_items += get_bibliography(f)
+        data = convert_bib_items_to_html(arxiv_id, all_items)
+    except tarfile.ReadError as e:
+        data = {}
 
-    return {'data': convert_bib_items_to_html(arxiv_id, all_items), 'version': REFERNCES_VERSION}
+    return {'data': data, 'version': REFERNCES_VERSION}
 
 
 def extract_sections_from_latex(arxiv_id):
