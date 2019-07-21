@@ -42,7 +42,8 @@ def update_db(data):
                 'stars': int(row.get('stars', 0)),
                 'framework': row.get('framework'),
                 'datasets': row.get('datasets', '').split('|'),
-                'tasks': row.get('tasks', '').split('|')
+                'tasks': row.get('tasks', '').split('|'),
+                'paperswithcode_link': row.get('url', '')
             }
             try:
                 papers.update(cur_id, {'$set': {'code': obj}})

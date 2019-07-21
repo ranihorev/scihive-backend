@@ -2,8 +2,8 @@ import logging
 import pymongo
 from datetime import datetime
 
-from .acronym_extractor import extract_acronyms, ACRONYM_VERSION
-from .paper_query_utils import include_stats, get_paper_with_pdf
+from .acronym_extractor import extract_acronyms
+from .paper_query_utils import include_stats, get_paper_with_pdf, Github
 from .latex_utils import extract_references_from_latex, REFERNCES_VERSION
 from . import db_papers, db_comments, db_acronyms
 from bson import ObjectId
@@ -65,6 +65,7 @@ paper_fields = {
     'url': fields.String(attribute='pdf_link'),
     'saved_in_library': fields.Boolean,
     'title': fields.String,
+    'code': Github(attribute='code'),
 }
 
 

@@ -40,7 +40,11 @@ class Github(fields.Raw):
     def format(self, obj):
         if not obj.get('github_link'):
             return None
-        return {'link': obj['github_link'], 'stars': obj.get('stars', 0)}
+        return {
+            'github': obj['github_link'],
+            'stars': obj.get('stars', 0),
+            'paperswithcode': obj.get('paperswithcode_link')
+        }
 
 
 papers_fields = {
