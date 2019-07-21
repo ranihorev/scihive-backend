@@ -46,8 +46,7 @@ if SENTRY_DSN:
         dsn=SENTRY_DSN,
         integrations=[FlaskIntegration()],
         environment=env,
-        before_send=before_send,
-        ignore_exceptions=['TooManyRequests']
+        before_send=before_send
     )
 
 app = Flask(__name__)
