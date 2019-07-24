@@ -11,7 +11,7 @@ def send_reply_message():
                      \n{COMMENT}\n~User\n{REPLY}\n~John Doe\n\nClick here to view site.""",
               "html":"""<p><b>Hello, User!</b><br>John Doe has replied to your comment on Paper X:</p>
                      <p>{COMMENT}<br>~User</p><p>{REPLY}<br>~John Doe</p><br><br>
-                     <a href='www.scihive.org/paperx'>Click here to view site.</a>"""
+                     <a href='https://www.scihive.org'>Click here to view site.</a>"""
              }
     )
 
