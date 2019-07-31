@@ -4,7 +4,7 @@ from datetime import datetime
 
 from .acronym_extractor import extract_acronyms
 from .paper_query_utils import include_stats, get_paper_with_pdf, Github
-from .latex_utils import extract_references_from_latex, REFERNCES_VERSION
+from .latex_utils import extract_references_from_latex, REFERENCES_VERSION
 from . import db_papers, db_comments, db_acronyms
 from bson import ObjectId
 from flask import Blueprint
@@ -257,7 +257,7 @@ class PaperReferences(Resource):
     method_decorators = [jwt_optional]
 
     def get(self, paper_id):
-        references, _, _ = get_paper_item(paper_id, 'references', extract_references_from_latex, REFERNCES_VERSION)
+        references, _, _ = get_paper_item(paper_id, 'references', extract_references_from_latex, REFERENCES_VERSION)
         return references['data']
 
 

@@ -11,7 +11,8 @@ from TexSoup import TexSoup
 
 logger = logging.getLogger(__name__)
 TMP_DIR = 'tmp'
-REFERNCES_VERSION = 1.1
+REFERENCES_VERSION = 2
+BIB_ITEM_MARKER = '!!!CITE!!!'
 
 def get_extension_from_headers(h):
     c_type = h.get('content-type')
@@ -140,10 +141,17 @@ def get_cite_name(item):
 
 def get_bibliography(tex):
     # Focus on the relevant section though it can work without it
-    bib_start = tex.find('\\begin{thebibliography}')
-    bib_end = tex.find('\\end{thebibliography}')
-    bib_content = tex[bib_start: bib_end]
+    BEGIN_BIB = '\\begin{thebibliography}'
+    END_BIB = '\\end{thebibliography}'
+    bib_start = tex.find(BEGIN_BIB)
+    if bib_start == -1:
+        return None
+    bib_end = tex.find(END_BIB)
+    bib_content = tex[:bib_end]
     all_items_matches = list(re.finditer(r'\n\\bibitem\s*[\[\{]', bib_content))
+    if not all_items_matches:
+        return None
+
     all_items_content = []
 
     # split to bibitems:
@@ -154,50 +162,71 @@ def get_bibliography(tex):
             end_pos = all_items_matches[i + 1].start()
         all_items_content.append(bib_content[all_items_matches[i].start():end_pos])
 
-    return all_items_content
+    result = tex[:all_items_matches[0].start()]
+    cite_names = []
+    for item in all_items_content:
+        # Add reference ID to ensure that we can extract them references later
+        cite_name = get_cite_name(item)
+        cite_names.append(cite_name)
+        result += f'\n{{{BIB_ITEM_MARKER}}}\n'
+        result += item
+
+    result += f'\n{{{BIB_ITEM_MARKER}}}\n\n'
+    result += END_BIB
+    result = result.replace('\\newblock', '\n')
+
+    return result, cite_names
 
 
 def find_arxiv_id_in_bib_item(item):
-    arxiv_links = re.search('\d{4}.\d{4,5}', item)
+    arxiv_links = re.search('\d{4}\.\d{4,5}', item)
     if arxiv_links:
         return arxiv_links.group(0)
     return None
 
 
-def convert_bib_items_to_html(paper_id, items):
-    curr_dir = f'{TMP_DIR}/{paper_id}'
+def convert_bib_to_html(paper_id, bib_string, cite_names):
+    curr_dir = f'{TMP_DIR}'
+    filename = f'{curr_dir}/{paper_id}.txt'
     if not os.path.exists(curr_dir):
         os.makedirs(curr_dir)
 
     htmls = {}
-    for item in items:
-        item = item.replace('\\newblock', ' ')  # the command \newblock messes up pandoc, so we get rid of it
-        filename = f'{curr_dir}/item.txt'
-        with open(filename, 'w') as output:
-            output.write(item)
-        try:
-            html = subprocess.check_output(['pandoc', filename, '-f', 'latex', '-t', 'html5']).decode('utf-8')
-            htmls[get_cite_name(item)] = {'html': html, 'arxivId': find_arxiv_id_in_bib_item(item)}
-        except subprocess.CalledProcessError as e:
-            logger.error(f'Failed to render bib item of paper - {paper_id} - {e}')
+    with open(filename, 'w') as output:
+        output.write(bib_string)
+    try:
+        html = subprocess.check_output(['pandoc', filename, '-f', 'latex', '-t', 'html5']).decode('utf-8')
+        items = re.split(f'<p><span>{BIB_ITEM_MARKER}</span></p>', html)
+        items = items[1:-1]
+        if len(items) != len(cite_names):
+            logger.exception('References ids and content are incompatible for paper - {}'.format(paper_id))
+            return htmls
 
-    shutil.rmtree(curr_dir)
+        for item, cite_name in zip(items, cite_names):
+            htmls[cite_name] = {'html': item, 'arxivId': find_arxiv_id_in_bib_item(item)}
+    except subprocess.CalledProcessError as e:
+        logger.error(f'Failed to render bib item of paper - {paper_id} - {e}')
+
+    os.remove(filename)
     return htmls
 
 
 # Gets the references of a tex file
 def extract_references_from_latex(arxiv_id):
+    data = {}
     try:
         file_name = download_source_file(arxiv_id)
         files = extract_files(file_name, ['tex', 'bbl'])
-        all_items = []
         for f in files:
-            all_items += get_bibliography(f)
-        data = convert_bib_items_to_html(arxiv_id, all_items)
+            result = get_bibliography(f)
+            if result:
+                bib_string, cite_names = result
+                data = convert_bib_to_html(arxiv_id, bib_string, cite_names)
+                continue
     except tarfile.ReadError as e:
-        data = {}
+        pass
 
-    return {'data': data, 'version': REFERNCES_VERSION}
+    return {'data': data, 'version': REFERENCES_VERSION}
 
 
 def extract_sections_from_latex(arxiv_id):
