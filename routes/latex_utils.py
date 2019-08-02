@@ -10,7 +10,7 @@ from TexSoup import TexSoup
 
 logger = logging.getLogger(__name__)
 TMP_DIR = 'tmp'
-REFERENCES_VERSION = 2.1
+REFERENCES_VERSION = 2.12
 BIB_ITEM_MARKER = '!!!CITE!!!'
 
 def get_extension_from_headers(h):
@@ -172,7 +172,7 @@ def get_bibliography(tex):
 
     result += f'\n{{{BIB_ITEM_MARKER}}}\n\n'
     result += tex[bib_end:]
-    result = re.sub('^\\newblock', '\n', result)
+    result = re.sub(r'\n\\newblock', '\n\n', result)
 
     return result, cite_names
 
