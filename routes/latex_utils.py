@@ -1,4 +1,3 @@
-import shutil
 import subprocess
 
 import requests
@@ -11,7 +10,7 @@ from TexSoup import TexSoup
 
 logger = logging.getLogger(__name__)
 TMP_DIR = 'tmp'
-REFERENCES_VERSION = 2
+REFERENCES_VERSION = 2.1
 BIB_ITEM_MARKER = '!!!CITE!!!'
 
 def get_extension_from_headers(h):
@@ -173,7 +172,7 @@ def get_bibliography(tex):
 
     result += f'\n{{{BIB_ITEM_MARKER}}}\n\n'
     result += END_BIB
-    result = result.replace('\\newblock', '\n')
+    result = re.sub('^\\newblock', '\n', result)
 
     return result, cite_names
 
