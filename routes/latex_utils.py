@@ -171,7 +171,7 @@ def get_bibliography(tex):
         result += item
 
     result += f'\n{{{BIB_ITEM_MARKER}}}\n\n'
-    result += END_BIB
+    result += tex[bib_end:]
     result = re.sub('^\\newblock', '\n', result)
 
     return result, cite_names
