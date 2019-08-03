@@ -1,6 +1,6 @@
 import logging
 import pymongo
-#import requests
+import requests
 from datetime import datetime
 
 from .acronym_extractor import extract_acronyms, ACRONYM_VERSION
@@ -14,6 +14,7 @@ from flask_restful import Resource, Api, reqparse, abort, fields, marshal_with
 import uuid
 from enum import Enum
 
+from reply_message import send_reply_message
 from routes.user import find_by_email
 
 app = Blueprint('paper', __name__)
@@ -220,23 +221,7 @@ class Reply(Resource):
         if not comment:
             abort(404, messsage='Comment not found')
         return comment
-#################################
-#    def send_notification(to, user_1, user_2, paper_id, comment, reply):
-#        requests.post(
-#            "https://api.mailgun.net/v3/email.scihive.org/messages",
-#           auth=("api", "API KEY"),
-#            data={"from": "SciHive <mailgun@email.scihive.org>",
-#                  "to":[to],
-#                  "subject": "Reply to your comment on SciHive",
-#                  "text":"""Hello, {0}!\n{1} has replied to your comment on SchiHive:
-#                         \n{2}\n~{0}\n{3}\n~{1}\nClick here to view site.""".format(user_1, user_2, comment, reply),
-#                  "html":"""<p><b>Hello, {0}!</b><br>{1} has replied to your comment on SciHive:</p>
-#                         <p>{2}<br>~{0}</p><p>{3}<br>~{1}</p><br>
-#                         <a href='https://www.scihive.org/paper/{4}'>Click here to view site.</a>""".format(user_1, user_2, 
-#                                                                                                        comment, reply, paper_id)
-#             }
-#        )
-#################################
+
     @marshal_with(comment_fields, envelope='comment')
     def post(self, paper_id, comment_id):
         comment_id = {'_id': ObjectId(comment_id)}
@@ -248,9 +233,11 @@ class Reply(Resource):
         new_values = {"$push": {'replies': data}}
         db_comments.update_one(comment_id, new_values)
         comment = self._get_comment(comment_id)
-        #current_user = get_jwt_identity()
-	#current_user = find_by_email(current_user)
-        #send_notification(data['user']['email'],data['user']['username'],current_user['username'],paper_id,original_comment,comment)
+        try:
+            # Need variables for user data in the first comment #
+            send_notification(ORIGINAL_EMAIL, ORIGINAL_USERNAME, data['user']['username'], paper_id, original_comment, comment)
+        except NameError:
+            pass
         add_metadata(comment)
         return comment
 
