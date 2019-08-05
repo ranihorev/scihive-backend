@@ -225,7 +225,7 @@ class Reply(Resource):
     @marshal_with(comment_fields, envelope='comment')
     def post(self, paper_id, comment_id):
         comment_id = {'_id': ObjectId(comment_id)}
-        original_comment = self._get_comment(comment_id)
+        self._get_comment(comment_id)
         data = new_reply_parser.parse_args()
         data['created_at'] = datetime.utcnow()
         data['id'] = str(uuid.uuid4())
@@ -234,9 +234,9 @@ class Reply(Resource):
         db_comments.update_one(comment_id, new_values)
         comment = self._get_comment(comment_id)
         try:
-            # Need variables for user data in the first comment #
-            send_notification(ORIGINAL_EMAIL, ORIGINAL_USERNAME, data['user']['username'], paper_id, original_comment, comment)
-        except NameError:
+            send_reply_message(comment['user']['email'], comment['user']['username'], data['user']['username'], 
+                               paper_id, comment['comment']['text'], data['text'])
+        except KeyError:
             pass
         add_metadata(comment)
         return comment
