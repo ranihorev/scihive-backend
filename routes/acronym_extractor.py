@@ -145,9 +145,9 @@ def find_acronyms_in_text(txt):
                         results[acr] = ' '.join(long_form)
                         break
                 except Exception as e:
-                    logger.error(f'Failed to find long form - {paper_id} - {acr} - {long_form}')
+                    logger.error(f'Failed to find long form - {acr} - {long_form}')
             except ValueError:
-                logging.warning(f'Acronym was not found in text - {acr} - {pdf_file_path}')
+                logging.warning(f'Acronym was not found in text - {acr}')
 
     return {"matches": results, "short_forms": list(short_forms), "version": ACRONYM_VERSION}
 
