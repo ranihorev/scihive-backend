@@ -96,8 +96,8 @@ class UsernameField(fields.Raw):
 class VisibilityField(fields.Raw):
     def format(self, obj):
         if isinstance(obj, dict):
-            return obj.get('type', 'public')
-        return obj
+            return obj;
+        return {'type': obj}
 
 
 comment_fields = {
@@ -184,13 +184,13 @@ class Comment(Resource):
     def _get_comment(self, comment_id):
         current_user = get_jwt_identity()
         if not current_user:
-            abort(401, messsage='Unauthorized to delete')
+            abort(401, messsage='Unauthorized to get comment')
         comment = db_comments.find_one(comment_id)
         if not comment:
             abort(404, messsage='Comment not found')
 
         if not 'user' in comment or comment['user']['email'] != current_user:
-            abort(401, messsage='Unauthorized to delete')
+            abort(401, messsage='Unauthorized to get comment')
         return comment
 
     @marshal_with(comment_fields, envelope='comment')
