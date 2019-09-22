@@ -10,7 +10,7 @@ from TexSoup import TexSoup
 
 logger = logging.getLogger(__name__)
 TMP_DIR = 'tmp'
-REFERENCES_VERSION = 2.2
+REFERENCES_VERSION = 2.21
 BIB_ITEM_MARKER = '!!!CITE!!!'
 
 def get_extension_from_headers(h):
