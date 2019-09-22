@@ -1,16 +1,16 @@
-import subprocess
-
+from typing import List
 import requests
 import tarfile
 import os
 import re
 import logging
+import pypandoc
 
 from TexSoup import TexSoup
 
 logger = logging.getLogger(__name__)
 TMP_DIR = 'tmp'
-REFERENCES_VERSION = 2.12
+REFERENCES_VERSION = 2.2
 BIB_ITEM_MARKER = '!!!CITE!!!'
 
 def get_extension_from_headers(h):
@@ -184,17 +184,15 @@ def find_arxiv_id_in_bib_item(item):
     return None
 
 
-def convert_bib_to_html(paper_id, bib_string, cite_names):
+def convert_bib_to_html(paper_id, bib_string: str, cite_names: List[str]):
     curr_dir = f'{TMP_DIR}'
     filename = f'{curr_dir}/{paper_id}.txt'
     if not os.path.exists(curr_dir):
         os.makedirs(curr_dir)
 
     htmls = {}
-    with open(filename, 'w') as output:
-        output.write(bib_string)
     try:
-        html = subprocess.check_output(['pandoc', filename, '-f', 'latex', '-t', 'html5']).decode('utf-8')
+        html = pypandoc.convert_text(bib_string, to='html5', format='latex')
         items = re.split(f'<p><span>{BIB_ITEM_MARKER}</span></p>', html)
         items = items[1:-1]
         if len(items) != len(cite_names):
@@ -203,7 +201,7 @@ def convert_bib_to_html(paper_id, bib_string, cite_names):
 
         for item, cite_name in zip(items, cite_names):
             htmls[cite_name] = {'html': item, 'arxivId': find_arxiv_id_in_bib_item(item)}
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         logger.error(f'Failed to render bib item of paper - {paper_id} - {e}')
 
     os.remove(filename)
