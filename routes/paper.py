@@ -279,6 +279,7 @@ class PaperAcronyms(Resource):
             else:
                 long_forms = m.get('long_form')
                 if long_forms:
+                    logger.info(long_forms)
                     most_common = max(long_forms, key=long_forms.get)
                     matches[cur_short_form] = most_common
         return matches

@@ -91,5 +91,13 @@ class Group(Resource):
         return get_user_groups()
 
 
+class GroupPapers(Resource):
+    method_decorators = [jwt_required]
+
+    def post(self):
+        current_user = get_jwt_identity()
+
+
+
 api.add_resource(Groups, '/all')
 api.add_resource(Group, '/group')
