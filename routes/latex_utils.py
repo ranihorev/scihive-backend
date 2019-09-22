@@ -204,7 +204,6 @@ def convert_bib_to_html(paper_id, bib_string: str, cite_names: List[str]):
     except Exception as e:
         logger.error(f'Failed to render bib item of paper - {paper_id} - {e}')
 
-    os.remove(filename)
     return htmls
 
 
