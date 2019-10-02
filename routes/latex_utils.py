@@ -10,7 +10,7 @@ from TexSoup import TexSoup
 
 logger = logging.getLogger(__name__)
 TMP_DIR = 'tmp'
-REFERENCES_VERSION = 2.21
+REFERENCES_VERSION = 2.22
 BIB_ITEM_MARKER = '!!!CITE!!!'
 
 def get_extension_from_headers(h):
@@ -124,7 +124,6 @@ def get_sections(tex_files):
 # Gets the sections of a tex file
 def get_equations(tex):
     equations = re.findall(r'\\begin\{equation\}(.*?)\\end\{equation\}', tex, re.S)
-
     return equations
 
 
@@ -137,6 +136,8 @@ def get_cite_name(item):
     cite_name = re.search('{(.*?)}', item).group(1)
     return cite_name
 
+def clean_bib_item(content: str):
+    return content.replace('%\n', '%') # it breaks some of the references
 
 def get_bibliography(tex):
     # Focus on the relevant section though it can work without it
@@ -159,7 +160,8 @@ def get_bibliography(tex):
             end_pos = len(bib_content) + 1
         else:
             end_pos = all_items_matches[i + 1].start()
-        all_items_content.append(bib_content[all_items_matches[i].start():end_pos])
+        item_content = bib_content[all_items_matches[i].start():end_pos]
+        all_items_content.append(clean_bib_item(item_content))
 
     result = tex[:all_items_matches[0].start()]
     cite_names = []
@@ -174,7 +176,7 @@ def get_bibliography(tex):
     result += tex[bib_end:]
     result = re.sub(r'\n\\newblock', '\n\n', result)
 
-    return result, cite_names
+    return result, cite_names, all_items_content
 
 
 def find_arxiv_id_in_bib_item(item):
@@ -183,13 +185,21 @@ def find_arxiv_id_in_bib_item(item):
         return arxiv_links.group(0)
     return None
 
+def convert_bib_to_html_fallback(cite_names: List[str], cites_content: List[str]):
+    logger.info('Running Fallback bib extraction')
+    final_cite_names = []
+    htmls = []
+    for name, content in zip(cite_names, cites_content):
+        try:
+            html = pypandoc.convert_text(content, to='html5', format='latex')
+            htmls.append(html)
+            final_cite_names.append(name)
+        except Exception as e:
+            logger.warning(f'Failed to render bib item - {e}')
 
-def convert_bib_to_html(paper_id, bib_string: str, cite_names: List[str]):
-    curr_dir = f'{TMP_DIR}'
-    filename = f'{curr_dir}/{paper_id}.txt'
-    if not os.path.exists(curr_dir):
-        os.makedirs(curr_dir)
+    return final_cite_names, htmls
 
+def convert_bib_to_html(paper_id, bib_string: str, cite_names: List[str], cites_content: List[str]):
     htmls = {}
     try:
         html = pypandoc.convert_text(bib_string, to='html5', format='latex')
@@ -199,10 +209,15 @@ def convert_bib_to_html(paper_id, bib_string: str, cite_names: List[str]):
             logger.exception('References ids and content are incompatible for paper - {}'.format(paper_id))
             return htmls
 
-        for item, cite_name in zip(items, cite_names):
-            htmls[cite_name] = {'html': item, 'arxivId': find_arxiv_id_in_bib_item(item)}
     except Exception as e:
-        logger.error(f'Failed to render bib item of paper - {paper_id} - {e}')
+        logger.warning(f'Failed to render bib item of paper - {paper_id} - {e}')
+        cite_names, items = convert_bib_to_html_fallback(cite_names, cites_content)
+        if not cite_names:
+            logger.exception(f'Failed to render bib item of paper - {paper_id}')
+            return htmls
+
+    for item, cite_name in zip(items, cite_names):
+        htmls[cite_name] = {'html': item, 'arxivId': find_arxiv_id_in_bib_item(item)}
 
     return htmls
 
@@ -216,9 +231,9 @@ def extract_references_from_latex(arxiv_id):
         for f in files:
             result = get_bibliography(f)
             if result:
-                bib_string, cite_names = result
-                data = convert_bib_to_html(arxiv_id, bib_string, cite_names)
-                continue
+                bib_string, cite_names, items = result
+                data = convert_bib_to_html(arxiv_id, bib_string, cite_names, items)
+                break
     except tarfile.ReadError as e:
         pass
 

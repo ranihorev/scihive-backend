@@ -236,13 +236,13 @@ class Reply(Resource):
         return comment
 
 
-def get_paper_item(paper_id, item, latex_fn, version=None):
+def get_paper_item(paper_id, item, latex_fn, version=None, force_update=False):
     paper = db_papers.find_one(paper_id)
     state = ItemState.existing
     if not paper:
         abort(404, message='Paper not found')
     new_value = old_value = paper.get(item)
-    if not old_value or (version is not None and float(old_value.get('version', 0)) < version):
+    if force_update or not old_value or (version is not None and float(old_value.get('version', 0)) < version):
         state = ItemState.new if not old_value else ItemState.updated
         try:
             new_value = latex_fn(paper_id)
@@ -257,7 +257,10 @@ class PaperReferences(Resource):
     method_decorators = [jwt_optional]
 
     def get(self, paper_id):
-        references, _, _ = get_paper_item(paper_id, 'references', extract_references_from_latex, REFERENCES_VERSION)
+        query_parser = reqparse.RequestParser()
+        query_parser.add_argument('force', type=str, required=False)
+        force_update = bool(query_parser.parse_args().get('force'))
+        references, _, _ = get_paper_item(paper_id, 'references', extract_references_from_latex, REFERENCES_VERSION, force_update=force_update)
         return references['data']
 
 
