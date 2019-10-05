@@ -10,7 +10,7 @@ from TexSoup import TexSoup
 
 logger = logging.getLogger(__name__)
 TMP_DIR = 'tmp'
-REFERENCES_VERSION = 2.22
+REFERENCES_VERSION = 2.23
 BIB_ITEM_MARKER = '!!!CITE!!!'
 
 def get_extension_from_headers(h):
@@ -137,7 +137,7 @@ def get_cite_name(item):
     return cite_name
 
 def clean_bib_item(content: str):
-    return content.replace('%\n', '%') # it breaks some of the references
+    return content.replace('%\r\n', '').replace('%\n', '')  # it breaks some of the references
 
 def get_bibliography(tex):
     # Focus on the relevant section though it can work without it
