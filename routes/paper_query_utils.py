@@ -1,16 +1,21 @@
 import datetime
+import logging
 import os
+from typing import List
 
+from bson import ObjectId
 from flask_jwt_extended import get_jwt_identity
 
 from .s3_utils import arxiv_to_s3
 from tasks.fetch_papers import fetch_entry
-from .user_utils import get_user_library
+from .user_utils import get_user_library, find_by_email
 from . import db_comments
 from flask_restful import reqparse, fields, abort
 from . import db_papers
+from . import db_groups
 import pymongo
 
+logger = logging.getLogger(__name__)
 
 SCORE_META = {'$meta': 'textScore'}
 SORT_DICT = {'tweets': 'twtr_sum', 'date': 'time_published', 'score': 'score', 'bookmarks': 'total_bookmarks'}
@@ -24,6 +29,7 @@ query_parser.add_argument('page_num', type=int, required=False, default=1)
 query_parser.add_argument('sort', type=str, required=False, choices=list(SORT_DICT.keys()))
 query_parser.add_argument('age', type=str, required=False, choices=list(AGE_DICT.keys()), default='week')
 query_parser.add_argument('categories', type=str, required=False)
+query_parser.add_argument('group', type=str, required=False)
 
 
 class TwitterUrl(fields.Raw):
@@ -59,6 +65,7 @@ papers_fields = {
     'bookmarks_count': fields.Integer(attribute='total_bookmarks'),
     'comments_count': fields.Integer,
     'github': Github(attribute='code'),
+    'groups': fields.Raw
 }
 
 papers_list_fields = {
@@ -75,6 +82,22 @@ def sort_papers(papers, args):
     return papers.sort(SORT_DICT[field], order)
 
 
+def get_group_papers(current_user, group_id: str):
+    user = find_by_email(current_user, fields={'groups': 1})
+    if not user:
+        return None
+    user_groups = [str(g) for g in user.get('groups', [])]
+    if group_id not in user_groups:
+        logger.warning(f'group {group_id} not in user groups - {current_user}')
+        return None
+    group_q = {'_id': ObjectId(group_id)}
+    group = db_groups.find_one(group_q)
+    if not group:
+        logger.info(f'group not found - {group_id}')
+        return None
+    return group.get('papers')
+
+
 def get_papers(library=False, page_size=20):
     current_user = get_jwt_identity()
 
@@ -85,6 +108,7 @@ def get_papers(library=False, page_size=20):
     page_num = args['page_num']
     age = args['age']
     categories = args['categories']
+    group = args['group']
 
     # Calculates skip for pagination
     skips = page_size * (page_num - 1)
@@ -104,6 +128,11 @@ def get_papers(library=False, page_size=20):
 
     if categories:
         filters['tags.term'] = {"$in": categories.split(';')}
+
+    if group and current_user:
+        group_papers = get_group_papers(current_user, group)
+        if group_papers:
+            filters['_id'] = {'$in': group_papers}
 
     if q:
         filters['$text'] = {'$search': q}
@@ -146,6 +175,12 @@ def get_comments_count():
     return papers_comments
 
 
+def get_paper_groups(user_email: str, paper_ids: List[str]):
+    user = find_by_email(user_email, fields={'_id': 1, 'groups': 1})
+    groups = list(db_groups.find({'$and': [{'_id': {'$in': user.get('groups', [])}}, {'papers': {'$in': paper_ids}}, {'users': user['_id']}]}))
+    return groups
+
+
 def include_stats(papers, library=None, user=None):
 
     # Get comments count for each paper
@@ -155,11 +190,20 @@ def include_stats(papers, library=None, user=None):
     if not library:
         library = get_user_library(user)
 
+    groups = []
+    if user:
+        groups = get_paper_groups(user, [paper['_id'] for paper in papers])
+
+
     # For each paper we store the comments, library toggle and thumbs
     for paper in papers:
         paper_id = paper['_id']
         paper['comments_count'] = papers_comments.get(paper_id, 0)
         paper['saved_in_library'] = paper_id in library
+        paper['groups'] = []
+        for g in groups:
+            if paper_id in g.get('papers', []):
+                paper['groups'].append(str(g['_id']))
 
     return papers
 

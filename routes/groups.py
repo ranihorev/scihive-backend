@@ -89,10 +89,9 @@ class Group(Resource):
         # Remove from user
         db_users.update_one(user_id, {'$pull': {'groups': ObjectId(group_id)}})
 
-        # TODO: remove the group if it's empty
         # Remove from group
-        # group_id = {'_id': ObjectId(data['id'])}
-        # db_groups.update_one(group_id, {'$pull': {'users': user_id['_id']}})
+        group_id = {'_id': ObjectId(group_id)}
+        db_groups.update_one(group_id, {'$pull': {'users': user_id['_id']}})
         return get_user_groups()
 
     @marshal_with(group_fields)
@@ -111,10 +110,12 @@ class Group(Resource):
     def post(self, group_id):
         parser = reqparse.RequestParser()
         parser.add_argument('paper_id', required=True, help="paper_id is missing")
+        parser.add_argument('add', required=True, help="should specify if add (add=1) or remove (add=0)", type=bool)
         data = parser.parse_args()
         paper_id = data['paper_id']
         group, group_q = get_group(group_id)
-        db_groups.update(group_q, {'$addToSet': {'paper_id': paper_id}})
+        op = '$addToSet' if data['add'] else '$pull'
+        db_groups.update(group_q, {op: {'papers': paper_id}})
         return {'message': 'success'}
 
 
