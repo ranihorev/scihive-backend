@@ -6,7 +6,7 @@ from flask import Blueprint
 import logging
 
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask_restful import Resource, reqparse, Api, fields, marshal_with
+from flask_restful import Resource, reqparse, Api, fields, marshal_with, abort
 
 from .user_utils import find_by_email
 from . import db_groups, db_users
@@ -21,11 +21,20 @@ group_fields = {
     'created_at': fields.DateTime(dt_format='rfc822'),
 }
 
+
 def get_user_groups():
     current_user = get_jwt_identity()
     groups = find_by_email(current_user, fields={'groups': 1}).get('groups', [])
     groups = db_groups.find({'_id': {'$in': [ObjectId(g) for g in groups]}}, {'users': 0}).sort('created_at', pymongo.DESCENDING)
     return list(groups)
+
+
+def get_group(group_id: str):
+    group_q = {'_id': ObjectId(group_id)}
+    group = db_groups.find_one(group_q)
+    if not group:
+        abort(404, messsage='Group not found')
+    return group, group_q
 
 
 class Groups(Resource):
@@ -44,13 +53,7 @@ class Groups(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('id', help='This field cannot be blank', required=True)
         data = parser.parse_args()
-        try:
-            group_q = {'_id': ObjectId(data['id'])}
-        except Exception as e:
-            logger.warning('Illegal group id {}'.format(data['id']))
-            return get_user_groups()
-
-        group = db_groups.find_one(group_q)
+        group, group_q = get_group(data['id'])
         if group and user_id['_id'] not in group.get('users', []):
             db_users.update_one(user_id, {'$addToSet': {'groups': ObjectId(data['id'])}})
             db_groups.update(group_q, {'$addToSet': {'users': user_id['_id']}})
@@ -58,7 +61,7 @@ class Groups(Resource):
         return get_user_groups()
 
 
-class Group(Resource):
+class NewGroup(Resource):
     method_decorators = [jwt_required]
 
     @marshal_with(group_fields)
@@ -75,29 +78,46 @@ class Group(Resource):
         db_users.update_one(user_id, {'$addToSet': {'groups': new_group.inserted_id}})
         return get_user_groups()
 
-    @marshal_with(group_fields)
-    def delete(self):
-        current_user = get_jwt_identity()
-        user_id = find_by_email(current_user, fields={'id': 1})
-        parser = reqparse.RequestParser()
-        parser.add_argument('id', help='This field cannot be blank', required=True)
-        data = parser.parse_args()
-        # Remove from user
-        db_users.update_one(user_id, {'$pull': {'groups': ObjectId(data['id'])}})
 
-        # Remove from group
-        group_id = {'_id': ObjectId(data['id'])}
-        db_groups.update_one(group_id, {'$pull': {'users': user_id['_id']}})
-        return get_user_groups()
-
-
-class GroupPapers(Resource):
+class Group(Resource):
     method_decorators = [jwt_required]
 
-    def post(self):
+    @marshal_with(group_fields)
+    def delete(self, group_id: str):
         current_user = get_jwt_identity()
+        user_id = find_by_email(current_user, fields={'id': 1})
+        # Remove from user
+        db_users.update_one(user_id, {'$pull': {'groups': ObjectId(group_id)}})
 
+        # TODO: remove the group if it's empty
+        # Remove from group
+        # group_id = {'_id': ObjectId(data['id'])}
+        # db_groups.update_one(group_id, {'$pull': {'users': user_id['_id']}})
+        return get_user_groups()
+
+    @marshal_with(group_fields)
+    def patch(self, group_id: str):
+        current_user = get_jwt_identity()
+        user_id = find_by_email(current_user, fields={'id': 1})
+        # TODO check if created by the user?
+        parser = reqparse.RequestParser()
+        parser.add_argument('name', required=True, help="Group name is missing")
+        data = parser.parse_args()
+        group, group_q = get_group(group_id)
+        db_groups.update(group_q, {'$set': {'name': data['name']}})
+        return get_user_groups()
+
+    @marshal_with(group_fields)
+    def post(self, group_id):
+        parser = reqparse.RequestParser()
+        parser.add_argument('paper_id', required=True, help="paper_id is missing")
+        data = parser.parse_args()
+        paper_id = data['paper_id']
+        group, group_q = get_group(group_id)
+        db_groups.update(group_q, {'$addToSet': {'paper_id': paper_id}})
+        return {'message': 'success'}
 
 
 api.add_resource(Groups, '/all')
-api.add_resource(Group, '/group')
+api.add_resource(NewGroup, '/new')
+api.add_resource(Group, '/group/<group_id>')
