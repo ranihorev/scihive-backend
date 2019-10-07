@@ -66,6 +66,7 @@ paper_fields = {
     'saved_in_library': fields.Boolean,
     'title': fields.String,
     'code': Github(attribute='code'),
+    'groups': fields.Raw
 }
 
 
