@@ -95,7 +95,7 @@ def get_group_papers(current_user, group_id: str):
     if not group:
         logger.info(f'group not found - {group_id}')
         return None
-    return group.get('papers')
+    return group.get('papers', [])
 
 
 def get_papers(library=False, page_size=20):
@@ -131,7 +131,7 @@ def get_papers(library=False, page_size=20):
 
     if group and current_user:
         group_papers = get_group_papers(current_user, group)
-        if group_papers:
+        if group_papers is not None:
             filters['_id'] = {'$in': group_papers}
 
     if q:
