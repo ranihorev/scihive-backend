@@ -30,7 +30,10 @@ def get_user_groups():
 
 
 def get_group(group_id: str):
-    group_q = {'_id': ObjectId(group_id)}
+    try:
+        group_q = {'_id': ObjectId(group_id)}
+    except Exception as e:
+        abort(404, message='Invalid group id')
     group = db_groups.find_one(group_q)
     if not group:
         abort(404, messsage='Group not found')
