@@ -3,9 +3,9 @@ import logging
 import os
 from typing import List
 
-from bson import ObjectId
 from flask_jwt_extended import get_jwt_identity
 
+from .group_utils import get_group, add_user_to_group
 from .s3_utils import arxiv_to_s3
 from tasks.fetch_papers import fetch_entry
 from .user_utils import get_user_library, find_by_email
@@ -83,18 +83,17 @@ def sort_papers(papers, args):
 
 
 def get_group_papers(current_user, group_id: str):
-    user = find_by_email(current_user, fields={'groups': 1})
+    user = find_by_email(current_user, fields={'id': 1, 'groups': 1})
     if not user:
         return None
+
+    group, group_q = get_group(group_id)
+
     user_groups = [str(g) for g in user.get('groups', [])]
     if group_id not in user_groups:
-        logger.warning(f'group {group_id} not in user groups - {current_user}')
-        return None
-    group_q = {'_id': ObjectId(group_id)}
-    group = db_groups.find_one(group_q)
-    if not group:
-        logger.info(f'group not found - {group_id}')
-        return None
+        logger.info(f'group {group_id} not in user groups - {current_user}. User will be added')
+        add_user_to_group(user_id_q={'_id': user['_id']}, group_q=group_q)
+
     return group.get('papers', [])
 
 

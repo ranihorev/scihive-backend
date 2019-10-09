@@ -8,6 +8,7 @@ import logging
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restful import Resource, reqparse, Api, fields, marshal_with, abort
 
+from .group_utils import get_group, add_user_to_group
 from .user_utils import find_by_email
 from . import db_groups, db_users
 
@@ -29,17 +30,6 @@ def get_user_groups():
     return list(groups)
 
 
-def get_group(group_id: str):
-    try:
-        group_q = {'_id': ObjectId(group_id)}
-    except Exception as e:
-        abort(404, message='Invalid group id')
-    group = db_groups.find_one(group_q)
-    if not group:
-        abort(404, messsage='Group not found')
-    return group, group_q
-
-
 class Groups(Resource):
     method_decorators = [jwt_required]
 
@@ -58,8 +48,7 @@ class Groups(Resource):
         data = parser.parse_args()
         group, group_q = get_group(data['id'])
         if group and user_id['_id'] not in group.get('users', []):
-            db_users.update_one(user_id, {'$addToSet': {'groups': ObjectId(data['id'])}})
-            db_groups.update(group_q, {'$addToSet': {'users': user_id['_id']}})
+            add_user_to_group(user_id_q=user_id, group_q=group_q)
 
         return get_user_groups()
 
