@@ -91,8 +91,7 @@ def get_group_papers(current_user, group_id: str):
 
     user_groups = [str(g) for g in user.get('groups', [])]
     if group_id not in user_groups:
-        logger.info(f'group {group_id} not in user groups - {current_user}. User will be added')
-        add_user_to_group(user_id_q={'_id': user['_id']}, group_q=group_q)
+        logger.info(f'group {group_id} not in user groups - {current_user}. User will be added with a separate call')
 
     return group.get('papers', [])
 
