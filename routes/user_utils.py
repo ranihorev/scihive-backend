@@ -3,7 +3,7 @@ from bson import ObjectId
 from flask_restful import abort
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from . import revoked_tokens, db_users
+from . import revoked_tokens, db_users, db_papers
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +43,21 @@ def get_user_library(user):
     return user_data.get('library', [])
 
 
-def add_to_library(op, email, paper_id):
+def add_to_library(op, email, paper):
     ops = {'save': '$addToSet', 'remove': '$pull'}
-    user = find_by_email(email, fields={'_id': 1})
+    paper_id = paper['_id']
+    user = find_by_email(email, fields={'_id': 1, 'library': 1})
     try:
         new_values = {ops[op]: {'library': paper_id}}
     except KeyError:
         abort(500, message='Illegal action')
-    return db_users.update_one(user, new_values)
+
+    if (op == 'save' and paper_id in user.get('library', [])) or (op == 'remove' and paper_id not in user.get('library', [])):
+        return False
+
+    db_users.update_one({'_id': user['_id']}, new_values)
+    # TODO change this to addtoset or pull of users list
+    total_bookmarks = paper.get("total_bookmarks", 0) + 1 if op == 'save' else -1
+    db_papers.update_one({'_id': paper_id}, {'$set': {'total_bookmarks': max(0, total_bookmarks)}})
+
+    return True

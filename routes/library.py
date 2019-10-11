@@ -30,10 +30,7 @@ class SaveRemove(Resource):
         op = request.url.split('/')[-1]
         if not paper:
             abort(404, message='Paper not found')
-        add_to_library(op, current_user, paper['_id'])
-        # TODO change this to addtoset or pull of users list
-        total_bookmarks = paper.get("total_bookmarks", 0) + 1 if op == 'save' else -1
-        db_papers.update_one({'_id': paper_id}, {'$set': {'total_bookmarks': max(0, total_bookmarks)}})
+        add_to_library(op, current_user, paper)
         return {'message': 'success'}
 
 
