@@ -20,6 +20,7 @@ group_fields = {
     'id': fields.String(attribute='_id'),
     'name': fields.String,
     'created_at': fields.DateTime(dt_format='rfc822'),
+    'color': fields.String,
 }
 
 
@@ -61,6 +62,7 @@ class NewGroup(Resource):
         current_user = get_jwt_identity()
         parser = reqparse.RequestParser()
         parser.add_argument('name', help='This field cannot be blank', required=True)
+        parser.add_argument('color', required=False, type=str)
         data = parser.parse_args()
         data['created_at'] = datetime.utcnow()
         user_id = find_by_email(current_user, fields={'id': 1})
@@ -92,10 +94,11 @@ class Group(Resource):
         user_id = find_by_email(current_user, fields={'id': 1})
         # TODO check if created by the user?
         parser = reqparse.RequestParser()
-        parser.add_argument('name', required=True, help="Group name is missing")
+        parser.add_argument('name', required=False, type=str)
+        parser.add_argument('color', required=False, type=str)
         data = parser.parse_args()
         group, group_q = get_group(group_id)
-        db_groups.update(group_q, {'$set': {'name': data['name']}})
+        db_groups.update(group_q, {'$set': data})
         return get_user_groups()
 
     @marshal_with(group_fields)
