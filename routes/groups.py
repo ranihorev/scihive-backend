@@ -16,11 +16,17 @@ app = Blueprint('groups', __name__)
 api = Api(app)
 logger = logging.getLogger(__name__)
 
+
+class Count(fields.Raw):
+    def format(self, value):
+        return len(value)
+
 group_fields = {
     'id': fields.String(attribute='_id'),
     'name': fields.String,
     'created_at': fields.DateTime(dt_format='rfc822'),
     'color': fields.String,
+    'num_papers': Count(attribute='papers'),
 }
 
 
@@ -74,8 +80,13 @@ class NewGroup(Resource):
 
 
 class Group(Resource):
-    method_decorators = [jwt_required]
 
+    @marshal_with(group_fields)
+    def get(self, group_id: str):
+        group, _ = get_group(group_id)
+        return group
+
+    @jwt_required
     @marshal_with(group_fields)
     def delete(self, group_id: str):
         current_user = get_jwt_identity()
@@ -88,6 +99,7 @@ class Group(Resource):
         db_groups.update_one(group_id, {'$pull': {'users': user_id['_id']}})
         return get_user_groups()
 
+    @jwt_required
     @marshal_with(group_fields)
     def patch(self, group_id: str):
         current_user = get_jwt_identity()
@@ -101,6 +113,7 @@ class Group(Resource):
         db_groups.update(group_q, {'$set': data})
         return get_user_groups()
 
+    @jwt_required
     @marshal_with(group_fields)
     def post(self, group_id):
         parser = reqparse.RequestParser()

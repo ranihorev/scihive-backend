@@ -82,20 +82,6 @@ def sort_papers(papers, args):
     return papers.sort(SORT_DICT[field], order)
 
 
-def get_group_papers(current_user, group_id: str):
-    user = find_by_email(current_user, fields={'id': 1, 'groups': 1})
-    if not user:
-        return None
-
-    group, group_q = get_group(group_id)
-
-    user_groups = [str(g) for g in user.get('groups', [])]
-    if group_id not in user_groups:
-        logger.info(f'group {group_id} not in user groups - {current_user}. User will be added with a separate call')
-
-    return group.get('papers', [])
-
-
 def get_papers(library=False, page_size=20):
     current_user = get_jwt_identity()
 
@@ -106,7 +92,7 @@ def get_papers(library=False, page_size=20):
     page_num = args['page_num']
     age = args['age']
     categories = args['categories']
-    group = args['group']
+    group_id = args['group']
 
     # Calculates skip for pagination
     skips = page_size * (page_num - 1)
@@ -127,10 +113,10 @@ def get_papers(library=False, page_size=20):
     if categories:
         filters['tags.term'] = {"$in": categories.split(';')}
 
-    if group and current_user:
-        group_papers = get_group_papers(current_user, group)
-        if group_papers is not None:
-            filters['_id'] = {'$in': group_papers}
+    if group_id:
+        group, _ = get_group(group_id)
+        group_papers = group.get('papers', [])
+        filters['_id'] = {'$in': group_papers}
 
     if q:
         filters['$text'] = {'$search': q}
