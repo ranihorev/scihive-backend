@@ -59,5 +59,11 @@ def add_to_library(op, email, paper):
     # TODO change this to addtoset or pull of users list
     total_bookmarks = paper.get("total_bookmarks", 0) + 1 if op == 'save' else -1
     db_papers.update_one({'_id': paper_id}, {'$set': {'total_bookmarks': max(0, total_bookmarks)}})
-
     return True
+
+
+def add_papers_to_library(user_id_q, papers):
+    user = db_users.find_one(user_id_q, {'_id': 1, 'library': 1})
+    new_papers = [p for p in papers if p not in user.get('library', [])]
+    db_users.update_one(user_id_q, {'$addToSet': {'library': {'$each': new_papers}}})
+    db_papers.update({'_id': {'$in': new_papers}}, {'$inc': {'total_bookmarks': 1}})
