@@ -5,7 +5,7 @@ from typing import List
 
 from flask_jwt_extended import get_jwt_identity
 
-from .group_utils import get_group, add_user_to_group
+from .group_utils import get_group
 from .s3_utils import arxiv_to_s3
 from tasks.fetch_papers import fetch_entry
 from .user_utils import get_user_library, find_by_email
@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 SCORE_META = {'$meta': 'textScore'}
 SORT_DICT = {'tweets': 'twtr_sum', 'date': 'time_published', 'score': 'score', 'bookmarks': 'total_bookmarks'}
 AGE_DICT = {'day': 1, '3days': 3, 'week': 7, 'month': 30, 'year': 365, 'all': -1}
-
 
 query_parser = reqparse.RequestParser()
 query_parser.add_argument('q', type=str, required=False)
@@ -100,7 +99,7 @@ def get_papers(library=False, page_size=20):
     filters = {}
     if author:
         filters['authors.name'] = author
-    
+
     if library:
         user_library = get_user_library(current_user)
         filters["_id"] = {"$in": user_library}
@@ -118,20 +117,40 @@ def get_papers(library=False, page_size=20):
         group_papers = group.get('papers', [])
         filters['_id'] = {'$in': group_papers}
 
+    facet = {
+        'papers': [
+            {'$skip': skips}, {'$limit': page_size},
+        ],
+    }
+    if page_num == 1:
+        facet['count'] = [
+            {"$count": "count"}
+        ]
+
+    agg_query = [
+        {'$match': filters},
+        {'$lookup': {
+            'from': 'group_papers',
+            'localField': '_id',
+            'foreignField': 'paper_id',
+            'as': 'group'}
+        },
+        {'$facet': facet }
+    ]
     if q:
         filters['$text'] = {'$search': q}
-        papers = db_papers.find(filters, {'score': SCORE_META})
+        results = db_papers.find(filters, {'score': SCORE_META})
     else:
-        papers = db_papers.find(filters)
+        results = db_papers.aggregate(agg_query)
 
-    papers = sort_papers(papers, args)
-
-    count = papers.count() if page_num == 1 else -1;
-
-    papers = list(papers.skip(skips).limit(page_size))
+    # papers = sort_papers(papers, args)
+    results = list(results)[0]
 
     # Adds stats to query
-    papers = include_stats(papers, user=current_user)
+    papers = include_stats(results.get('papers'), user=current_user)
+    count = -1
+    if 'count' in results:
+        count = results['count'][0]['count']
 
     return {'papers': papers, 'count': count}
 
@@ -146,12 +165,12 @@ def get_comments_count():
         },
         {
             "$group":
-            {
-                "_id": "$pid",
-                "comments_count": {
-                    "$sum": 1
+                {
+                    "_id": "$pid",
+                    "comments_count": {
+                        "$sum": 1
+                    }
                 }
-            }
         }]))
     for comments in papers_comments_list:
         papers_comments[comments['_id']] = comments['comments_count']
@@ -161,12 +180,12 @@ def get_comments_count():
 
 def get_paper_groups(user_email: str, paper_ids: List[str]):
     user = find_by_email(user_email, fields={'_id': 1, 'groups': 1})
-    groups = list(db_groups.find({'$and': [{'_id': {'$in': user.get('groups', [])}}, {'papers': {'$in': paper_ids}}, {'users': user['_id']}]}))
+    groups = list(db_groups.find(
+        {'$and': [{'_id': {'$in': user.get('groups', [])}}, {'papers': {'$in': paper_ids}}, {'users': user['_id']}]}))
     return groups
 
 
 def include_stats(papers, library=None, user=None):
-
     # Get comments count for each paper
     papers_comments = get_comments_count()
 
@@ -178,16 +197,11 @@ def include_stats(papers, library=None, user=None):
     if user:
         groups = get_paper_groups(user, [paper['_id'] for paper in papers])
 
-
     # For each paper we store the comments, library toggle and thumbs
     for paper in papers:
         paper_id = paper['_id']
         paper['comments_count'] = papers_comments.get(paper_id, 0)
         paper['saved_in_library'] = paper_id in library
-        paper['groups'] = []
-        for g in groups:
-            if paper_id in g.get('papers', []):
-                paper['groups'].append(str(g['_id']))
 
     return papers
 

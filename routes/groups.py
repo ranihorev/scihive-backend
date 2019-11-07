@@ -10,7 +10,7 @@ from flask_restful import Resource, reqparse, Api, fields, marshal_with, abort
 
 from .group_utils import get_group, add_user_to_group
 from .user_utils import find_by_email
-from . import db_groups, db_users
+from . import db_groups, db_users, db_group_papers
 
 app = Blueprint('groups', __name__)
 api = Api(app)
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 class Count(fields.Raw):
     def format(self, value):
         return len(value)
+
 
 group_fields = {
     'id': fields.String(attribute='_id'),
@@ -33,7 +34,8 @@ group_fields = {
 def get_user_groups():
     current_user = get_jwt_identity()
     groups = find_by_email(current_user, fields={'groups': 1}).get('groups', [])
-    groups = db_groups.find({'_id': {'$in': [ObjectId(g) for g in groups]}}, {'users': 0}).sort('created_at', pymongo.DESCENDING)
+    groups = db_groups.find({'_id': {'$in': [ObjectId(g) for g in groups]}}, {'users': 0}).sort('created_at',
+                                                                                                pymongo.DESCENDING)
     return list(groups)
 
 
@@ -121,9 +123,12 @@ class Group(Resource):
         parser.add_argument('add', required=True, help="should specify if add (add=1) or remove (add=0)", type=bool)
         data = parser.parse_args()
         paper_id = data['paper_id']
-        group, group_q = get_group(group_id)
-        op = '$addToSet' if data['add'] else '$pull'
-        db_groups.update(group_q, {op: {'papers': paper_id}})
+        get_group(group_id) # Validate that the group exists
+        query = {'group_id': group_id, 'paper_id': paper_id}
+        if data['add']:
+            db_group_papers.update_one(query, {'date': datetime.now()}, upsert=True)
+        else:
+            db_group_papers.delete_one(query)
         return {'message': 'success'}
 
 
