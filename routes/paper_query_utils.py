@@ -78,7 +78,10 @@ def get_sort(args):
     order = pymongo.DESCENDING
     if field == 'score':
         order = SCORE_META
-    return {SORT_DICT[field]: order}
+    sort_by = {SORT_DICT[field]: order}
+    if field != 'date':
+        sort_by[SORT_DICT['date']] = pymongo.DESCENDING
+    return sort_by
 
 
 def create_papers_groups_lookup(group_ids: List[str], key: str):
