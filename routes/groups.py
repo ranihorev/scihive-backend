@@ -123,10 +123,11 @@ class Group(Resource):
         parser.add_argument('add', required=True, help="should specify if add (add=1) or remove (add=0)", type=bool)
         data = parser.parse_args()
         paper_id = data['paper_id']
-        get_group(group_id) # Validate that the group exists
+        get_group(group_id)  # Validate that the group exists
         query = {'group_id': group_id, 'paper_id': paper_id}
+
         if data['add']:
-            db_group_papers.update_one(query, {'date': datetime.now()}, upsert=True)
+            db_group_papers.update_one(query, {'$set': {'date': datetime.now()}}, upsert=True)
         else:
             db_group_papers.delete_one(query)
         return {'message': 'success'}

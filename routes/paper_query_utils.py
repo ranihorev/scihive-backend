@@ -73,12 +73,26 @@ papers_list_fields = {
 }
 
 
-def sort_papers(papers, args):
+def get_sort(args):
     field = args.get('sort', 'date')
     order = pymongo.DESCENDING
     if field == 'score':
         order = SCORE_META
-    return papers.sort(SORT_DICT[field], order)
+    return {SORT_DICT[field]: order}
+
+
+def create_papers_groups_lookup(group_ids: List[str], key: str):
+    return {
+        'from': 'group_papers',
+        'let': {'paper_id': '$_id'},
+        'pipeline': [
+            {'$match': {'$expr': {'$and': [
+                {'$eq': ['$paper_id', '$$paper_id']},
+                {'$in': ['$group_id', group_ids]},
+            ]}}}
+        ],
+        'as': key
+    }
 
 
 def get_papers(library=False, page_size=20):
@@ -96,6 +110,7 @@ def get_papers(library=False, page_size=20):
     # Calculates skip for pagination
     skips = page_size * (page_num - 1)
 
+    agg_query = []
     filters = {}
     if author:
         filters['authors.name'] = author
@@ -114,43 +129,49 @@ def get_papers(library=False, page_size=20):
 
     if group_id:
         group, _ = get_group(group_id)
-        group_papers = group.get('papers', [])
-        filters['_id'] = {'$in': group_papers}
+        agg_query += [
+            {'$lookup': create_papers_groups_lookup([group_id], 'group')},
+            {'$unwind': '$group'}
+        ]
+
+    if q:
+        filters['$text'] = {'$search': q}
 
     facet = {
         'papers': [
-            {'$skip': skips}, {'$limit': page_size},
+            {'$sort': get_sort(args)},
+            {'$skip': skips},
+            {'$limit': page_size},
         ],
     }
+
+    if current_user:
+        group_ids = find_by_email(current_user, fields={'groups': 1}).get('groups', [])
+        group_ids = [str(g) for g in group_ids]
+        facet['papers'].insert(0, {'$lookup': create_papers_groups_lookup(group_ids, 'groups')})
+
     if page_num == 1:
         facet['count'] = [
             {"$count": "count"}
         ]
 
-    agg_query = [
+    agg_query += [
         {'$match': filters},
-        {'$lookup': {
-            'from': 'group_papers',
-            'localField': '_id',
-            'foreignField': 'paper_id',
-            'as': 'group'}
-        },
-        {'$facet': facet }
+        {'$facet': facet},
     ]
-    if q:
-        filters['$text'] = {'$search': q}
-        results = db_papers.find(filters, {'score': SCORE_META})
-    else:
-        results = db_papers.aggregate(agg_query)
 
-    # papers = sort_papers(papers, args)
+    results = db_papers.aggregate(agg_query)
+
     results = list(results)[0]
 
     # Adds stats to query
     papers = include_stats(results.get('papers'), user=current_user)
     count = -1
     if 'count' in results:
-        count = results['count'][0]['count']
+        if not results['count']:
+            count = 0
+        else:
+            count = results['count'][0]['count']
 
     return {'papers': papers, 'count': count}
 
@@ -202,6 +223,7 @@ def include_stats(papers, library=None, user=None):
         paper_id = paper['_id']
         paper['comments_count'] = papers_comments.get(paper_id, 0)
         paper['saved_in_library'] = paper_id in library
+        paper['groups'] = [g['group_id'] for g in paper.get('groups', [])]
 
     return papers
 
