@@ -9,7 +9,7 @@ from .group_utils import get_group
 from .s3_utils import arxiv_to_s3
 from tasks.fetch_papers import fetch_entry
 from .user_utils import get_user_library, find_by_email
-from . import db_comments
+from . import db_comments, db_group_papers
 from flask_restful import reqparse, fields, abort
 from . import db_papers
 from . import db_groups
@@ -128,11 +128,9 @@ def get_papers(library=False, page_size=20):
         filters['tags.term'] = {"$in": categories.split(';')}
 
     if group_id:
-        group, _ = get_group(group_id)
-        agg_query += [
-            {'$lookup': create_papers_groups_lookup([group_id], 'group')},
-            {'$unwind': '$group'}
-        ]
+        group_papers = list(db_group_papers.find({'group_id': group_id}, {'paper_id': 1}))
+        group_paper_ids = [p['paper_id'] for p in group_papers]
+        filters['_id'] = {'$in': group_paper_ids}
 
     if q:
         filters['$text'] = {'$search': q}
