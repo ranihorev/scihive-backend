@@ -5,7 +5,7 @@ from datetime import datetime
 from .acronym_extractor import extract_acronyms
 from .paper_query_utils import include_stats, get_paper_with_pdf, Github
 from .latex_utils import extract_references_from_latex, REFERENCES_VERSION
-from . import db_papers, db_comments, db_acronyms
+from . import db_papers, db_comments, db_acronyms, db_group_papers
 from bson import ObjectId
 from flask import Blueprint
 from flask_jwt_extended import jwt_optional, get_jwt_identity
@@ -76,6 +76,7 @@ class Paper(Resource):
     @marshal_with(paper_fields)
     def get(self, paper_id):
         paper = get_paper_with_pdf(paper_id)
+        paper['groups'] = list(db_group_papers.find({'paper_id': paper_id}, {'group_id': 1}))
         paper = include_stats([paper], user=get_jwt_identity())[0]
 
         return paper
