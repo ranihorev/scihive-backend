@@ -9,7 +9,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restful import Resource, reqparse, Api, fields, marshal_with, abort
 
 from .group_utils import get_group, add_user_to_group
-from .user_utils import find_by_email
+from .user_utils import find_by_email, add_remove_group
 from . import db_groups, db_users, db_group_papers
 
 app = Blueprint('groups', __name__)
@@ -118,18 +118,15 @@ class Group(Resource):
     @jwt_required
     @marshal_with(group_fields)
     def post(self, group_id):
+        current_user = get_jwt_identity()
+        current_user = find_by_email(current_user, fields={'id': 1})
         parser = reqparse.RequestParser()
         parser.add_argument('paper_id', required=True, help="paper_id is missing")
         parser.add_argument('add', required=True, help="should specify if add (add=1) or remove (add=0)", type=bool)
         data = parser.parse_args()
         paper_id = data['paper_id']
         get_group(group_id)  # Validate that the group exists
-        query = {'group_id': group_id, 'paper_id': paper_id}
-
-        if data['add']:
-            db_group_papers.update_one(query, {'$set': {'date': datetime.now()}}, upsert=True)
-        else:
-            db_group_papers.delete_one(query)
+        add_remove_group(group_id, paper_id, data['add'], str(current_user['_id']), False)
         return {'message': 'success'}
 
 

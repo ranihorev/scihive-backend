@@ -1,9 +1,12 @@
 import logging
+import uuid
+from datetime import datetime
+
 from bson import ObjectId
 from flask_restful import abort
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from . import revoked_tokens, db_users, db_papers
+from . import revoked_tokens, db_users, db_papers, db_group_papers
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +21,23 @@ def save_revoked_token(jti):
 
 
 def save_user(email, password, username):
-    return db_users.insert_one({'email': email, 'password': password, 'username': username})
+    return db_users.insert_one(
+        {'email': email, 'password': password, 'username': username, 'library_id': str(uuid.uuid4())})
 
 
-def find_by_email(email, fields={'library': 0}):
+def find_by_email(email, fields=None):
     query = {'email': email}
-    if fields:
-        return db_users.find_one(query, fields)
-    return db_users.find_one(query)
+    validate_library_id = not fields or (isinstance(fields, dict) and fields.get('library_id') == 1)
+
+    if not fields:
+        fields = {'library': 0}
+    user = db_users.find_one(query, fields)
+
+    if validate_library_id and not user.get('library_id'):
+        library_id = str(uuid.uuid4())
+        db_users.update_one({'_id': user['_id']}, {'$set': {'library_id': library_id}})
+        user['library_id'] = library_id
+    return user
 
 
 def generate_hash(password):
@@ -36,26 +48,21 @@ def verify_hash(password, hash):
     return check_password_hash(hash, password)
 
 
-def get_user_library(user):
-    if not user:
-        return []
-    user_data = find_by_email(user, {})
-    return user_data.get('library', [])
+def add_remove_group(group_id: str, paper_id: str, should_add: str, user_id: str, is_library: bool):
+    query = {'group_id': group_id, 'paper_id': paper_id}
+
+    if should_add:
+        db_group_papers.update_one(query, {'$set': {'date': datetime.now(), 'user': user_id, 'is_library': is_library}},
+                                   upsert=True)
+    else:
+        db_group_papers.delete_one(query)
 
 
-def add_to_library(op, email, paper):
-    ops = {'save': '$addToSet', 'remove': '$pull'}
+def add_to_library(op, user_email, paper):
     paper_id = paper['_id']
-    user = find_by_email(email, fields={'_id': 1, 'library': 1})
-    try:
-        new_values = {ops[op]: {'library': paper_id}}
-    except KeyError:
-        abort(500, message='Illegal action')
+    user = find_by_email(user_email, {'library_id': 1})
 
-    if (op == 'save' and paper_id in user.get('library', [])) or (op == 'remove' and paper_id not in user.get('library', [])):
-        return False
-
-    db_users.update_one({'_id': user['_id']}, new_values)
+    add_remove_group(user['library_id'], paper_id, op == 'save', str(user['_id']), True)
     # TODO change this to addtoset or pull of users list
     total_bookmarks = paper.get("total_bookmarks", 0) + 1 if op == 'save' else -1
     db_papers.update_one({'_id': paper_id}, {'$set': {'total_bookmarks': max(0, total_bookmarks)}})
