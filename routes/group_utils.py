@@ -16,7 +16,7 @@ def get_group(group_id: str):
     return group, group_q
 
 
-def add_user_to_group(user_id_q, group, group_q):
+def add_user_to_group(user_id_q, user_email, group, group_q):
     db_users.update_one(user_id_q, {'$addToSet': {'groups': group_q['_id']}})
     db_groups.update(group_q, {'$addToSet': {'users': user_id_q['_id']}})
-    add_papers_to_library(user_id_q, group.get('papers', []))
+    add_papers_to_library(user_email, group.get('papers', []))

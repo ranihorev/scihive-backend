@@ -57,7 +57,7 @@ class Groups(Resource):
         data = parser.parse_args()
         group, group_q = get_group(data['id'])
         if group and user_id['_id'] not in group.get('users', []):
-            add_user_to_group(user_id_q=user_id, group=group, group_q=group_q)
+            add_user_to_group(user_id_q=user_id, user_email=current_user, group=group, group_q=group_q)
 
         return get_user_groups()
 
