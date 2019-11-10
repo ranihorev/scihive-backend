@@ -19,9 +19,10 @@ for u in all_users:
     library_id = u['library_id']
 
     for p_id in u.get('library', []):
-        db_group_papers.insert_one(
-            {'paper_id': p_id, 'group_id': library_id, 'date': datetime.now(), 'user': str(u['_id']),
-             'is_library': True})
+        db_group_papers.update_one({'paper_id': p_id, 'group_id': library_id},
+                                   {'$setOnInsert': {'date': datetime.now(), 'user': str(u['_id']),
+                                                     'is_library': True}},
+                                   upsert=True)
 
 all_groups = db_groups.find()
 for g in all_groups:
@@ -30,4 +31,3 @@ for g in all_groups:
         db_group_papers.update_one({'paper_id': p_id, 'group_id': str(g['_id'])},
                                    {'$setOnInsert': {'date': datetime.now(), 'user': str(g.get('created_by'))}},
                                    upsert=True)
-
