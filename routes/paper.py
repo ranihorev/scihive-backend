@@ -76,7 +76,7 @@ class Paper(Resource):
     @marshal_with(paper_fields)
     def get(self, paper_id):
         paper = get_paper_with_pdf(paper_id)
-        paper['groups'] = list(db_group_papers.find({'paper_id': paper_id}, {'group_id': 1}))
+        paper['groups'] = list(db_group_papers.find({'paper_id': paper_id}))
         paper = include_stats([paper], user=get_jwt_identity())[0]
 
         return paper
