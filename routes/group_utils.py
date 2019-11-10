@@ -2,7 +2,7 @@ from bson import ObjectId
 from flask_restful import abort
 
 from .user_utils import add_papers_to_library
-from . import db_groups, db_users
+from . import db_groups, db_users, db_group_papers
 
 
 def get_group(group_id: str):
@@ -16,7 +16,9 @@ def get_group(group_id: str):
     return group, group_q
 
 
-def add_user_to_group(user_id_q, user_email, group, group_q):
+def add_user_to_group(user_id_q, user_email, group_q):
     db_users.update_one(user_id_q, {'$addToSet': {'groups': group_q['_id']}})
     db_groups.update(group_q, {'$addToSet': {'users': user_id_q['_id']}})
-    add_papers_to_library(user_email, group.get('papers', []))
+    papers = db_group_papers.find({'group_id': str(group_q['_id'])}, {'paper_id': 1})
+    papers = [p['paper_id'] for p in papers]
+    add_papers_to_library(user_email, papers)

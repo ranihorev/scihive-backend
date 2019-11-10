@@ -27,7 +27,6 @@ group_fields = {
     'name': fields.String,
     'created_at': fields.DateTime(dt_format='rfc822'),
     'color': fields.String,
-    'num_papers': Count(attribute='papers'),
 }
 
 
@@ -57,7 +56,7 @@ class Groups(Resource):
         data = parser.parse_args()
         group, group_q = get_group(data['id'])
         if group and user_id['_id'] not in group.get('users', []):
-            add_user_to_group(user_id_q=user_id, user_email=current_user, group=group, group_q=group_q)
+            add_user_to_group(user_id_q=user_id, user_email=current_user, group_q=group_q)
 
         return get_user_groups()
 
@@ -81,11 +80,16 @@ class NewGroup(Resource):
         return get_user_groups()
 
 
-class Group(Resource):
+extended_group_fields = dict(group_fields)
+extended_group_fields['num_papers'] = fields.Integer
 
-    @marshal_with(group_fields)
+
+class Group(Resource):
+    @marshal_with(extended_group_fields)
     def get(self, group_id: str):
         group, _ = get_group(group_id)
+        group_papers = db_group_papers.find({'group_id': group_id})
+        group['num_papers'] = group_papers.count()
         return group
 
     @jwt_required

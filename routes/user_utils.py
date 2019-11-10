@@ -71,9 +71,11 @@ def add_to_library(op, user_email, paper):
 
 def add_papers_to_library(user_email, papers):
     user = find_by_email(user_email, {'library_id': 1})
-    existing_papers = db_group_papers.find({'paper_id': {'$in': papers}, 'group_id': user['library_id']}, {'paper_id': 1})
+    existing_papers = db_group_papers.find({'paper_id': {'$in': papers}, 'group_id': user['library_id']},
+                                           {'paper_id': 1})
     existing_papers = [p['paper_id'] for p in existing_papers]
     new_papers = [p for p in papers if p not in existing_papers]
     for paper_id in new_papers:
-        add_remove_group(user['library_id'], paper_id, True, str(user['_id']), True)
+        add_remove_group(group_id=user['library_id'], paper_id=paper_id, should_add=True, user_id=str(user['_id']),
+                         is_library=True)
     db_papers.update({'_id': {'$in': new_papers}}, {'$inc': {'total_bookmarks': 1}})
