@@ -32,3 +32,4 @@ spacy
 
 sentry-sdk[flask]==0.8.0
 pypandoc==1.4
+diskcache

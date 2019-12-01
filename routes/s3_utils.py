@@ -1,3 +1,4 @@
+import hashlib
 import os
 import urllib
 import boto3
@@ -41,3 +42,12 @@ def arxiv_to_s3(url):
     return key_to_url(key)
 
 
+def upload_to_s3(file, content):
+    md5 = hashlib.md5(content).hexdigest()
+    return md5, False
+
+    key = f'{PREFIX}/{md5}'
+    if exists(key):
+        return md5, True
+    s3.upload_fileobj(file.stream, BUCKET, key)
+    return md5, False

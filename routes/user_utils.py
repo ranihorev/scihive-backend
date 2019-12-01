@@ -58,7 +58,7 @@ def add_remove_group(group_id: str, paper_id: str, should_add: str, user_id: str
         db_group_papers.delete_one(query)
 
 
-def add_to_library(op, user_email, paper):
+def add_to_library(op: str, user_email: str, paper):
     paper_id = paper['_id']
     user = find_by_email(user_email, {'library_id': 1})
 
