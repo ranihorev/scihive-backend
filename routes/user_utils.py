@@ -33,7 +33,7 @@ def find_by_email(email, fields=None):
         fields = {'library': 0}
     user = db_users.find_one(query, fields)
 
-    if validate_library_id and not user.get('library_id'):
+    if user and validate_library_id and not user.get('library_id'):
         library_id = str(uuid.uuid4())
         db_users.update_one({'_id': user['_id']}, {'$set': {'library_id': library_id}})
         user['library_id'] = library_id
