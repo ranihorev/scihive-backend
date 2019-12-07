@@ -156,7 +156,7 @@ def extract_acronyms(paper_id):
     pdf_file_path = get_pdf_file(paper_id)
     txt_file_name = pdf_file_path.replace('pdf', 'txt')
     subprocess.check_output(['pdftotext', pdf_file_path, txt_file_name])
-    txt = open(txt_file_name, 'r').read()
+    txt = open(txt_file_name, 'r', encoding="latin-1").read()
     acronyms = find_acronyms_in_text(txt)
     shutil.rmtree(get_dir(paper_id))
     return acronyms
