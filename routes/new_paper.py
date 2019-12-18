@@ -13,9 +13,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restful import Resource, Api, reqparse, marshal_with, fields
 from typing import NamedTuple, List, Tuple
 
-from .user_utils import add_to_library
+from .user_utils import add_to_library, add_user_data
 from . import db_papers, db_authors
-from .s3_utils import upload_to_s3
+from .s3_utils import upload_to_s3, key_to_url
 
 app = Blueprint('new_paper', __name__)
 api = Api(app)
@@ -38,12 +38,12 @@ class Author(NamedTuple):
     org: List[str]
 
     def get_name(self):
-        return f'{self.first_name} + f{self.last_name}'
+        return f'{self.first_name} {self.last_name}'
 
 
 class AuthorMarshal(fields.Raw):
     def format(self, value):
-        return dict(value._asdict())
+        return {'name': value.get_name()}
 
 
 def extract_paper_metadata(file_content) -> Tuple[str, List[Author], str]:
@@ -67,44 +67,60 @@ def extract_paper_metadata(file_content) -> Tuple[str, List[Author], str]:
         else:
             abstract = abstract.text
 
-    return title, authors, abstract
+    publish_date_raw = tree.find('.//date')
+    if publish_date_raw is not None:
+        try:
+            publish_date = publish_date_raw.get('when')
+            publish_date = datetime.strptime(publish_date, "%Y-%m-%d")
+        except Exception as e:
+            logger.error(f'Failed to extract date for {publish_date_raw.text}')
+    else:
+        publish_date = datetime.now()
+
+    return {'title': title, 'authors': authors, 'abstract': abstract, 'date': publish_date}
 
 
 class NewPaper(Resource):
     method_decorators = [jwt_required]
 
-    @marshal_with({'title': fields.String, 'abstract': fields.String, 'id': fields.String, 'authors': fields.List(AuthorMarshal)})
+    @marshal_with(
+        {'title': fields.String, 'abstract': fields.String, 'md5': fields.String, 'authors': fields.List(AuthorMarshal),
+         'date': fields.DateTime(dt_format='rfc822')})
     def post(self):
-        current_user = get_jwt_identity()
         parser = reqparse.RequestParser()
         parser.add_argument('file', type=werkzeug.datastructures.FileStorage, location='files')
         data = parser.parse_args()
-        file_content = data.file.stream.read()
-        filename_md5, exists = upload_to_s3(data.file, file_content)
-        # if exists:
-        #     return {'exists': True}
-        response, expire = cache.get(filename_md5, expire_time=True)
-        if not response:
-            title, authors, abstract = extract_paper_metadata(file_content)
-            response = {'id': filename_md5, 'title': title, 'authors': authors, 'abstract': abstract}
-            cache.set(filename_md5, response, expire=12*60*60)
+        file_stream = data.file.stream
+        filename_md5, exists = upload_to_s3(file_stream)
+        metadata, expire = cache.get(filename_md5, expire_time=True)
+        if not metadata:
+            file_stream.seek(0)
+            metadata = extract_paper_metadata(file_stream.read())
+            metadata['md5'] = filename_md5
+            cache.set(filename_md5, metadata, expire=12 * 60 * 60)
+        return metadata
 
-        # paper = db_papers.find_one_and_update({'_id': filename_md5},
-        #                              {
-        #                                  '$set':
-        #                                      {
-        #                                          'title': title, 'summary': abstract, 'time_updated': datetime.now(),
-        #                                          'authors': [{'name': a.get_name()} for a in authors],
-        #                                          'time_published': datetime.now(),
-        #                                          'is_searchable': False
-        #                                      }
-        #                              },
-        #                              upsert=True)
-        # for author in authors:
-        #     db_authors.update({'_id': author.get_name()},
-        #                       {'$addToSet': {'papers': filename_md5}, '$set': {'organization': author.org}}, True)
-        # add_to_library('save', current_user, paper)
-        return response
+    def patch(self):
+        # TODO: add input validation
+        current_user = get_jwt_identity()
+        parser = reqparse.RequestParser()
+        parser.add_argument('md5', type=str, required=True)
+        parser.add_argument('title', type=str, required=True)
+        parser.add_argument('date', type=lambda x: datetime.strptime(x, '%a, %d %b %Y %H:%M:%S %z'), required=True, dest="time_published")
+        parser.add_argument('abstract', type=str, required=True, dest="summary")
+        parser.add_argument('authors', type=dict, required=True, action="append")
+        data = parser.parse_args()
+        add_user_data(data, 'uploaded_by')
+        data['created_at'] = datetime.utcnow()
+        data['is_private'] = True
+        data['link'] = key_to_url(data['md5'], with_prefix=True) + '.pdf'
+        paper = db_papers.insert_one(data)
+        paper = db_papers.find_one({'_id': paper.inserted_id})
+        for author in data.authors:
+            db_authors.update({'_id': author},
+                              {'$addToSet': {'papers': str(paper['_id'])}}, True)
+        add_to_library('save', current_user, paper)
+        return {'paper_id': str(paper['_id'])}
 
 
 api.add_resource(NewPaper, "/add")

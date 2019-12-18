@@ -27,8 +27,12 @@ def exists(key):
     return False
 
 
-def key_to_url(key):
-    return f'https://{BUCKET}/{key}'
+def key_to_url(key, with_prefix=False):
+    url = f'https://{BUCKET}'
+    if with_prefix:
+        url += f'/{PREFIX}'
+    url += f'/{key}'
+    return url
 
 
 def arxiv_to_s3(url):
@@ -42,12 +46,13 @@ def arxiv_to_s3(url):
     return key_to_url(key)
 
 
-def upload_to_s3(file, content):
+def upload_to_s3(file_stream):
+    file_stream.seek(0)
+    content = file_stream.read()
     md5 = hashlib.md5(content).hexdigest()
-    return md5, False
-
-    key = f'{PREFIX}/{md5}'
+    key = f'{PREFIX}/{md5}.pdf'
     if exists(key):
         return md5, True
-    s3.upload_fileobj(file.stream, BUCKET, key)
+    file_stream.seek(0)
+    s3.upload_fileobj(file_stream, BUCKET, key)
     return md5, False

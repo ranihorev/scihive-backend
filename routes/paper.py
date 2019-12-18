@@ -2,8 +2,9 @@ import logging
 import pymongo
 from datetime import datetime
 
+from .user_utils import add_user_data
 from .acronym_extractor import extract_acronyms
-from .paper_query_utils import include_stats, get_paper_with_pdf, Github
+from .paper_query_utils import include_stats, get_paper_with_pdf, Github, get_paper_by_id
 from .latex_utils import extract_references_from_latex, REFERENCES_VERSION
 from . import db_papers, db_comments, db_acronyms, db_group_papers
 from bson import ObjectId
@@ -12,8 +13,6 @@ from flask_jwt_extended import jwt_optional, get_jwt_identity
 from flask_restful import Resource, Api, reqparse, abort, fields, marshal_with
 import uuid
 from enum import Enum
-
-from routes.user import find_by_email
 
 app = Blueprint('paper', __name__)
 api = Api(app)
@@ -50,15 +49,6 @@ edit_comment_parser.add_argument('comment', help='This field cannot be blank', t
 
 new_reply_parser = reqparse.RequestParser()
 new_reply_parser.add_argument('text', help='This field cannot be blank', type=str, location='json', required=True)
-
-
-def add_user_data(data):
-    current_user = get_jwt_identity()
-    if current_user:
-        current_user = find_by_email(current_user)
-        data['user'] = {'email': current_user['email'], 'username': current_user['username']}
-    else:
-        data['user'] = {'username': 'Guest'}
 
 
 paper_fields = {
@@ -239,7 +229,7 @@ class Reply(Resource):
 
 
 def get_paper_item(paper_id, item, latex_fn, version=None, force_update=False):
-    paper = db_papers.find_one(paper_id)
+    paper = get_paper_by_id(paper_id)
     state = ItemState.existing
     if not paper:
         abort(404, message='Paper not found')
@@ -261,6 +251,9 @@ class PaperReferences(Resource):
     def get(self, paper_id):
         query_parser = reqparse.RequestParser()
         query_parser.add_argument('force', type=str, required=False)
+        paper = get_paper_by_id(paper_id, {'is_private': 1})
+        if paper.get('is_private'):
+            return []
         force_update = bool(query_parser.parse_args().get('force'))
         references, _, _ = get_paper_item(paper_id, 'references', extract_references_from_latex, REFERENCES_VERSION, force_update=force_update)
         return references['data']
