@@ -33,6 +33,7 @@ class Autocomplete(Resource):
         authors = list(db_authors.find({'_id': {'$regex': re.compile(author_q, re.IGNORECASE)}}).limit(MAX_ITEMS))
         authors = [{'name': a['_id'], 'type': 'author'} for a in authors]
 
+        # TODO: the autocomplete doesn't support private papers (the id format is different)
         papers = list(db_papers.find({'$or': [{'_id': q}, {'$text': {'$search': q}}]}).limit(MAX_ITEMS))
         papers = [{'name': p['title'], 'type': 'paper', 'id': p['_id']} for p in papers]
 

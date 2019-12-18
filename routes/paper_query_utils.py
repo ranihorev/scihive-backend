@@ -5,8 +5,8 @@ from typing import List
 
 from flask_jwt_extended import get_jwt_identity
 
-from .group_utils import get_group
 from .s3_utils import arxiv_to_s3
+from .query_utils import fix_paper_id
 from tasks.fetch_papers import fetch_entry
 from .user_utils import find_by_email
 from . import db_comments, db_group_papers
@@ -148,11 +148,13 @@ def get_papers(library=False, page_size=20):
 
     if group_id:
         group_papers = list(db_group_papers.find({'group_id': group_id}, {'paper_id': 1}))
-        group_paper_ids = [p['paper_id'] for p in group_papers]
+        group_paper_ids = [fix_paper_id(p['paper_id']) for p in group_papers]
         filters['_id'] = {'$in': group_paper_ids}
         if args.get('sort') == 'date_added':
             facet['papers'] = [{'$lookup': create_papers_groups_lookup([group_id], 'group')}, {'$unwind': '$group'}] + \
                               facet['papers']
+    else:
+        filters['is_private'] = {'$exists': False}
 
     if q:
         filters['$text'] = {'$search': q}
@@ -240,8 +242,12 @@ def abs_to_pdf(url):
     return url.replace('abs', 'pdf').replace('http', 'https') + '.pdf'
 
 
+def get_paper_by_id(paper_id: str, selected_fields: dict = None):
+    return db_papers.find_one({'_id': fix_paper_id(paper_id)}, selected_fields)
+
+
 def get_paper_with_pdf(paper_id):
-    paper = db_papers.find_one(paper_id)
+    paper = get_paper_by_id(paper_id)
     if not paper:
         # Fetch from arxiv
         paper = fetch_entry(paper_id)
@@ -249,6 +255,11 @@ def get_paper_with_pdf(paper_id):
             abort(404, message='Paper not found')
 
         paper['_id'] = paper['id']
+
+    if paper.get('is_private'):
+        paper['pdf_link'] = paper['link']
+        return paper
+
     pdf_url = abs_to_pdf(paper['link'])
 
     if os.environ.get('S3_BUCKET_NAME'):

@@ -13,6 +13,7 @@ TMP_DIR = 'tmp'
 REFERENCES_VERSION = 2.23
 BIB_ITEM_MARKER = '!!!CITE!!!'
 
+
 def get_extension_from_headers(h):
     c_type = h.get('content-type')
     c_encoding = h.get('content-encoding')
@@ -236,6 +237,8 @@ def extract_references_from_latex(arxiv_id):
                 break
     except tarfile.ReadError as e:
         pass
+    except requests.HTTPError as e:
+        logger.warning(f'Latex file not found for {arxiv_id}')
 
     return {'data': data, 'version': REFERENCES_VERSION}
 

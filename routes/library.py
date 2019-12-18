@@ -2,8 +2,7 @@ from flask import Blueprint, request
 import logging
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restful import Api, Resource, abort, marshal_with
-from .paper_query_utils import get_papers, papers_list_fields
-from . import db_papers
+from .paper_query_utils import get_papers, papers_list_fields, get_paper_by_id
 from .user_utils import add_to_library
 
 app = Blueprint('library', __name__)
@@ -26,7 +25,7 @@ class SaveRemove(Resource):
 
     def post(self, paper_id):
         current_user = get_jwt_identity()
-        paper = db_papers.find_one(paper_id, {"_id": 1, "total_bookmarks": 1})
+        paper = get_paper_by_id(paper_id, {"_id": 1, "total_bookmarks": 1})
         op = request.url.split('/')[-1]
         if not paper:
             abort(404, message='Paper not found')
