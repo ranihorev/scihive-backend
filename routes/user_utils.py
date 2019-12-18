@@ -4,6 +4,7 @@ from datetime import datetime
 from flask_jwt_extended import get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from .query_utils import fix_paper_id
 from . import revoked_tokens, db_users, db_papers, db_group_papers
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ def verify_hash(password, hash):
 
 
 def add_remove_group(group_id: str, paper_id: str, should_add: str, user_id: str, is_library: bool):
-    query = {'group_id': group_id, 'paper_id': paper_id}
+    query = {'group_id': group_id, 'paper_id': fix_paper_id(paper_id)}
 
     if should_add:
         db_group_papers.update_one(query, {'$set': {'date': datetime.now(), 'user': user_id, 'is_library': is_library}},
