@@ -74,6 +74,7 @@ def extract_paper_metadata(file_content) -> Tuple[str, List[Author], str]:
             publish_date = datetime.strptime(publish_date, "%Y-%m-%d")
         except Exception as e:
             logger.error(f'Failed to extract date for {publish_date_raw.text}')
+            publish_date = datetime.now()
     else:
         publish_date = datetime.now()
 
