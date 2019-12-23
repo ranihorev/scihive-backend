@@ -190,7 +190,7 @@ def get_pids_in_db(arxiv_pids):
 def process_tweets(tweets_raw_data):
     logger.info('Process tweets')
     dnow_utc = datetime.datetime.now(datetime.timezone.utc)
-    to_insert = []
+    num_new = 0
     papers_to_update = []
     unique_tweet_ids = set()
 
@@ -214,17 +214,13 @@ def process_tweets(tweets_raw_data):
         tweet = tweet_to_dict(r, arxiv_pids, dnow_utc, num_replies)
 
         tweet_id_q = {'_id': r.id_str}
-        if is_tweet_new(tweet_id_q):
-            to_insert.append(tweet)
-        else:
-            db_tweets.update(tweet_id_q, {'$set': tweet}, True)
+
+        db_tweets.update(tweet_id_q, {'$set': tweet}, True)
 
         unique_tweet_ids.add(r.id_str)
         logger.info(f'Found tweet for {arxiv_pids} with {tweet["likes"]} likes')
 
-    if to_insert:
-        db_tweets.insert_many(to_insert)
-    logger.info('processed %d/%d new tweets. Currently maintaining total %d' % (len(to_insert), len(tweets_raw_data), db_tweets.count()))
+    logger.info(f'processed {len(tweets_raw_data)} new tweets')
     return papers_to_update
 
 
