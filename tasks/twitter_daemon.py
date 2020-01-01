@@ -125,7 +125,7 @@ def fetch_twitter_users(usernames):
             # if idx > 3:
             #     break
         except Exception as e:
-            logger.error(f'Failed to fetch tweets from {u["screen_name"]}')
+            logger.warning(f'Failed to fetch tweets from {u["screen_name"]}')
         sleep(1)
     logger.info('Finished fetching tweets from users list')
     return tweets
