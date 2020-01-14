@@ -29,10 +29,11 @@ def fetch_data():
 
 def update_db(data):
     for row in data:
-        cur_id = {'_id': row['arxiv_id']}
-        {'github_link': 'https://github.com/Novemser/deep-imitation', 'high_conf': 'False', 'proceeding': '',
-         'datasets': '', 'stars': '4', 'framework': 'pytorch',
-         'tasks': 'Image-to-Image Translation|Video Generation|Image-To-Image Translation|Face Generation'}
+        try:
+            cur_id = {'_id': row['arxiv_id']}
+        except KeyError as e:
+            logger.warning(f'arxiv_id is missing for row {row}')
+            continue
 
         if papers.find(cur_id).count() > 0:
             obj = {
