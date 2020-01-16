@@ -30,9 +30,14 @@ group_fields = {
 }
 
 
+def get_user_group_ids(current_user=None):
+    if not current_user:
+        current_user = get_jwt_identity()
+    return find_by_email(current_user, fields={'groups': 1}).get('groups', [])
+
+
 def get_user_groups():
-    current_user = get_jwt_identity()
-    groups = find_by_email(current_user, fields={'groups': 1}).get('groups', [])
+    groups = get_user_group_ids()
     groups = db_groups.find({'_id': {'$in': [ObjectId(g) for g in groups]}}, {'users': 0}).sort('created_at',
                                                                                                 pymongo.DESCENDING)
     return list(groups)

@@ -5,6 +5,7 @@ from typing import List
 
 from flask_jwt_extended import get_jwt_identity
 
+from routes.groups import get_user_group_ids
 from .s3_utils import arxiv_to_s3
 from .query_utils import fix_paper_id
 from tasks.fetch_papers import fetch_entry
@@ -200,10 +201,15 @@ def get_comments_count():
     papers_comments = {}
     current_user = get_jwt_identity()
     user_filter = [{'user.email': current_user}] if current_user else []
+    groups_filter = []
+    if current_user:
+        group_ids = get_user_group_ids()
+        groups_filter = [{"visibility.id": {"$in": [str(g) for g in group_ids]}}]
+
     papers_comments_list = list(db_comments.aggregate([
         {
             "$match": {
-                "$or": [{"visibility.type": {"$in": PUBLIC_TYPES}}, ] + user_filter
+                "$or": [{"visibility.type": {"$in": PUBLIC_TYPES}}, ] + user_filter + groups_filter
             }
         },
         {
