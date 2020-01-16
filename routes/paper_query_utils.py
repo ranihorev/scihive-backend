@@ -231,7 +231,7 @@ def include_stats(papers, library=None, user=None):
     # For each paper we store the comments, library toggle and thumbs
     for paper in papers:
         paper_id = paper['_id']
-        paper['comments_count'] = papers_comments.get(paper_id, 0)
+        paper['comments_count'] = papers_comments.get(str(paper_id), 0)
         paper['saved_in_library'] = any([g.get('is_library', False) for g in paper.get('groups', [])])
         paper['groups'] = [g['group_id'] for g in paper.get('groups', [])]
 
