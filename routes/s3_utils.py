@@ -46,13 +46,14 @@ def arxiv_to_s3(url):
     return key_to_url(key)
 
 
-def upload_to_s3(file_stream):
-    file_stream.seek(0)
-    content = file_stream.read()
-    md5 = hashlib.md5(content).hexdigest()
+def upload_to_s3(md5: str, file_stream):
     key = f'{PREFIX}/{md5}.pdf'
     if exists(key):
-        return md5, True
+        return True
     file_stream.seek(0)
     s3.upload_fileobj(file_stream, BUCKET, key)
-    return md5, False
+    return False
+
+
+def calc_md5(content):
+    return hashlib.md5(content).hexdigest()

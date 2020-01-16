@@ -15,7 +15,7 @@ from typing import NamedTuple, List, Tuple
 
 from .user_utils import add_to_library, add_user_data
 from . import db_papers, db_authors
-from .s3_utils import upload_to_s3, key_to_url
+from .s3_utils import upload_to_s3, key_to_url, calc_md5
 
 app = Blueprint('new_paper', __name__)
 api = Api(app)
@@ -92,11 +92,12 @@ class NewPaper(Resource):
         parser.add_argument('file', type=werkzeug.datastructures.FileStorage, location='files')
         data = parser.parse_args()
         file_stream = data.file.stream
-        filename_md5, exists = upload_to_s3(file_stream)
+        content = file_stream.read()
+        filename_md5 = calc_md5(content)
+        exists = upload_to_s3(filename_md5, file_stream)
         metadata, expire = cache.get(filename_md5, expire_time=True)
         if not metadata:
-            file_stream.seek(0)
-            metadata = extract_paper_metadata(file_stream.read())
+            metadata = extract_paper_metadata(content)
             metadata['md5'] = filename_md5
             cache.set(filename_md5, metadata, expire=12 * 60 * 60)
         return metadata
