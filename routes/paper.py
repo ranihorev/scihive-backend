@@ -4,7 +4,7 @@ from datetime import datetime
 
 from .user_utils import add_user_data
 from .acronym_extractor import extract_acronyms
-from .paper_query_utils import include_stats, get_paper_with_pdf, Github, get_paper_by_id
+from .paper_query_utils import include_stats, get_paper_with_pdf, Github, get_paper_by_id, PUBLIC_TYPES
 from .latex_utils import extract_references_from_latex, REFERENCES_VERSION
 from . import db_papers, db_comments, db_acronyms, db_group_papers
 from bson import ObjectId
@@ -124,9 +124,6 @@ def add_metadata(comments):
             add_single_meta(c)
     else:
         add_single_meta(comments)
-
-
-PUBLIC_TYPES = ['public', 'anonymous']
 
 
 class Comments(Resource):

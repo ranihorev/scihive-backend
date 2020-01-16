@@ -27,6 +27,8 @@ SORT_DICT = {
 }
 AGE_DICT = {'day': 1, '3days': 3, 'week': 7, 'month': 30, 'year': 365, 'all': -1}
 
+PUBLIC_TYPES = ['public', 'anonymous']
+
 query_parser = reqparse.RequestParser()
 query_parser.add_argument('q', type=str, required=False)
 query_parser.add_argument('author', type=str, required=False)
@@ -196,10 +198,12 @@ def get_papers(library=False, page_size=20):
 
 def get_comments_count():
     papers_comments = {}
+    current_user = get_jwt_identity()
+    user_filter = [{'user.email': current_user}] if current_user else []
     papers_comments_list = list(db_comments.aggregate([
         {
             "$match": {
-                "visibility.type": {"$in": ["public", "anonymous"]}
+                "$or": [{"visibility.type": {"$in": PUBLIC_TYPES}}, ] + user_filter
             }
         },
         {
