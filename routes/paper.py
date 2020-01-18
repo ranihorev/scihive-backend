@@ -141,9 +141,7 @@ class Comments(Resource):
             visibility_filter = {'$or': [{'visibility.id': group_id}] + user_filter}
         else:
             visibility_filter = {'$or': [{'visibility.type': {'$in': PUBLIC_TYPES}}, {'visibility': {'$in': PUBLIC_TYPES}}, ] + user_filter}
-        comments = list(db_comments.find({'$and': [{'pid': paper_id}, visibility_filter]}).sort([
-            ('position.pageNumber', pymongo.ASCENDING),
-            ('position.boundingRect.y1', pymongo.ASCENDING)]))
+        comments = list(db_comments.find({'$and': [{'pid': paper_id}, visibility_filter]}))
         add_metadata(comments)
         return comments
 
