@@ -56,8 +56,12 @@ paper_fields = {
     'url': fields.String(attribute='pdf_link'),
     'saved_in_library': fields.Boolean,
     'title': fields.String,
+    'authors': fields.Nested({'name': fields.String}),
+    'time_published': fields.DateTime(dt_format='rfc822'),
+    'summary': fields.String,
     'code': Github(attribute='code'),
-    'groups': fields.Raw
+    'groups': fields.Raw,
+    'is_editable': fields.Boolean(attribute='is_private', default=False)
 }
 
 
