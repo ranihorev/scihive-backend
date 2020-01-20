@@ -10,7 +10,7 @@ from .latex_utils import extract_references_from_latex, REFERENCES_VERSION
 from . import db_papers, db_comments, db_acronyms, db_group_papers
 from bson import ObjectId
 from flask import Blueprint
-from flask_jwt_extended import jwt_optional, get_jwt_identity
+from flask_jwt_extended import jwt_optional, get_jwt_identity, jwt_required
 from flask_restful import Resource, Api, reqparse, abort, fields, marshal_with
 import uuid
 from enum import Enum
@@ -40,17 +40,20 @@ def visibilityObj(obj):
 
 
 new_comment_parser = reqparse.RequestParser()
-new_comment_parser.add_argument('comment', help='This field cannot be blank', type=dict, location='json', required=False)
+new_comment_parser.add_argument('comment', help='This field cannot be blank', type=dict, location='json',
+                                required=False)
 new_comment_parser.add_argument('content', help='This field cannot be blank', type=dict, location='json', required=True)
-new_comment_parser.add_argument('position', help='This field cannot be blank', type=dict, location='json', required=True)
-new_comment_parser.add_argument('visibility', help='This field cannot be blank', type=visibilityObj, location='json', required=True)
+new_comment_parser.add_argument('position', help='This field cannot be blank', type=dict, location='json',
+                                required=True)
+new_comment_parser.add_argument('visibility', help='This field cannot be blank', type=visibilityObj, location='json',
+                                required=True)
 
 edit_comment_parser = reqparse.RequestParser()
-edit_comment_parser.add_argument('comment', help='This field cannot be blank', type=str, location='json', required=False)
+edit_comment_parser.add_argument('comment', help='This field cannot be blank', type=str, location='json',
+                                 required=False)
 
 new_reply_parser = reqparse.RequestParser()
 new_reply_parser.add_argument('text', help='This field cannot be blank', type=str, location='json', required=True)
-
 
 paper_fields = {
     'url': fields.String(attribute='pdf_link'),
@@ -144,7 +147,8 @@ class Comments(Resource):
         if group_id:
             visibility_filter = {'$or': [{'visibility.id': group_id}] + user_filter}
         else:
-            visibility_filter = {'$or': [{'visibility.type': {'$in': PUBLIC_TYPES}}, {'visibility': {'$in': PUBLIC_TYPES}}, ] + user_filter}
+            visibility_filter = {'$or': [{'visibility.type': {'$in': PUBLIC_TYPES}},
+                                         {'visibility': {'$in': PUBLIC_TYPES}}, ] + user_filter}
         comments = list(db_comments.find({'$and': [{'pid': paper_id}, visibility_filter]}))
         add_metadata(comments)
         return comments
@@ -255,7 +259,8 @@ class PaperReferences(Resource):
         if paper.get('is_private'):
             return []
         force_update = bool(query_parser.parse_args().get('force'))
-        references, _, _ = get_paper_item(paper_id, 'references', extract_references_from_latex, REFERENCES_VERSION, force_update=force_update)
+        references, _, _ = get_paper_item(paper_id, 'references', extract_references_from_latex, REFERENCES_VERSION,
+                                          force_update=force_update)
         return references['data']
 
 
@@ -277,7 +282,8 @@ class PaperAcronyms(Resource):
             else:
                 long_forms = m.get('long_form')
                 if long_forms:
-                    most_common = max(long_forms, key=(lambda key: long_forms[key] if isinstance(long_forms[key], int) else 0))
+                    most_common = max(long_forms,
+                                      key=(lambda key: long_forms[key] if isinstance(long_forms[key], int) else 0))
                     matches[cur_short_form] = most_common
         return matches
 
@@ -292,6 +298,35 @@ class PaperAcronyms(Resource):
         return matches
 
 
+class EditPaper(Resource):
+    method_decorators = [jwt_required]
+
+    @marshal_with(paper_fields)
+    def post(self, paper_id):
+        current_user = get_jwt_identity()
+        parser = reqparse.RequestParser()
+        parser.add_argument('title', type=str, required=True)
+        parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True,
+                            dest="time_published")
+        parser.add_argument('abstract', type=str, required=True, dest="summary")
+        parser.add_argument('authors', type=dict, required=True, action="append")
+        data = parser.parse_args()
+        paper_id = fix_paper_id(paper_id)
+        old_data = db_papers.find_one(paper_id, {'_id': 0, 'title': 1, 'time_published': 1, 'summary': 1, 'authors': 1})
+        changes = {}
+        for key in old_data:
+            if data.get(key) != old_data.get(key):
+                changes[key] = old_data.get(key)
+
+        if changes:
+            changes['stored_at'] = datetime.utcnow()
+            changes['changed_by'] = current_user
+            db_papers.update_one({'_id': fix_paper_id(paper_id)}, {'$set': data, '$push': {'history': changes}})
+        resp = get_paper_with_pdf(paper_id)
+        return resp
+
+
+api.add_resource(EditPaper, "/<paper_id>/edit")
 api.add_resource(PaperAcronyms, "/<paper_id>/acronyms")
 api.add_resource(Comments, "/<paper_id>/comments")
 api.add_resource(PaperReferences, "/<paper_id>/references")
@@ -299,8 +334,3 @@ api.add_resource(NewComment, "/<paper_id>/new_comment")
 api.add_resource(Comment, "/<paper_id>/comment/<comment_id>")
 api.add_resource(Reply, "/<paper_id>/comment/<comment_id>/reply")
 api.add_resource(Paper, "/<paper_id>")
-
-
-
-
-

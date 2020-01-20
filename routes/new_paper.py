@@ -78,9 +78,10 @@ def extract_paper_metadata(file_content) -> Tuple[str, List[Author], str]:
     else:
         publish_date = datetime.now()
 
-    return {'title': title, 'authors': authors, 'abstract': abstract, 'date': publish_date}
+    return {'title': title or '', 'authors': authors, 'abstract': abstract, 'date': publish_date}
 
 
+# Post only uploads the file. Patch adds the meta data and creates the record
 class NewPaper(Resource):
     method_decorators = [jwt_required]
 
@@ -108,7 +109,7 @@ class NewPaper(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('md5', type=str, required=True)
         parser.add_argument('title', type=str, required=True)
-        parser.add_argument('date', type=lambda x: datetime.strptime(x, '%a, %d %b %Y %H:%M:%S %z'), required=True, dest="time_published")
+        parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True, dest="time_published")
         parser.add_argument('abstract', type=str, required=True, dest="summary")
         parser.add_argument('authors', type=dict, required=True, action="append")
         data = parser.parse_args()
