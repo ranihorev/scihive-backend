@@ -12,7 +12,6 @@ app = Blueprint('paper_list', __name__)
 api = Api(app)
 logger = logging.getLogger(__name__)
 
-
 query_parser = reqparse.RequestParser()
 query_parser.add_argument('q', type=str, required=False)
 query_parser.add_argument('author', type=str, required=False)
@@ -34,7 +33,9 @@ class Autocomplete(Resource):
         authors = [{'name': a['_id'], 'type': 'author'} for a in authors]
 
         # TODO: the autocomplete doesn't support private papers (the id format is different)
-        papers = list(db_papers.find({'$or': [{'_id': q}, {'$text': {'$search': q}}]}).limit(MAX_ITEMS))
+        papers = list(db_papers.find(
+            {'$and': [{'$or': [{'_id': q}, {'$text': {'$search': q}}]}, {'is_private': {'$exists': False}}]}).limit(
+            MAX_ITEMS))
         papers = [{'name': p['title'], 'type': 'paper', 'id': p['_id']} for p in papers]
 
         papers_len = len(papers)
