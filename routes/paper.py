@@ -39,18 +39,7 @@ def visibilityObj(obj):
     return obj
 
 
-new_comment_parser = reqparse.RequestParser()
-new_comment_parser.add_argument('comment', help='This field cannot be blank', type=dict, location='json',
-                                required=False)
-new_comment_parser.add_argument('content', help='This field cannot be blank', type=dict, location='json', required=True)
-new_comment_parser.add_argument('position', help='This field cannot be blank', type=dict, location='json',
-                                required=True)
-new_comment_parser.add_argument('visibility', help='This field cannot be blank', type=visibilityObj, location='json',
-                                required=True)
-
-edit_comment_parser = reqparse.RequestParser()
-edit_comment_parser.add_argument('comment', help='This field cannot be blank', type=str, location='json',
-                                 required=False)
+EMPTY_FIELD_MSG = 'This field cannot be blank'
 
 new_reply_parser = reqparse.RequestParser()
 new_reply_parser.add_argument('text', help='This field cannot be blank', type=str, location='json', required=True)
@@ -110,6 +99,7 @@ comment_fields = {
     'createdAt': fields.DateTime(dt_format='rfc822', attribute='created_at'),
     'replies': fields.List(fields.Nested(replies_fields)),
     'visibility': VisibilityField,
+    'isGeneral': fields.Boolean,
 }
 
 
@@ -160,7 +150,24 @@ class NewComment(Resource):
     @marshal_with(comment_fields, envelope='comment')
     def post(self, paper_id):
         # TODO Validate paper id
+        new_comment_parser = reqparse.RequestParser()
+        new_comment_parser.add_argument('comment', help=EMPTY_FIELD_MSG, type=dict, location='json')
+        new_comment_parser.add_argument('content', help=EMPTY_FIELD_MSG, type=dict, location='json')
+        new_comment_parser.add_argument('position', type=dict, location='json')
+        new_comment_parser.add_argument('isGeneral', type=bool, location='json')
+        new_comment_parser.add_argument('visibility', help=EMPTY_FIELD_MSG, type=visibilityObj, location='json',
+                                        required=True)
         data = new_comment_parser.parse_args()
+        isGeneral = data['isGeneral'] is not None
+        if not isGeneral and (data['position'] is None or data['content'] is None):
+            abort(401, message='position or content are missing for non-general comment')
+
+        if isGeneral:
+            del data['position']
+            del data['content']
+        else:
+            del data['isGeneral']
+
         data['pid'] = paper_id
         data['created_at'] = datetime.utcnow()
         add_user_data(data)
@@ -193,8 +200,12 @@ class Comment(Resource):
     def patch(self, paper_id, comment_id):
         comment_id = {'_id': ObjectId(comment_id)}
         self._get_comment(comment_id)
+        edit_comment_parser = reqparse.RequestParser()
+        edit_comment_parser.add_argument('comment', help=EMPTY_FIELD_MSG, type=str, location='json', required=False)
+        edit_comment_parser.add_argument('visibility', help=EMPTY_FIELD_MSG, type=visibilityObj, location='json',
+                                         required=True)
         data = edit_comment_parser.parse_args()
-        new_values = {"$set": {'comment.text': data['comment']}}
+        new_values = {"$set": {'comment.text': data['comment'], 'visibility': data['visibility']}}
         db_comments.update_one(comment_id, new_values)
         comment = db_comments.find_one(comment_id)
         add_metadata(comment)
