@@ -3,7 +3,7 @@ import pymongo
 from datetime import datetime
 
 from routes.query_utils import fix_paper_id
-from .user_utils import add_user_data
+from .user_utils import add_user_data, find_by_email
 from .acronym_extractor import extract_acronyms
 from .paper_query_utils import include_stats, get_paper_with_pdf, Github, get_paper_by_id, PUBLIC_TYPES
 from .latex_utils import extract_references_from_latex, REFERENCES_VERSION
@@ -62,8 +62,12 @@ class Paper(Resource):
 
     @marshal_with(paper_fields)
     def get(self, paper_id):
+        current_user = get_jwt_identity()
         paper = get_paper_with_pdf(paper_id)
-        paper['groups'] = list(db_group_papers.find({'paper_id': fix_paper_id(paper_id)}))
+        paper['groups'] = []
+        if current_user:
+            user = find_by_email(current_user, {"_id": 1})
+            paper['groups'] = list(db_group_papers.find({'paper_id': fix_paper_id(paper_id), 'user': str(user['_id'])}, {'group_id': 1, 'is_library': 1}))
         paper = include_stats([paper], user=get_jwt_identity())[0]
 
         return paper
