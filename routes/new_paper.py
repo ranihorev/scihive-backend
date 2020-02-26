@@ -1,3 +1,4 @@
+import io
 import logging
 import xml.etree.ElementTree as ET
 import re
@@ -10,7 +11,7 @@ import requests
 import werkzeug
 from flask import Blueprint
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask_restful import Resource, Api, reqparse, marshal_with, fields
+from flask_restful import Resource, Api, reqparse, marshal_with, fields, abort
 from typing import NamedTuple, List, Tuple
 
 from .user_utils import add_to_library, add_user_data
@@ -91,8 +92,17 @@ class NewPaper(Resource):
     def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument('file', type=werkzeug.datastructures.FileStorage, location='files')
+        parser.add_argument('link', type=str)
         data = parser.parse_args()
-        file_stream = data.file.stream
+        if not data.file and not data.link:
+            abort(401, messsage='Missing content')
+
+        if data.link:
+            res = requests.get(data.link)
+            file_stream = io.BytesIO(res.content)
+        else:
+            file_stream = data.file.stream
+
         content = file_stream.read()
         filename_md5 = calc_md5(content)
         exists = upload_to_s3(filename_md5, file_stream)
