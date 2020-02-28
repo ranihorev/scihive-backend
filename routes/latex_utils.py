@@ -50,7 +50,7 @@ def extract_files(file, types):
 
 def arxiv_id_to_source_url(arxiv_id):
     # https://arxiv.org/help/mimetypes has more info
-    return 'https://arxiv.org/e-print/' + arxiv_id
+    return 'https://arxiv.org/e-print/' + arxiv_id.replace('_', '/')
 
 
 # Downloads arxiv latex source code
