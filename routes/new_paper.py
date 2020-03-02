@@ -48,10 +48,17 @@ class AuthorMarshal(fields.Raw):
 
 
 def extract_paper_metadata(file_content) -> Tuple[str, List[Author], str]:
-    grobid_res = requests.post('http://cloud.science-miner.com/grobid/api/processHeaderDocument',
-                               data={'consolidateHeader': 1}, files={'input': file_content})
-    content = re.sub(' xmlns="[^"]+"', '', grobid_res.text)
-    tree = ET.fromstring(content)
+    try:
+        grobid_res = requests.post('http://cloud.science-miner.com/grobid/api/processHeaderDocument',
+                                   data={'consolidateHeader': 1}, files={'input': file_content})
+        if grobid_res.status_code == 503:
+            raise Exception('Grobid is unavailable')
+        content = re.sub(' xmlns="[^"]+"', '', grobid_res.text)
+        tree = ET.fromstring(content)
+    except Exception as e:
+        logger.error(f'Failed to extract metadata for paper - {e}')
+        return False, {'title': '', 'authors': [], 'abstract': '', 'date': datetime.now()}
+
     title = get_tag_text(tree, 'title')
 
     authors_tree = tree.findall('.//author')
@@ -79,7 +86,7 @@ def extract_paper_metadata(file_content) -> Tuple[str, List[Author], str]:
     else:
         publish_date = datetime.now()
 
-    return {'title': title or '', 'authors': authors, 'abstract': abstract, 'date': publish_date}
+    return True, {'title': title or '', 'authors': authors, 'abstract': abstract, 'date': publish_date}
 
 
 # Post only uploads the file. Patch adds the meta data and creates the record
@@ -105,12 +112,14 @@ class NewPaper(Resource):
 
         content = file_stream.read()
         filename_md5 = calc_md5(content)
-        exists = upload_to_s3(filename_md5, file_stream)
+        upload_to_s3(filename_md5, file_stream)
         metadata, expire = cache.get(filename_md5, expire_time=True)
         if not metadata:
-            metadata = extract_paper_metadata(content)
+            success, metadata = extract_paper_metadata(content)
             metadata['md5'] = filename_md5
-            cache.set(filename_md5, metadata, expire=12 * 60 * 60)
+            if success:
+                cache.set(filename_md5, metadata, expire=24 * 60 * 60)
+
         return metadata
 
     def patch(self):
@@ -119,7 +128,8 @@ class NewPaper(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('md5', type=str, required=True)
         parser.add_argument('title', type=str, required=True)
-        parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True, dest="time_published")
+        parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True,
+                            dest="time_published")
         parser.add_argument('abstract', type=str, required=True, dest="summary")
         parser.add_argument('authors', type=dict, required=True, action="append")
         data = parser.parse_args()
