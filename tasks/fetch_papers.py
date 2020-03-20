@@ -4,6 +4,7 @@ The script is intended to enrich an existing database pickle (by default db.p),
 so this file will be loaded first, and then new results will be added to it.
 """
 import logging
+import re
 
 import dateutil.parser
 import pymongo
@@ -48,11 +49,8 @@ def parse_arxiv_url(url):
     examples is http://arxiv.org/abs/1512.08756v2
     we want to extract the raw id and the version
     """
-    ix = url.rfind('/')
-    idversion = url[ix+1:] # extract just the id (and the version)
-    parts = idversion.split('v')
-    assert len(parts) == 2, 'error parsing url ' + url
-    return parts[0], int(parts[1])
+    match = re.search(r"/(?P<id>(\d{4}\.\d{4,5})|([a-zA-Z\-.]+/\d{6,10}))(v(?P<version>\d+))?$", url)
+    return match.group('id').replace('/', '_'), int(match.group('version') or 0)
 
 
 def handle_entry(e):
@@ -97,15 +95,16 @@ def fetch_entries(query):
     return num_added, num_skipped
 
 
-def fetch_entry(id):
+def fetch_entry(paper_id):
+    paper_id = paper_id.replace('_', '/')
     try:
-        with urllib.request.urlopen(f'{BASE_URL}id_list={id}') as url:
+        with urllib.request.urlopen(f'{BASE_URL}id_list={paper_id}') as url:
             response = url.read()
         parse = feedparser.parse(response)
         paper, added, skipped = handle_entry(parse.entries[0])
         return paper
     except Exception as e:
-        logger.warning(f'Paper not found on arxiv - {id}')
+        logger.warning(f'Paper not found on arxiv - {paper_id}')
         return None
 
 

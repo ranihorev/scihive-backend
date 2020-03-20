@@ -1,6 +1,7 @@
 import re
 from flask import Blueprint, jsonify
 import logging
+import json
 from flask_jwt_extended import jwt_optional
 from flask_restful import Api, Resource, reqparse, marshal_with
 
@@ -10,7 +11,6 @@ from . import db_authors, db_papers
 app = Blueprint('paper_list', __name__)
 api = Api(app)
 logger = logging.getLogger(__name__)
-
 
 query_parser = reqparse.RequestParser()
 query_parser.add_argument('q', type=str, required=False)
@@ -32,7 +32,10 @@ class Autocomplete(Resource):
         authors = list(db_authors.find({'_id': {'$regex': re.compile(author_q, re.IGNORECASE)}}).limit(MAX_ITEMS))
         authors = [{'name': a['_id'], 'type': 'author'} for a in authors]
 
-        papers = list(db_papers.find({'$or': [{'_id': q}, {'$text': {'$search': q}}]}).limit(MAX_ITEMS))
+        # TODO: the autocomplete doesn't support private papers (the id format is different)
+        papers = list(db_papers.find(
+            {'$and': [{'$or': [{'_id': q}, {'$text': {'$search': q}}]}, {'is_private': {'$exists': False}}]}).limit(
+            MAX_ITEMS))
         papers = [{'name': p['title'], 'type': 'paper', 'id': p['_id']} for p in papers]
 
         papers_len = len(papers)
@@ -59,5 +62,14 @@ class Papers(Resource):
         return papers
 
 
+categories = json.load(open('relevant_arxiv_categories.json', 'r'))
+
+
+class Categories(Resource):
+    def get(self):
+        return categories
+
+
+api.add_resource(Categories, "/categories")
 api.add_resource(Autocomplete, "/autocomplete")
 api.add_resource(Papers, "/all")

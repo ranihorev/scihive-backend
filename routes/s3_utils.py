@@ -1,3 +1,4 @@
+import hashlib
 import os
 import urllib
 import boto3
@@ -26,8 +27,12 @@ def exists(key):
     return False
 
 
-def key_to_url(key):
-    return f'https://{BUCKET}/{key}'
+def key_to_url(key, with_prefix=False):
+    url = f'https://{BUCKET}'
+    if with_prefix:
+        url += f'/{PREFIX}'
+    url += f'/{key}'
+    return url
 
 
 def arxiv_to_s3(url):
@@ -41,3 +46,14 @@ def arxiv_to_s3(url):
     return key_to_url(key)
 
 
+def upload_to_s3(md5: str, file_stream):
+    key = f'{PREFIX}/{md5}.pdf'
+    if exists(key):
+        return True
+    file_stream.seek(0)
+    s3.upload_fileobj(file_stream, BUCKET, key)
+    return False
+
+
+def calc_md5(content):
+    return hashlib.md5(content).hexdigest()
