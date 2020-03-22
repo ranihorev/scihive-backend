@@ -1,9 +1,10 @@
 import logging
 import os
 import json
-import patch_marshal
+
 from flask import Flask
 from flask_cors import CORS
+from flask_graphql import GraphQLView
 from flask_jwt_extended import JWTManager
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from flask_limiter import Limiter
@@ -17,12 +18,14 @@ from routes.library import app as library_routes
 from routes.groups import app as groups_routes
 from routes.admin import app as admin_routes
 from routes.new_paper import app as new_paper_routes
+# from corona.main import app as corona_routes
 from dotenv import load_dotenv
 import pymongo
 from logger import logger_config
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
-
+from corona.models import db_session
+from corona.schema import schema
 
 load_dotenv()
 env = os.environ.get('ENV', 'development')
@@ -75,7 +78,7 @@ if app.debug:
     })
 
 limiter = Limiter(app, key_func=get_remote_address, default_limits=[
-                  "5000 per hour", "200 per minute"])
+    "5000 per hour", "200 per minute"])
 cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
 app.register_blueprint(paper_list_routes, url_prefix='/papers')
@@ -85,6 +88,14 @@ app.register_blueprint(library_routes, url_prefix='/library')
 app.register_blueprint(groups_routes, url_prefix='/groups')
 app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
+
+app.add_url_rule('/graphql', view_func=GraphQLView.as_view('graphql', schema=schema, graphiql=True,
+                                                           context={'session': db_session}))
+
+
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    db_session.remove()
 
 
 # -----------------------------------------------------------------------------
