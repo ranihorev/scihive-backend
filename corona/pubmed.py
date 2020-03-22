@@ -1,6 +1,7 @@
 import requests
 from xml.etree import ElementTree
 
+
 # PubMed API Documentation
 # https://www.ncbi.nlm.nih.gov/pmc/tools/developers/
 
@@ -28,6 +29,7 @@ def get_paper_metadata(paper_id):
 
     return paper_title, paper_pub_date, pdf_url
 
+
 # Searches a query in PubMed and returns all the IDs of papers that fit that query within the current pagination
 def partial_query_pubmed(query, pagination=0, max_results=500):
     # Base URL to work with
@@ -42,6 +44,7 @@ def partial_query_pubmed(query, pagination=0, max_results=500):
     paper_ids = response_json['esearchresult']['idlist']
 
     return paper_ids, int(total_results)
+
 
 # Searches a query in PubMed and returns all the IDs of papers that fit that query
 def query_pubmed(query, max_results=30):
@@ -59,11 +62,13 @@ def query_pubmed(query, max_results=30):
 
     return paper_ids
 
+
 def main():
     # ids = query_pubmed('COVID')
     # print(ids)
     # print(len(ids))
     print(get_paper_metadata('2821897'))
+
 
 if __name__ == '__main__':
     main()

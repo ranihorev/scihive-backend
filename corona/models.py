@@ -39,6 +39,7 @@ class Author(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
     papers = relationship("Paper", back_populates="authors", secondary=paper_author_table)
+    json_data = Column(JSON)
 
 
 Base.metadata.create_all(bind=engine)
