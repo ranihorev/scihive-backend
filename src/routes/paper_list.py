@@ -5,6 +5,7 @@ import json
 from flask_jwt_extended import jwt_optional
 from flask_restful import Api, Resource, reqparse, marshal_with
 
+from src.utils import get_file_path
 from .paper_query_utils import get_papers, papers_list_fields
 from . import db_authors, db_papers
 
@@ -13,10 +14,10 @@ api = Api(app)
 logger = logging.getLogger(__name__)
 
 query_parser = reqparse.RequestParser()
-query_parser.add_argument('q', type=str, required=False)
-query_parser.add_argument('author', type=str, required=False)
+query_parser.add_argument('q', type=str, required=False, store_missing=False)
+query_parser.add_argument('author', type=str, required=False, store_missing=False)
 query_parser.add_argument('page_num', type=int, required=False)
-query_parser.add_argument('sort', type=str, required=False)
+query_parser.add_argument('sort', type=str, required=False, store_missing=False)
 
 
 class Autocomplete(Resource):
@@ -62,7 +63,7 @@ class Papers(Resource):
         return papers
 
 
-categories = json.load(open('relevant_arxiv_categories.json', 'r'))
+categories = json.load(open(get_file_path(__file__, '../relevant_arxiv_categories.json'), 'r'))
 
 
 class Categories(Resource):

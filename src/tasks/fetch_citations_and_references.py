@@ -85,7 +85,7 @@ def update_all_papers(age_days=5):
 
 
 if __name__ == '__main__':
-    from logger import logger_config
+    from ..logger import logger_config
     logger_config(info_filename='citations_fetcher.log')
     update_all_papers()
 

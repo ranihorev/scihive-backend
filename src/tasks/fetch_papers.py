@@ -137,7 +137,7 @@ def fetch_papers_main(start_index=0, max_index=3000, results_per_iteration=200, 
 
 
 if __name__ == "__main__":
-    from logger import logger_config
+    from ..logger import logger_config
     logger_config(info_filename='arxiv_fetcher.log')
     # parse input arguments
     parser = argparse.ArgumentParser()

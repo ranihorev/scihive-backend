@@ -250,6 +250,6 @@ db_papers = mdb.papers
 
 # main loop
 if __name__ == '__main__':
-    from logger import logger_config
+    from ..logger import logger_config
     logger_config(info_filename='twitter_daemon.log')
     main_twitter_fetcher()

@@ -3,7 +3,7 @@ import logging
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restful import Api, Resource, reqparse, abort
 from . import db_acronyms
-from routes.user import find_by_email
+from .user import find_by_email
 
 app = Blueprint('admin', __name__)
 api = Api(app)

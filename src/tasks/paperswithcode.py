@@ -64,7 +64,7 @@ def fetch_code_data():
 
 
 if __name__ == "__main__":
-    from logger import logger_config
+    from ..logger import logger_config
     logger_config(info_filename='arxiv_fetcher.log')
     fetch_code_data()
 

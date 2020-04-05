@@ -6,7 +6,7 @@ from flask import Blueprint
 import logging
 
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask_restful import Resource, reqparse, Api, fields, marshal_with, abort
+from flask_restful import Resource, reqparse, Api, fields, marshal_with
 
 from .group_utils import get_group, add_user_to_group
 from .user_utils import find_by_email, add_remove_group
@@ -114,7 +114,7 @@ class Group(Resource):
     @marshal_with(group_fields)
     def patch(self, group_id: str):
         current_user = get_jwt_identity()
-        user_id = find_by_email(current_user, fields={'id': 1})
+        find_by_email(current_user, fields={'id': 1})
         # TODO check if created by the user?
         parser = reqparse.RequestParser()
         parser.add_argument('name', required=False, type=str)

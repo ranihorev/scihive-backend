@@ -15,6 +15,7 @@ s3 = boto3.client(
 BUCKET = os.environ.get('S3_BUCKET_NAME')
 PREFIX = 'papers'
 
+
 def exists(key):
     """return the key's size if it exist, else None"""
     response = s3.list_objects_v2(

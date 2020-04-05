@@ -5,10 +5,10 @@ from typing import List
 
 from flask_jwt_extended import get_jwt_identity
 
-from routes.groups import get_user_group_ids
+from .groups import get_user_group_ids
 from .s3_utils import arxiv_to_s3
 from .query_utils import fix_paper_id
-from tasks.fetch_papers import fetch_entry
+from ..tasks.fetch_papers import fetch_entry
 from .user_utils import find_by_email
 from . import db_comments, db_group_papers
 from flask_restful import reqparse, fields, abort
@@ -34,7 +34,7 @@ query_parser = reqparse.RequestParser()
 query_parser.add_argument('q', type=str, required=False)
 query_parser.add_argument('author', type=str, required=False)
 query_parser.add_argument('page_num', type=int, required=False, default=1)
-query_parser.add_argument('sort', type=str, required=False, choices=list(SORT_DICT.keys()))
+query_parser.add_argument('sort', type=str, required=False, choices=list(SORT_DICT.keys()), store_missing=False)
 query_parser.add_argument('age', type=str, required=False, choices=list(AGE_DICT.keys()), default='week')
 query_parser.add_argument('categories', type=str, required=False)
 query_parser.add_argument('group', type=str, required=False)

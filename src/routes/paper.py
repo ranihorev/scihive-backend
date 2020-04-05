@@ -1,8 +1,7 @@
 import logging
-import pymongo
 from datetime import datetime
 
-from routes.query_utils import fix_paper_id
+from .query_utils import fix_paper_id
 from .user_utils import add_user_data, find_by_email
 from .acronym_extractor import extract_acronyms
 from .paper_query_utils import include_stats, get_paper_with_pdf, Github, get_paper_by_id, PUBLIC_TYPES
@@ -89,7 +88,7 @@ class UsernameField(fields.Raw):
 class VisibilityField(fields.Raw):
     def format(self, obj):
         if isinstance(obj, dict):
-            return obj;
+            return obj
         return {'type': obj}
 
 

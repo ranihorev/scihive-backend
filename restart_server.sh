@@ -16,7 +16,7 @@ fi
 
 pids=$(pgrep python)
 kill -9 $pids
-python run_background_tasks.py &
-python serve.py &
+python src/run_background_tasks.py &
+python src/serve.py &
 
 sudo scalyr-agent-2 restart
