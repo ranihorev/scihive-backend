@@ -2,8 +2,10 @@ import logging
 import os
 
 from src import app
+# create the DB:
+from .new_backend.models import db
+
 from flask_cors import CORS
-from flask_graphql import GraphQLView
 from flask_jwt_extended import JWTManager
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from flask_limiter import Limiter
@@ -17,14 +19,10 @@ from .routes.library import app as library_routes
 from .routes.groups import app as groups_routes
 from .routes.admin import app as admin_routes
 from .routes.new_paper import app as new_paper_routes
-from dotenv import load_dotenv
-from .logger import logger_config
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
-from .new_backend.models import db_session
-from .new_backend.schema import schema
 
-load_dotenv()
+
 env = os.environ.get('ENV', 'development')
 
 logger = logging.getLogger(__name__)
@@ -82,15 +80,8 @@ app.register_blueprint(groups_routes, url_prefix='/groups')
 app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
 
-app.add_url_rule('/graphql', view_func=GraphQLView.as_view('graphql', schema=schema, graphiql=True,
-                                                           context={'session': db_session}))
-
 
 @app.route('/test')
 def hello_world():
     return 'Hello, World!'
-
-@app.teardown_appcontext
-def shutdown_session(exception=None):
-    db_session.remove()
 

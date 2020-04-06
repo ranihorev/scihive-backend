@@ -19,11 +19,6 @@ def save_revoked_token(jti):
     return revoked_tokens.insert_one({'jti': jti})
 
 
-def save_user(email, password, username):
-    return db_users.insert_one(
-        {'email': email, 'password': password, 'username': username, 'library_id': str(uuid.uuid4())})
-
-
 def find_by_email(email, fields=None):
     query = {'email': email}
     validate_library_id = not fields or (isinstance(fields, dict) and fields.get('library_id') == 1)

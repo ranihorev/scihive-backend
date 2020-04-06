@@ -8,7 +8,8 @@ from flask_restful import Resource, reqparse, Api
 from flask_jwt_extended import (create_access_token, jwt_required, jwt_refresh_token_required,
                                 get_jwt_identity, get_raw_jwt, set_access_cookies, unset_access_cookies)
 
-from .user_utils import find_by_email, generate_hash, save_user, verify_hash, save_revoked_token
+from ..new_backend.models import User, db
+from .user_utils import find_by_email, generate_hash, verify_hash, save_revoked_token
 
 app = Blueprint('user', __name__)
 api = Api(app)
@@ -31,7 +32,7 @@ class UserRegistration(Resource):
     def post(self):
         data = parser.parse_args()
 
-        if find_by_email(data['email']):
+        if db.session.query(User.email).filter_by(email=data['email']).scalar() is not None:
             return {'message': 'User {} already exists'.format(data['email'])}
 
         email = data['email']
@@ -41,7 +42,10 @@ class UserRegistration(Resource):
             username = 'Anon_' + ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
 
         try:
-            save_user(email, password, username)
+            new_user = User(username=username, email=email, password=password)
+            db.session.add(new_user)
+            db.session.commit()
+
             access_token = create_access_token(identity=data['email'])
             # refresh_token = create_refresh_token(identity=data['email'])
             resp = jsonify({'message': 'User was created', 'username': username, 'email': email})

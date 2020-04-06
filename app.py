@@ -1,12 +1,10 @@
 import logging
 import os
-
 from src import app
-from dotenv import load_dotenv
 import pymongo
 from src.logger import logger_config
 
-load_dotenv()
+
 env = os.environ.get('ENV', 'development')
 
 logger_config()
