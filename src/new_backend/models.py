@@ -95,4 +95,10 @@ class Comment(db.Model):
     position = db.Column(db.JSON)
 
 
+class RevokedToken(db.Model):
+    __tablename__ = 'revoked_token'
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String, nullable=False)
+
+
 db.create_all()

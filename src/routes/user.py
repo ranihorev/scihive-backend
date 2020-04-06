@@ -8,8 +8,8 @@ from flask_restful import Resource, reqparse, Api
 from flask_jwt_extended import (create_access_token, jwt_required, jwt_refresh_token_required,
                                 get_jwt_identity, get_raw_jwt, set_access_cookies, unset_access_cookies)
 
-from ..new_backend.models import User, db
-from .user_utils import find_by_email, generate_hash, verify_hash, save_revoked_token
+from ..new_backend.models import User, db, RevokedToken
+from .user_utils import find_by_email, generate_hash, verify_hash
 
 app = Blueprint('user', __name__)
 api = Api(app)
@@ -59,18 +59,18 @@ class UserRegistration(Resource):
 class UserLogin(Resource):
     def post(self):
         data = parser.parse_args()
-        current_user = find_by_email(data['email'])
+        current_user = db.session.query(User).filter_by(email=data['email']).first()
 
         if not current_user:
             return {'message': 'User {} doesn\'t exist'.format(data['email'])}, 401
 
-        if verify_hash(data['password'], current_user['password']):
+        if verify_hash(data['password'], current_user.password):
             access_token = create_access_token(identity=data['email'])
             # refresh_token = create_refresh_token(identity=data['email'])
 
             resp = jsonify({'message': 'You are now logged in!',
-                            'username': current_user['username'],
-                            'email': current_user['email']}
+                            'username': current_user.username,
+                            'email': current_user.email}
                            )
             set_access_cookies(resp, access_token)
             return resp
@@ -83,21 +83,11 @@ class UserLogoutAccess(Resource):
     def post(self):
         jti = get_raw_jwt()['jti']
         try:
-            save_revoked_token(jti)
+            db.session.add(RevokedToken(token=jti))
+            db.session.commit()
             resp = jsonify({'message': 'Access token has been revoked'})
             unset_access_cookies(resp)
             return resp
-        except:
-            return {'message': 'Something went wrong'}, 500
-
-
-class UserLogoutRefresh(Resource):
-    @jwt_refresh_token_required
-    def post(self):
-        jti = get_raw_jwt()['jti']
-        try:
-            save_revoked_token(jti)
-            return {'message': 'Refresh token has been revoked'}
         except:
             return {'message': 'Something went wrong'}, 500
 
@@ -119,6 +109,5 @@ class ValidateUser(Resource):
 api.add_resource(UserRegistration, '/register')
 api.add_resource(UserLogin, '/login')
 api.add_resource(UserLogoutAccess, '/logout/access')
-api.add_resource(UserLogoutRefresh, '/logout/refresh')
 api.add_resource(TokenRefresh, '/token/refresh')
 api.add_resource(ValidateUser, '/validate')

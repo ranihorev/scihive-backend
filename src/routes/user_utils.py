@@ -15,10 +15,6 @@ def is_jti_blacklisted(jti):
     return bool(query)
 
 
-def save_revoked_token(jti):
-    return revoked_tokens.insert_one({'jti': jti})
-
-
 def find_by_email(email, fields=None):
     query = {'email': email}
     validate_library_id = not fields or (isinstance(fields, dict) and fields.get('library_id') == 1)
