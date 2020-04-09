@@ -3,11 +3,11 @@ import threading
 
 import schedule
 import time
-from tasks.fetch_papers import fetch_papers_main
-from tasks.twitter_daemon import main_twitter_fetcher
-from tasks.paperswithcode import fetch_code_data
+from .tasks.fetch_papers import fetch_papers_main
+from .tasks.twitter_daemon import main_twitter_fetcher
+from .tasks.paperswithcode import fetch_code_data
 
-from logger import logger_config
+from .logger import logger_config
 
 from dotenv import load_dotenv
 load_dotenv()
