@@ -2,14 +2,15 @@ import argparse
 import logging
 import threading
 
-from tasks.fetch_papers import fetch_papers_main
-from tasks.twitter_daemon import main_twitter_fetcher, recalculate
-from tasks.paperswithcode import fetch_code_data
+from src.tasks.fetch_papers import fetch_papers_main
+from src.tasks.twitter_daemon import main_twitter_fetcher, recalculate
+from src.tasks.paperswithcode import fetch_code_data
 
-from logger import logger_config
+from src.logger import logger_config
 
 from dotenv import load_dotenv
 load_dotenv()
+
 
 def run_threaded(job_func):
     job_thread = threading.Thread(target=job_func)

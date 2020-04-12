@@ -238,18 +238,21 @@ def recalculate():
 
 # -----------------------------------------------------------------------------
 
-# authenticate to twitter API
 
-api = get_api_connector()
-
-# connect to mongodb instance
-client = pymongo.MongoClient()
-mdb = client.arxiv
-db_tweets = mdb.tweets # the "tweets" collection in "arxiv" database
-db_papers = mdb.papers
 
 # main loop
 if __name__ == '__main__':
     from ..logger import logger_config
+
+    # authenticate to twitter API
+
+    api = get_api_connector()
+
+    # connect to mongodb instance
+    client = pymongo.MongoClient()
+    mdb = client.arxiv
+    db_tweets = mdb.tweets  # the "tweets" collection in "arxiv" database
+    db_papers = mdb.papers
+
     logger_config(info_filename='twitter_daemon.log')
     main_twitter_fetcher()
