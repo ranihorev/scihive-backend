@@ -19,6 +19,7 @@ from .routes.library import app as library_routes
 from .routes.groups import app as groups_routes
 from .routes.admin import app as admin_routes
 from .routes.new_paper import app as new_paper_routes
+from .new_backend.scrapers import arxiv
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 
@@ -80,9 +81,11 @@ app.register_blueprint(groups_routes, url_prefix='/groups')
 app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
 
-@app.cli.command("run-bla")
-def bla():
-    print("Hello")
+
+@app.cli.command("fetch-arxiv")
+def fetch_arxiv():
+    arxiv.run()
+
 
 @app.route('/test')
 def hello_world():

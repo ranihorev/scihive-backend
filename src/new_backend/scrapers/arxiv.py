@@ -13,8 +13,8 @@ import argparse
 import urllib.request
 import feedparser
 from ..models import Paper, Author, db
-from utils import catch_exceptions
-from ..logger import logger_config
+from .utils import catch_exceptions
+from src.logger import logger_config
 
 logger = logging.getLogger(__name__)
 BASE_URL = 'http://export.arxiv.org/api/query?' # base api query url
@@ -162,11 +162,12 @@ def parse_arguments():
     parser.add_argument('--results-per-iteration', type=int, default=200, help='passed to arxiv API')
     parser.add_argument('--wait-time', type=float, default=5.0, help='wait time allows being gentle on the arxiv API (in seconds)')
     parser.add_argument('--break-on-no-added', type=int, default=1, help='break out early if all returned query papers are already in db? 1=yes, 0=no')
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
 
     return args
 
-def main():
+
+def run():
     logger_config(info_filename='arxiv.log')
 
     # Parse input arguments
@@ -176,5 +177,6 @@ def main():
     # Fetching papers
     fetch_papers(args.start_index, args.max_index, args.results_per_iteration, args.wait_time, args.search_query, args.break_on_no_added)
 
+
 if __name__ == "__main__":
-    main()
+    run()
