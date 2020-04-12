@@ -47,8 +47,16 @@ def parse_arxiv_url(url):
     match = re.search(r"/(?P<id>(\d{4}\.\d{4,5})|([a-zA-Z\-.]+/\d{6,10}))(v(?P<version>\d+))?$", url)
     return match.group('id').replace('/', '_'), int(match.group('version') or 0)
 
+def get_pdf_link(paper_data):
+    for link in paper_data.get('links', []):
+        if link.get('type', '') == 'application/pdf':
+            return link.get('href', '')
+
+    return None
+
 def handle_entry(e):
     paper_data = encode_feedparser_dict(e)
+    # print(paper_data)
 
     # Count of added and skipper papers
     added = 0
@@ -67,25 +75,29 @@ def handle_entry(e):
     # TO DO: Create arXiv object as well
 
     if not existing_paper:
-        # Creating a new paper in database
-        # TO DO: Where is the PDF stored??
-        new_paper = Paper(title=paper_data['title'], link=paper_data['link'], pdf_link=paper_data['link'], publication_date=paper_data['time_published'], abstract=paper_data['summary'], original_id=paper_data['_rawid'], last_update_date=paper_data['time_updated'])
-        added = 1
+        # Getting the PDF from the dictionary
+        pdf_link = get_pdf_link(paper_data)
+
+        # We create a new paper in database only for papers that have a PDF
+        if pdf_link:
+            new_paper = Paper(title=paper_data['title'], link=paper_data['link'], pdf_link=pdf_link, publication_date=paper_data['time_published'], abstract=paper_data['summary'], original_id=paper_data['_rawid'], last_update_date=paper_data['time_updated'])
+            added = 1
 
         # Adding new authors to the paper
-        # for author in paper_data['authors']:
-        #     existing_author = db.session.query(Author).filter(Author.name == author['name']).first()
+        for author in paper_data['authors']:
+            author_name = author['name']
+            existing_author = db.session.query(Author).filter(Author.name == author_name).first()
 
-        #     if not existing_author:
-        #         new_author = Author(name=author)
-        #         new_author.papers.append(new_paper)
-        #         db.session.add(new_author)
+            if not existing_author:
+                new_author = Author(name=author_name)
+                new_author.papers.append(new_paper)
+                db.session.add(new_author)
 
         db.session.add(new_paper)
-    elif existing_paper.last_update_date < paper_data['time_published']:
+    elif existing_paper.last_update_date < paper_data['time_published'].date():
         # Updating the existing paper in the database
         existing_paper.title = paper_data['title']
-        existing_paper.abstract = paper_data['abstract']
+        existing_paper.abstract = paper_data['summary']
         existing_paper.link = paper_data['link']
         existing_paper.original_id = paper_data['_rawid']
         existing_paper.last_update_date = paper_data['time_updated']
