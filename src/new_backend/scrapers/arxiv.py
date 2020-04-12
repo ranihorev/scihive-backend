@@ -69,6 +69,11 @@ def get_tags(paper_data):
 
 def add_tags(tags, paper, source='arXiv'):
     for tag_name in tags:
+        # For the time being we ignore non-arxiv tags.
+        # ArXiv tags are always of the form archive.subject (https://arxiv.org/help/arxiv_identifier)
+        if not re.match('[A-Za-z\\-]+\\.[A-Za-z\\-]+', tag_name):
+            continue
+
         tag = db.session.query(Tag).filter(Tag.name == tag_name).first()
 
         if not tag:
