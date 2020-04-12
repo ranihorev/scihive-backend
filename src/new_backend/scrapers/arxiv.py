@@ -69,12 +69,12 @@ def handle_entry(e):
     if not existing_paper:
         # Creating a new paper in database
         # TO DO: Where is the PDF stored??
-        new_paper = Paper(title=paper_data['title'], link=paper_data['link'], publication_date=paper_data['time_published'], abstract=paper_data['abstract'], original_id=paper_data['_rawid'], last_update_date=paper_data['time_updated'])
+        new_paper = Paper(title=paper_data['title'], link=paper_data['link'], publication_date=paper_data['time_published'], abstract=paper_data['summary'], original_id=paper_data['_rawid'], last_update_date=paper_data['time_updated'])
         added = 1
 
         # Adding new authors to the paper
         for author in paper_data['authors']:
-            existing_author = db.session.query(Author).filter(Author.name == author).first()
+            existing_author = db.session.query(Author).filter(Author.name == author['name']).first()
 
             if not existing_author:
                 new_author = Author(name=author)
