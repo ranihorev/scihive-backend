@@ -80,6 +80,9 @@ app.register_blueprint(groups_routes, url_prefix='/groups')
 app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
 
+@app.cli.command("run-bla")
+def bla():
+    print("Hello")
 
 @app.route('/test')
 def hello_world():
