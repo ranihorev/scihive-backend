@@ -12,7 +12,7 @@ import random
 import argparse
 import urllib.request
 import feedparser
-from ..models import Paper, Author, db
+from ..models import Paper, Author, ArxivPaper, Tag, db
 from .utils import catch_exceptions
 from src.logger import logger_config
 
@@ -54,6 +54,30 @@ def get_pdf_link(paper_data):
 
     return None
 
+
+# Returns the tags in a given paper_data (the tags are CS, CS.ML, gr, etc), always in lower-case
+def get_tags(paper_data):
+    tags = []
+
+    for tag_dict in paper_data.get('tags', []):
+        tag = tag_dict.get('term', '')
+
+        if tag != '':
+            tags.append(tag)
+
+    return tags
+
+def add_tags(tags, paper, source='arXiv'):
+    for tag_name in tags:
+        tag = db.session.query(Tag).filter(Tag.name == tag_name).first()
+
+        if not tag:
+            tag = Tag(name=tag_name, source=source)
+            db.session.add(tag)
+
+        tag.papers.append(paper)
+
+
 def handle_entry(e):
     paper_data = encode_feedparser_dict(e)
     # print(paper_data)
@@ -68,20 +92,20 @@ def handle_entry(e):
     paper_data['_version'] = version
 
     # If the paper didn't exist in our database (or it's a new version), we add it
-    existing_paper = db.session.query(Paper).filter(Paper.original_id == rawid).first()
+    paper = db.session.query(Paper).filter(Paper.original_id == rawid).first()
     paper_data['time_updated'] = dateutil.parser.parse(paper_data['updated'])
     paper_data['time_published'] = dateutil.parser.parse(paper_data['published'])
 
-    # TO DO: Create arXiv object as well
+    # Get the PDF
+    pdf_link = get_pdf_link(paper_data)
 
-    if not existing_paper:
+    # We ignore papers without a PDF
+    if not pdf_link:
+        return paper_data, 0, 1
+
+    if not paper:
         # Getting the PDF from the dictionary
-        pdf_link = get_pdf_link(paper_data)
-
-        # We create a new paper in database only for papers that have a PDF
-        if pdf_link:
-            new_paper = Paper(title=paper_data['title'], link=paper_data['link'], pdf_link=pdf_link, publication_date=paper_data['time_published'], abstract=paper_data['summary'], original_id=paper_data['_rawid'], last_update_date=paper_data['time_updated'])
-            added = 1
+        paper = Paper(title=paper_data['title'], link=paper_data['link'], pdf_link=pdf_link, publication_date=paper_data['time_published'], abstract=paper_data['summary'], original_id=paper_data['_rawid'], last_update_date=paper_data['time_updated'])
 
         # Adding new authors to the paper
         for author in paper_data['authors']:
@@ -90,21 +114,37 @@ def handle_entry(e):
 
             if not existing_author:
                 new_author = Author(name=author_name)
-                new_author.papers.append(new_paper)
+                new_author.papers.append(paper)
                 db.session.add(new_author)
 
-        db.session.add(new_paper)
-    elif existing_paper.last_update_date < paper_data['time_published'].date():
+        # We create a new paper in database (and an arXiv paper object)
+        added = 1
+        db.session.add(paper)
+        db.session.flush()
+        arxiv_paper = ArxivPaper(paper=paper.id, json_data=e)
+        db.session.add(arxiv_paper)
+
+    elif paper.last_update_date < paper_data['time_published'].date():
         # Updating the existing paper in the database
-        existing_paper.title = paper_data['title']
-        existing_paper.abstract = paper_data['summary']
-        existing_paper.link = paper_data['link']
-        existing_paper.original_id = paper_data['_rawid']
-        existing_paper.last_update_date = paper_data['time_updated']
-        existing_paper.publication_date = paper_data['time_published']
+        paper.title = paper_data['title']
+        paper.abstract = paper_data['summary']
+        paper.link = paper_data['link']
+        paper.pdf_link = pdf_link
+        paper.original_id = paper_data['_rawid']
+        paper.last_update_date = paper_data['time_updated']
+        paper.publication_date = paper_data['time_published']
+
+        # Updating the arXiv object as well
+        existing_arxiv_paper = db.session.query(ArxivPaper).filter(ArxivPaper.paper == paper.id).first()
+        existing_arxiv_paper.json_data = e
+
         added = 1
     else:
         skipped = 1
+
+    # Getting the tags for the papers
+    tags = get_tags(paper_data)
+    add_tags(tags, paper)
 
     db.session.commit()
 
