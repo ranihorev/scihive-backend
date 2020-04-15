@@ -4,10 +4,15 @@ from datetime import datetime
 from flask_jwt_extended import get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 
+from src.new_backend.models import User, db
 from .query_utils import fix_paper_id
 from . import revoked_tokens, db_users, db_papers, db_group_papers
 
 logger = logging.getLogger(__name__)
+
+
+def get_user_by_email(email: str):
+    return db.session.query(User).filter_by(email=email).first()
 
 
 def is_jti_blacklisted(jti):
