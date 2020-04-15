@@ -99,6 +99,13 @@ class Collection(db.Model):
 
 
 class Comment(db.Model):
+    TYPES = [
+        (u'private', u'Private'),
+        (u'anonymous', u'Anonymous'),
+        (u'public', u'Public'),
+        (u'collection', u'Group'),
+    ]
+
     __tablename__ = 'comment'
     id = db.Column(db.Integer, primary_key=True)
     highlighted_text = db.Column(db.String, nullable=True)
@@ -107,6 +114,8 @@ class Comment(db.Model):
     creation_date = db.Column(db.DateTime, nullable=False)
     user = db.Column(db.ForeignKey('user.id'), nullable=True)
     position = db.Column(db.JSON)
+    shared_with = db.Column(db.ChoiceType(TYPES))
+    collection = db.Column(db.ForeignKey('collection.id'), nullable=True)
 
 
 class RevokedToken(db.Model):
