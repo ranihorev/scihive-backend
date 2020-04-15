@@ -43,7 +43,7 @@ class User(db.Model):
     email = db.Column(db.String(80), nullable=False)
     username = db.Column(db.String(50), nullable=False)
     password = db.Column(db.String(100), nullable=False)
-    collections = db.relationship("Collection", back_populates="users", secondary=paper_collection_table)
+    collections = db.relationship("Collection", back_populates="users", secondary=user_collection_table)
 
 
 class Paper(db.Model):
@@ -93,7 +93,7 @@ class Collection(db.Model):
     name = db.Column(db.String(100), nullable=False)
     color = db.Column(db.String(30), nullable=True)
     papers = db.relationship("Paper", back_populates="collections", secondary=paper_collection_table)
-    users = db.relationship("User", back_populates="collections", secondary=paper_collection_table)
+    users = db.relationship("User", back_populates="collections", secondary=user_collection_table)
     creation_date = db.Column(db.DateTime, nullable=False)
     created_by = db.Column(db.ForeignKey('user.id'), nullable=False)
 
