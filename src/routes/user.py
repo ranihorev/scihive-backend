@@ -9,7 +9,7 @@ from flask_jwt_extended import (create_access_token, jwt_required, jwt_refresh_t
                                 get_jwt_identity, get_raw_jwt, set_access_cookies, unset_access_cookies)
 
 from ..new_backend.models import User, db, RevokedToken
-from .user_utils import find_by_email, generate_hash, verify_hash
+from .user_utils import find_by_email, generate_hash, verify_hash, get_user_by_email
 
 app = Blueprint('user', __name__)
 api = Api(app)
@@ -59,7 +59,7 @@ class UserRegistration(Resource):
 class UserLogin(Resource):
     def post(self):
         data = parser.parse_args()
-        current_user = db.session.query(User).filter_by(email=data['email']).first()
+        current_user = get_user_by_email(data['email'])
 
         if not current_user:
             return {'message': 'User {} doesn\'t exist'.format(data['email'])}, 401
