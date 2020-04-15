@@ -5,6 +5,7 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy_searchable import make_searchable
 from sqlalchemy_utils import TSVectorType
+from sqlalchemy_utils import ChoiceType
 
 from .. import app
 
@@ -114,7 +115,7 @@ class Comment(db.Model):
     creation_date = db.Column(db.DateTime, nullable=False)
     user = db.Column(db.ForeignKey('user.id'), nullable=True)
     position = db.Column(db.JSON)
-    shared_with = db.Column(db.ChoiceType(TYPES))
+    shared_with = db.Column(ChoiceType(TYPES))
     collection = db.Column(db.ForeignKey('collection.id'), nullable=True)
 
 
