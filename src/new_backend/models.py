@@ -105,7 +105,7 @@ class Comment(db.Model):
     text = db.Column(db.String, nullable=False)
     paper = db.Column(db.ForeignKey('paper.id'))
     creation_date = db.Column(db.DateTime, nullable=False)
-    user = db.Column(db.ForeignKey('user.id'))
+    user = db.Column(db.ForeignKey('user.id'), nullable=True)
     position = db.Column(db.JSON)
 
 
