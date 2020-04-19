@@ -8,8 +8,9 @@ import logging
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restful import Resource, reqparse, Api, fields, marshal_with
 
+from src.new_backend.models import Collection, db
 from .group_utils import get_group, add_user_to_group
-from .user_utils import find_by_email, add_remove_group
+from .user_utils import find_by_email, add_remove_group, get_user_by_email
 from . import db_groups, db_users, db_group_papers
 
 app = Blueprint('groups', __name__)
@@ -71,18 +72,19 @@ class NewGroup(Resource):
 
     @marshal_with(group_fields)
     def post(self):
+        # UPGRADED
         current_user = get_jwt_identity()
         parser = reqparse.RequestParser()
         parser.add_argument('name', help='This field cannot be blank', required=True)
         parser.add_argument('color', required=False, type=str)
         data = parser.parse_args()
-        data['created_at'] = datetime.utcnow()
-        user_id = find_by_email(current_user, fields={'id': 1})
-        data['created_by'] = user_id['_id']
-        data['users'] = [user_id['_id']]
-        new_group = db_groups.insert_one(data)
-        db_users.update_one(user_id, {'$addToSet': {'groups': new_group.inserted_id}})
-        return get_user_groups()
+        user = get_user_by_email(current_user)
+        collection = Collection(is_library=False, creation_date=datetime.utcnow(), name=data.get('name'),
+                                color=data.get('color'), created_by=user.id)
+        db.session.add(collection)
+        db.session.commit()
+        all_collections = Collection.query(Collection.users.has(user_id=user.id))
+        return all_collections
 
 
 extended_group_fields = dict(group_fields)
