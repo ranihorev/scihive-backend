@@ -57,7 +57,7 @@ class Autocomplete(Resource):
 
 
 papers_fields = {
-    '_id': fields.String,
+    'id': fields.String,
     'title': fields.String,
     'saved_in_library': fields.Boolean,
     'authors': fields.Nested({'name': fields.String}),

@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 
 from .query_utils import fix_paper_id
-from .user_utils import add_user_data, find_by_email
+from .user_utils import add_user_data, find_by_email, get_user_id
 from .acronym_extractor import extract_acronyms
 from .paper_query_utils import include_stats, get_paper_with_pdf, Github, get_paper_by_id, PUBLIC_TYPES
 from .latex_utils import extract_references_from_latex, REFERENCES_VERSION
@@ -166,20 +166,21 @@ class NewComment(Resource):
             abort(401, message='position or content are missing for non-general comment')
 
         if isGeneral:
-            del data['position']
-            del data['content']
+            data['position'] = None
+            data['content'] = None
         else:
             del data['isGeneral']
 
-        data['pid'] = paper_id
-        data['created_at'] = datetime.utcnow()
         add_user_data(data)
         visibility = data['visibility']
         if visibility['type'] != 'public' and not get_jwt_identity():
             abort(401, message='Please log in to submit non-public comments')
 
-        comment = db_comments.insert_one(data)
-        data['id'] = str(comment.inserted_id)
+        comment = Comment(highlighted_text=data['content'], text=data['comment'], paper=paper_id, creation_date=datetime.utcnow(), user=get_user_id(), position=data['position'])
+        db.session.add(comment)
+        db.session.commit()
+
+        data['id'] = str(comment.id)
         add_metadata(data)
         return data
 
@@ -191,7 +192,7 @@ class Comment(Resource):
         current_user = get_jwt_identity()
         if not current_user:
             abort(401, messsage='Unauthorized to get comment')
-        comment = db_comments.find_one(comment_id)
+        comment = db.session.query(Comment).filter(Comment.id == comment_id).first()
         if not comment:
             abort(404, messsage='Comment not found')
 
@@ -200,25 +201,26 @@ class Comment(Resource):
         return comment
 
     @marshal_with(comment_fields, envelope='comment')
-    def patch(self, paper_id, comment_id):
-        comment_id = {'_id': ObjectId(comment_id)}
-        self._get_comment(comment_id)
+    def patch(self, comment_id):
+        comment = self._get_comment(comment_id)
         edit_comment_parser = reqparse.RequestParser()
         edit_comment_parser.add_argument('comment', help=EMPTY_FIELD_MSG, type=str, location='json', required=False)
         edit_comment_parser.add_argument('visibility', help=EMPTY_FIELD_MSG, type=visibilityObj, location='json',
                                          required=True)
         data = edit_comment_parser.parse_args()
-        new_values = {"$set": {'comment.text': data['comment'], 'visibility': data['visibility']}}
-        db_comments.update_one(comment_id, new_values)
-        comment = db_comments.find_one(comment_id)
+        comment.text = data['comment']
+        comment.shared_with = data['visibility']
+        db.session.commit()
+
         add_metadata(comment)
         return comment
 
-    def delete(self, paper_id, comment_id):
-        comment_id = {'_id': ObjectId(comment_id)}
-        self._get_comment(comment_id)
+    def delete(self, comment_id):
         # TODO Add error handling
-        db_comments.delete_one(comment_id)
+        comment = db.session.query(Comment).filter(Comment.id == comment_id).first()
+        db.session.delete(comment)
+        db.session.commit()
+
         return {'message': 'success'}
 
 
@@ -226,15 +228,14 @@ class Reply(Resource):
     method_decorators = [jwt_optional]
 
     def _get_comment(self, comment_id):
-        comment = db_comments.find_one(comment_id)
+        comment = db.session.query(Comment).filter(Comment.id == comment_id).first()
         if not comment:
             abort(404, messsage='Comment not found')
         return comment
 
     @marshal_with(comment_fields, envelope='comment')
-    def post(self, paper_id, comment_id):
-        comment_id = {'_id': ObjectId(comment_id)}
-        self._get_comment(comment_id)
+    def post(self, comment_id):
+        comment = self._get_comment(comment_id)
         data = new_reply_parser.parse_args()
         data['created_at'] = datetime.utcnow()
         data['id'] = str(uuid.uuid4())
@@ -247,16 +248,18 @@ class Reply(Resource):
 
 
 def get_paper_item(paper_id, item, latex_fn, version=None, force_update=False):
-    paper = get_paper_by_id(paper_id)
+    paper = db.session.query(Paper).filter(Paper.id == paper_id).first()
     state = ItemState.existing
     if not paper:
         abort(404, message='Paper not found')
-    new_value = old_value = paper.get(item)
+    new_value = old_value = getattr(paper, item)
+
     if force_update or not old_value or (version is not None and float(old_value.get('version', 0)) < version):
         state = ItemState.new if not old_value else ItemState.updated
+
         try:
             new_value = latex_fn(paper_id)
-            db_papers.update({'_id': paper_id}, {"$set": {item: new_value}})
+            setattr(paper, item, new_value)
         except Exception as e:
             logger.error(f'Failed to retrieve {item} for {paper_id} - {e}')
             abort(500, message=f'Failed to retrieve {item}')
@@ -269,9 +272,12 @@ class PaperReferences(Resource):
     def get(self, paper_id):
         query_parser = reqparse.RequestParser()
         query_parser.add_argument('force', type=str, required=False)
-        paper = get_paper_by_id(paper_id, {'is_private': 1})
+        paper = db.session.query(Paper).filter(Paper.id == paper_id).first()
+
+        # Rani: how to address private papers?
         if paper.get('is_private'):
             return []
+
         force_update = bool(query_parser.parse_args().get('force'))
         references, _, _ = get_paper_item(paper_id, 'references', extract_references_from_latex, REFERENCES_VERSION,
                                           force_update=force_update)
@@ -340,11 +346,14 @@ class EditPaper(Resource):
         return resp
 
 
+# Still need to be converted from Mongo to PostGres
 api.add_resource(EditPaper, "/<paper_id>/edit")
-api.add_resource(PaperAcronyms, "/<paper_id>/acronyms")
 api.add_resource(Comments, "/<paper_id>/comments")
-api.add_resource(PaperReferences, "/<paper_id>/references")
-api.add_resource(NewComment, "/<paper_id>/new_comment")
-api.add_resource(Comment, "/<paper_id>/comment/<comment_id>")
 api.add_resource(Reply, "/<paper_id>/comment/<comment_id>/reply")
 api.add_resource(Paper, "/<paper_id>")
+api.add_resource(PaperAcronyms, "/<paper_id>/acronyms")
+
+# Done (untested)
+api.add_resource(NewComment, "/<paper_id>/new_comment")
+api.add_resource(Comment, "/<paper_id>/comment/<comment_id>")
+api.add_resource(PaperReferences, "/<paper_id>/references")

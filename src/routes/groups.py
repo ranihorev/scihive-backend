@@ -67,6 +67,7 @@ class NewGroup(Resource):
 
     @marshal_with(group_fields)
     def post(self):
+        # UPGRADED
         current_user = get_jwt_identity()
         parser = reqparse.RequestParser()
         parser.add_argument('name', help='This field cannot be blank', required=True)
