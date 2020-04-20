@@ -85,13 +85,15 @@ class Papers(Resource):
     @marshal_with(papers_list_fields)
     def get(self):
         query_parser = reqparse.RequestParser()
-        query_parser.add_argument('q', type=str, required=False)
-        query_parser.add_argument('author', type=str, required=False)
-        query_parser.add_argument('page_num', type=int, required=False, default=1)
-        query_parser.add_argument('sort', type=str, required=False, choices=list(SORT_DICT.keys()), store_missing=False)
-        query_parser.add_argument('age', type=str, required=False, choices=list(AGE_DICT.keys()), default='week')
-        query_parser.add_argument('categories', type=str, required=False)
-        query_parser.add_argument('group', type=str, required=False)
+        # query_parser.add_argument('q', type=str, required=False)
+        query_parser.add_argument('author', type=str, required=False, location='args')
+        query_parser.add_argument('page_num', type=int, required=False, default=1, location='args')
+        query_parser.add_argument('sort', type=str, required=False, choices=list(
+            SORT_DICT.keys()), store_missing=False, location='args')
+        query_parser.add_argument('age', type=str, required=False, choices=list(
+            AGE_DICT.keys()), default='week', location='args')
+        query_parser.add_argument('categories', type=str, required=False, location='args')
+        query_parser.add_argument('group', type=str, required=False, location='args')
         args = query_parser.parse_args()
 
         page_num = args.get('page_num', 0)
@@ -117,6 +119,7 @@ class Papers(Resource):
         papers_items = query.paginate(page=page_num, per_page=10)
         return {"count": papers_items.total, "papers": papers_items.items}
 
+        # TODO: Migrate and remove beyond this point
         current_user = get_jwt_identity()
         user_data = None
         if current_user:
