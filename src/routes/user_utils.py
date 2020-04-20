@@ -7,12 +7,18 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from src.new_backend.models import User, db
 from .query_utils import fix_paper_id
 from . import revoked_tokens, db_users, db_papers, db_group_papers
+from flask_restful import abort
 
 logger = logging.getLogger(__name__)
 
 
-def get_user_by_email(email: str):
-    return db.session.query(User).filter_by(email=email).first()
+def get_user_by_email(email: str = None):
+    if not email:
+        email = get_jwt_identity()
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        abort(404, message='User not fount')
+    return user
 
 
 def is_jti_blacklisted(jti):
