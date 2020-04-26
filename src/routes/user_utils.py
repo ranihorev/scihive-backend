@@ -17,7 +17,7 @@ def get_user_by_email(email: str = None):
         email = get_jwt_identity()
     user = User.query.filter_by(email=email).first()
     if not user:
-        abort(404, message='User not fount')
+        abort(404, message='User not found')
     return user
 
 
@@ -89,6 +89,7 @@ def add_user_data(data, key='user'):
         data[key] = {'email': current_user['email'], 'username': current_user['username']}
     else:
         data[key] = {'username': 'Guest'}
+
 
 def get_user_id():
     current_user = get_jwt_identity()

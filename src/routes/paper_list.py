@@ -6,40 +6,45 @@ import json
 from flask_jwt_extended import jwt_optional, get_jwt_identity
 from flask_restful import Api, Resource, reqparse, marshal_with, fields
 from sqlalchemy_searchable import search
+from sqlalchemy import or_
 
-from src.new_backend.models import Paper, db
+from src.new_backend.models import Author, Collection, Paper, db
 from src.routes.paper_query_utils import SORT_DICT, AGE_DICT
 from src.utils import get_file_path
 from . import db_authors, db_papers
+from src.routes.user_utils import get_user_by_email
 
 app = Blueprint('paper_list', __name__)
 api = Api(app)
 logger = logging.getLogger(__name__)
 
-query_parser = reqparse.RequestParser()
-query_parser.add_argument('q', type=str, required=False, store_missing=False)
-
 
 class Autocomplete(Resource):
     def get(self):
         MAX_ITEMS = 8
+        query_parser = reqparse.RequestParser()
+        query_parser.add_argument('q', type=str, required=True, location='args')
         args = query_parser.parse_args()
         q = args.get('q', '')
 
-        if len(q) <= 1:
-            return jsonify([])
+        if len(q) < 1:
+            return []
 
-        author_q = f'.*{q.replace(" ", ".*")}.*'
-        authors = list(db_authors.find(
-            {'_id': {'$regex': re.compile(author_q, re.IGNORECASE)}}).limit(MAX_ITEMS))
-        authors = [{'name': a['_id'], 'type': 'author'} for a in authors]
+        authors = Author.query.filter(Author.name.ilike(f'%{q}%')).limit(MAX_ITEMS).all()
+        authors = [{'name': a.name, 'type': 'author'} for a in authors]
 
-        # TODO: the autocomplete doesn't support private papers (the id format is different)
-        papers = list(db_papers.find(
-            {'$and': [{'$or': [{'_id': q}, {'$text': {'$search': q}}]}, {'is_private': {'$exists': False}}]}).limit(
-            MAX_ITEMS))
-        papers = [{'name': p['title'], 'type': 'paper', 'id': p['_id']}
-                  for p in papers]
+        papers = []
+        try:
+            paper_id = int(q)
+            paper_by_id = Paper.query.filter(or_(Paper.id == q, Paper.original_id == q)
+                                             ).filter(Paper.is_private.isnot(True)).first()
+            if paper_by_id:
+                papers.append(paper_by_id)
+        except ValueError:
+            pass
+
+        papers = papers + search(Paper.query, q).filter(Paper.is_private.isnot(True)).all()
+        papers = [{'name': p.title, 'type': 'paper', 'id': p.id} for p in papers]
 
         papers_len = len(papers)
         authors_len = len(authors)
@@ -92,7 +97,7 @@ class Papers(Resource):
             SORT_DICT.keys()), store_missing=False, location='args')
         query_parser.add_argument('age', type=str, required=False, choices=list(
             AGE_DICT.keys()), default='week', location='args')
-        query_parser.add_argument('categories', type=str, required=False, location='args')
+        query_parser.add_argument('library', type=bool, required=False, default=False, location='args')
         query_parser.add_argument('group', type=str, required=False, location='args')
         args = query_parser.parse_args()
 
@@ -112,13 +117,23 @@ class Papers(Resource):
 
         group_id = args.get('group')
         if group_id:
-            query = query.filter(Paper.collections.has(collection_id=group_id))
+            query = query.filter(Paper.collections.any(id=group_id))
+
+        is_library = args.get('library')
+        if is_library:
+            user = get_user_by_email()
+            query = query.filter(Paper.collections.any(Collection.users.any(id=user.id)))
+
+        if not group_id and not is_library:
+            query.filter(Paper.is_private.isnot(True))
 
         if author:
             query = query.filter(Paper.authors.any(name=author))
         papers_items = query.paginate(page=page_num, per_page=10)
+
         return {"count": papers_items.total, "papers": papers_items.items}
 
+        ##########################################
         # TODO: Migrate and remove beyond this point
         current_user = get_jwt_identity()
         user_data = None
@@ -142,20 +157,6 @@ class Papers(Resource):
                 {'$limit': page_size},
             ],
         }
-
-        if author:
-            filters['authors.name'] = author
-
-        if library and current_user:
-            group_id = user_data.get('library_id')
-
-        if age != 'all':
-            dnow_utc = datetime.datetime.now()
-            dminus = dnow_utc - datetime.timedelta(days=int(AGE_DICT[age]))
-            filters['time_published'] = {'$gt': dminus}
-
-        if categories:
-            filters['tags.term'] = {"$in": categories.split(';')}
 
         if group_id:
             group_papers = list(db_group_papers.find(
