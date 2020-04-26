@@ -1,18 +1,21 @@
 import logging
+import uuid
 from datetime import datetime
+from enum import Enum
 
-from .query_utils import fix_paper_id
-from .user_utils import add_user_data, find_by_email, get_user_id
-from .acronym_extractor import extract_acronyms
-from .paper_query_utils import include_stats, get_paper_with_pdf, Github, get_paper_by_id, PUBLIC_TYPES
-from .latex_utils import extract_references_from_latex, REFERENCES_VERSION
-from . import db_papers, db_comments, db_acronyms, db_group_papers
 from bson import ObjectId
 from flask import Blueprint
-from flask_jwt_extended import jwt_optional, get_jwt_identity, jwt_required
-from flask_restful import Resource, Api, reqparse, abort, fields, marshal_with
-import uuid
-from enum import Enum
+from flask_jwt_extended import get_jwt_identity, jwt_optional, jwt_required
+from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
+
+from src.new_backend.models import Collection, Comment, Paper, db
+
+from .acronym_extractor import extract_acronyms
+from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
+from .paper_query_utils import (PUBLIC_TYPES, Github, get_paper_by_id,
+                                get_paper_with_pdf, include_stats)
+from .query_utils import fix_paper_id
+from .user_utils import add_user_data, find_by_email, get_user
 
 app = Blueprint('paper', __name__)
 api = Api(app)
@@ -56,7 +59,7 @@ paper_fields = {
 }
 
 
-class Paper(Resource):
+class PaperResource(Resource):
     method_decorators = [jwt_optional]
 
     @marshal_with(paper_fields)
@@ -66,7 +69,8 @@ class Paper(Resource):
         paper['groups'] = []
         if current_user:
             user = find_by_email(current_user, {"_id": 1})
-            paper['groups'] = list(db_group_papers.find({'paper_id': fix_paper_id(paper_id), 'user': str(user['_id'])}, {'group_id': 1, 'is_library': 1}))
+            paper['groups'] = list(db_group_papers.find({'paper_id': fix_paper_id(
+                paper_id), 'user': str(user['_id'])}, {'group_id': 1, 'is_library': 1}))
         paper = include_stats([paper], user=get_jwt_identity())[0]
 
         return paper
@@ -93,16 +97,16 @@ class VisibilityField(fields.Raw):
 
 
 comment_fields = {
-    'id': fields.String(attribute='_id'),
-    'content': fields.Raw,
-    'comment': fields.Raw,
+    'id': fields.String(),
+    'content': fields.Raw(),
+    'comment': fields.Raw(attribute='highlighted_text'),
     'position': fields.Raw,
     'user': fields.String(attribute='user.username'),
-    'canEdit': fields.Boolean(),
-    'createdAt': fields.DateTime(dt_format='rfc822', attribute='created_at'),
-    'replies': fields.List(fields.Nested(replies_fields)),
-    'visibility': VisibilityField,
-    'isGeneral': fields.Boolean,
+    # 'canEdit': fields.Boolean(),
+    'createdAt': fields.DateTime(dt_format='rfc822', attribute='creation_date'),
+    # 'replies': fields.List(fields.Nested(replies_fields)),
+    'visibility': fields.String(attribute='shared_with'),
+    'isGeneral': fields.Boolean(attribute='is_general'),
 }
 
 
@@ -127,7 +131,7 @@ def add_metadata(comments):
         add_single_meta(comments)
 
 
-class Comments(Resource):
+class CommentsResource(Resource):
     method_decorators = [jwt_optional]
 
     @marshal_with(comment_fields, envelope='comments')
@@ -147,52 +151,63 @@ class Comments(Resource):
         return comments
 
 
-class NewComment(Resource):
+class NewCommentResource(Resource):
     method_decorators = [jwt_optional]
 
     @marshal_with(comment_fields, envelope='comment')
     def post(self, paper_id):
-        # TODO Validate paper id
         new_comment_parser = reqparse.RequestParser()
-        new_comment_parser.add_argument('comment', help=EMPTY_FIELD_MSG, type=dict, location='json')
-        new_comment_parser.add_argument('content', help=EMPTY_FIELD_MSG, type=dict, location='json')
+        new_comment_parser.add_argument('comment', help=EMPTY_FIELD_MSG, type=str, location='json')
+        new_comment_parser.add_argument('content', help=EMPTY_FIELD_MSG, type=str, location='json')
         new_comment_parser.add_argument('position', type=dict, location='json')
         new_comment_parser.add_argument('isGeneral', type=bool, location='json')
         new_comment_parser.add_argument('visibility', help=EMPTY_FIELD_MSG, type=visibilityObj, location='json',
                                         required=True)
         data = new_comment_parser.parse_args()
-        isGeneral = data['isGeneral'] is not None
-        if not isGeneral and (data['position'] is None or data['content'] is None):
+        is_general = data['isGeneral'] is not None
+        if not is_general and (data['position'] is None or data['content'] is None):
             abort(401, message='position or content are missing for non-general comment')
 
-        if isGeneral:
+        if is_general:
             data['position'] = None
             data['content'] = None
         else:
             del data['isGeneral']
 
-        add_user_data(data)
         visibility = data['visibility']
         if visibility['type'] != 'public' and not get_jwt_identity():
             abort(401, message='Please log in to submit non-public comments')
 
-        comment = Comment(highlighted_text=data['content'], text=data['comment'], paper=paper_id, creation_date=datetime.utcnow(), user=get_user_id(), position=data['position'])
+        collection_id = None
+        if visibility.get('type') == 'group':
+            collection_id = Collection.query.get_or_404(visibility.get('id'))
+
+        paper = Paper.query.get_or_404(paper_id)
+
+        # collection = db.Column(db.ForeignKey('collection.id'))
+        try:
+            user_id = get_user().id
+        except Exception:
+            user_id = None
+
+        comment = Comment(highlighted_text=data['content'], text=data['comment'], paper_id=paper.id, is_general=is_general, shared_with=visibility['type'],
+                          creation_date=datetime.utcnow(), user_id=user_id, position=data['position'], collection_id=collection_id)
+
         db.session.add(comment)
         db.session.commit()
 
-        data['id'] = str(comment.id)
         add_metadata(data)
-        return data
+        return comment
 
 
-class Comment(Resource):
+class CommentResource(Resource):
     method_decorators = [jwt_optional]
 
     def _get_comment(self, comment_id):
         current_user = get_jwt_identity()
         if not current_user:
             abort(401, messsage='Unauthorized to get comment')
-        comment = db.session.query(Comment).filter(Comment.id == comment_id).first()
+        comment = db.session.query(CommentResource).filter(CommentResource.id == comment_id).first()
         if not comment:
             abort(404, messsage='Comment not found')
 
@@ -217,18 +232,18 @@ class Comment(Resource):
 
     def delete(self, comment_id):
         # TODO Add error handling
-        comment = db.session.query(Comment).filter(Comment.id == comment_id).first()
+        comment = db.session.query(CommentResource).filter(CommentResource.id == comment_id).first()
         db.session.delete(comment)
         db.session.commit()
 
         return {'message': 'success'}
 
 
-class Reply(Resource):
+class ReplyResource(Resource):
     method_decorators = [jwt_optional]
 
     def _get_comment(self, comment_id):
-        comment = db.session.query(Comment).filter(Comment.id == comment_id).first()
+        comment = db.session.query(CommentResource).filter(CommentResource.id == comment_id).first()
         if not comment:
             abort(404, messsage='Comment not found')
         return comment
@@ -248,7 +263,7 @@ class Reply(Resource):
 
 
 def get_paper_item(paper_id, item, latex_fn, version=None, force_update=False):
-    paper = db.session.query(Paper).filter(Paper.id == paper_id).first()
+    paper = db.session.query(PaperResource).filter(PaperResource.id == paper_id).first()
     state = ItemState.existing
     if not paper:
         abort(404, message='Paper not found')
@@ -266,13 +281,13 @@ def get_paper_item(paper_id, item, latex_fn, version=None, force_update=False):
     return new_value, old_value, state
 
 
-class PaperReferences(Resource):
+class PaperReferencesResource(Resource):
     method_decorators = [jwt_optional]
 
     def get(self, paper_id):
         query_parser = reqparse.RequestParser()
         query_parser.add_argument('force', type=str, required=False)
-        paper = db.session.query(Paper).filter(Paper.id == paper_id).first()
+        paper = db.session.query(PaperResource).filter(PaperResource.id == paper_id).first()
 
         # Rani: how to address private papers?
         if paper.get('is_private'):
@@ -284,7 +299,7 @@ class PaperReferences(Resource):
         return references['data']
 
 
-class PaperAcronyms(Resource):
+class PaperAcronymsResource(Resource):
     method_decorators = [jwt_optional]
 
     def _update_acronyms_counter(self, acronyms, inc_value=1):
@@ -318,7 +333,7 @@ class PaperAcronyms(Resource):
         return matches
 
 
-class EditPaper(Resource):
+class EditPaperResource(Resource):
     method_decorators = [jwt_required]
 
     @marshal_with(paper_fields)
@@ -347,13 +362,13 @@ class EditPaper(Resource):
 
 
 # Still need to be converted from Mongo to PostGres
-api.add_resource(EditPaper, "/<paper_id>/edit")
-api.add_resource(Comments, "/<paper_id>/comments")
-api.add_resource(Reply, "/<paper_id>/comment/<comment_id>/reply")
-api.add_resource(Paper, "/<paper_id>")
-api.add_resource(PaperAcronyms, "/<paper_id>/acronyms")
+api.add_resource(EditPaperResource, "/<paper_id>/edit")
+api.add_resource(CommentsResource, "/<paper_id>/comments")
+api.add_resource(ReplyResource, "/<paper_id>/comment/<comment_id>/reply")
+api.add_resource(PaperResource, "/<paper_id>")
+api.add_resource(PaperAcronymsResource, "/<paper_id>/acronyms")
 
 # Done (untested)
-api.add_resource(NewComment, "/<paper_id>/new_comment")
-api.add_resource(Comment, "/<paper_id>/comment/<comment_id>")
-api.add_resource(PaperReferences, "/<paper_id>/references")
+api.add_resource(NewCommentResource, "/<paper_id>/new_comment")
+api.add_resource(CommentResource, "/<paper_id>/comment/<comment_id>")
+api.add_resource(PaperReferencesResource, "/<paper_id>/references")

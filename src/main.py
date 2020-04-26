@@ -10,18 +10,18 @@ from flask_jwt_extended import JWTManager
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from sassutils.wsgi import SassMiddleware
 from flask_caching import Cache
 from .routes.paper import app as paper_routes
 from .routes.paper_list import app as paper_list_routes
 from .routes.user import app as user_routes
-from .routes.library import app as library_routes
 from .routes.groups import app as groups_routes
 from .routes.admin import app as admin_routes
 from .routes.new_paper import app as new_paper_routes
 from .new_backend.scrapers import arxiv
+from .new_backend.scrapers import paperswithcode
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
+from src.new_backend.scrapers import twitter
 
 
 env = os.environ.get('ENV', 'development')
@@ -64,11 +64,6 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False
 
 jwt = JWTManager(app)
 
-if app.debug:
-    app.wsgi_app = SassMiddleware(app.wsgi_app, {
-        __name__: ('static/scss', 'static/css', '/static/css')
-    })
-
 limiter = Limiter(app, key_func=get_remote_address, default_limits=[
     "5000 per hour", "200 per minute"])
 cache = Cache(app, config={'CACHE_TYPE': 'simple'})
@@ -76,7 +71,6 @@ cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 app.register_blueprint(paper_list_routes, url_prefix='/papers')
 app.register_blueprint(paper_routes, url_prefix='/paper')
 app.register_blueprint(user_routes, url_prefix='/user')
-app.register_blueprint(library_routes, url_prefix='/library')
 app.register_blueprint(groups_routes, url_prefix='/groups')
 app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
@@ -87,7 +81,16 @@ def fetch_arxiv():
     arxiv.run()
 
 
+@app.cli.command("fetch-paperswithcode")
+def fetch_arxiv():
+    paperswithcode.run()
+
+
+@app.cli.command("fetch-twitter")
+def fetch_arxiv():
+    twitter.main_twitter_fetcher()
+
+
 @app.route('/test')
 def hello_world():
     return 'Hello, World!'
-

@@ -17,7 +17,7 @@ from .utils import catch_exceptions
 from src.logger import logger_config
 
 logger = logging.getLogger(__name__)
-BASE_URL = 'http://export.arxiv.org/api/query?' # base api query url
+BASE_URL = 'http://export.arxiv.org/api/query?'  # base api query url
 DEF_QUERY = 'cat:cs.CV+OR+cat:cs.AI+OR+cat:cs.LG+OR+cat:cs.CL+OR+cat:cs.NE+OR+cat:stat.ML'
 
 
@@ -39,6 +39,7 @@ def encode_feedparser_dict(d):
     else:
         return d
 
+
 def parse_arxiv_url(url):
     """
     examples is http://arxiv.org/abs/1512.08756v2
@@ -46,6 +47,7 @@ def parse_arxiv_url(url):
     """
     match = re.search(r"/(?P<id>(\d{4}\.\d{4,5})|([a-zA-Z\-.]+/\d{6,10}))(v(?P<version>\d+))?$", url)
     return match.group('id').replace('/', '_'), int(match.group('version') or 0)
+
 
 def get_pdf_link(paper_data):
     for link in paper_data.get('links', []):
@@ -66,6 +68,7 @@ def get_tags(paper_data):
             tags.append(tag)
 
     return tags
+
 
 def add_tags(tags, paper, source='arXiv'):
     for tag_name in tags:
@@ -110,7 +113,8 @@ def handle_entry(e):
 
     if not paper:
         # Getting the PDF from the dictionary
-        paper = Paper(title=paper_data['title'], link=paper_data['link'], pdf_link=pdf_link, publication_date=paper_data['time_published'], abstract=paper_data['summary'], original_id=paper_data['_rawid'], last_update_date=paper_data['time_updated'])
+        paper = Paper(title=paper_data['title'], link=paper_data['link'], pdf_link=pdf_link, publication_date=paper_data['time_published'],
+                      abstract=paper_data['summary'], original_id=paper_data['_rawid'], last_update_date=paper_data['time_updated'])
 
         # Adding new authors to the paper
         for author in paper_data['authors']:
@@ -126,7 +130,7 @@ def handle_entry(e):
         added = 1
         db.session.add(paper)
         db.session.flush()
-        arxiv_paper = ArxivPaper(paper=paper.id, json_data=e)
+        arxiv_paper = ArxivPaper(paper_id=paper.id, json_data=e)
         db.session.add(arxiv_paper)
 
     elif paper.last_update_date < paper_data['time_published'].date():
@@ -156,6 +160,8 @@ def handle_entry(e):
     return paper_data, added, skipped
 
 # Is this method redundant?
+
+
 def fetch_entry(paper_id):
     paper_id = paper_id.replace('_', '/')
     try:
@@ -167,6 +173,7 @@ def fetch_entry(paper_id):
     except Exception as e:
         logger.warning(f'Paper not found on arxiv - {paper_id}')
         return None
+
 
 def fetch_entries(query):
     with urllib.request.urlopen(BASE_URL + query) as url:
@@ -182,6 +189,7 @@ def fetch_entries(query):
         num_skipped += skipped
 
     return num_added, num_skipped
+
 
 @catch_exceptions(logger=logger)
 def fetch_papers(start_index=0, max_index=3000, results_per_iteration=200, wait_time=5, query=DEF_QUERY, break_on_no_added=1):
@@ -211,6 +219,7 @@ def fetch_papers(start_index=0, max_index=3000, results_per_iteration=200, wait_
         logger.info(f'Sleeping for {wait_time} seconds')
         time.sleep(wait_time + random.uniform(0, 3))
 
+
 def parse_arguments():
     # parse input arguments
     parser = argparse.ArgumentParser()
@@ -220,8 +229,10 @@ def parse_arguments():
     parser.add_argument('--start-index', type=int, default=0, help='0 = most recent API result')
     parser.add_argument('--max-index', type=int, default=3000, help='upper bound on the paper index we will fetch')
     parser.add_argument('--results-per-iteration', type=int, default=200, help='passed to arxiv API')
-    parser.add_argument('--wait-time', type=float, default=5.0, help='wait time allows being gentle on the arxiv API (in seconds)')
-    parser.add_argument('--break-on-no-added', type=int, default=1, help='break out early if all returned query papers are already in db? 1=yes, 0=no')
+    parser.add_argument('--wait-time', type=float, default=5.0,
+                        help='wait time allows being gentle on the arxiv API (in seconds)')
+    parser.add_argument('--break-on-no-added', type=int, default=1,
+                        help='break out early if all returned query papers are already in db? 1=yes, 0=no')
     args, unknown = parser.parse_known_args()
 
     return args
@@ -235,7 +246,8 @@ def run():
     print(f'Searching arXiv for {args.search_query}')
 
     # Fetching papers
-    fetch_papers(args.start_index, args.max_index, args.results_per_iteration, args.wait_time, args.search_query, args.break_on_no_added)
+    fetch_papers(args.start_index, args.max_index, args.results_per_iteration,
+                 args.wait_time, args.search_query, args.break_on_no_added)
 
 
 if __name__ == "__main__":

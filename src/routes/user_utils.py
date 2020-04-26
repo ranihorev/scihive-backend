@@ -91,7 +91,7 @@ def add_user_data(data, key='user'):
         data[key] = {'username': 'Guest'}
 
 
-def get_user_id():
+def get_user():
     current_user = get_jwt_identity()
 
     if current_user:

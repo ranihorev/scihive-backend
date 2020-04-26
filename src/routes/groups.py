@@ -75,7 +75,7 @@ class NewGroup(Resource):
         data = parser.parse_args()
         user = get_user_by_email(current_user)
         collection = Collection(is_library=False, creation_date=datetime.utcnow(), name=data.get('name'),
-                                color=data.get('color'), created_by=user.id)
+                                color=data.get('color'), created_by_id=user.id)
         collection.users.append(user)
         db.session.add(collection)
         db.session.commit()
