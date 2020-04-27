@@ -1,0 +1,34 @@
+{
+  "workbench.colorCustomizations": {
+    "activityBar.background": "#570c40",
+    "titleBar.activeBackground": "#2a061f",
+    "titleBar.activeForeground": "#e7e7e7",
+    "activityBar.activeBackground": "#570c40",
+    "activityBar.activeBorder": "#52700f",
+    "activityBar.foreground": "#e7e7e7",
+    "activityBar.inactiveForeground": "#e7e7e799",
+    "activityBarBadge.background": "#52700f",
+    "activityBarBadge.foreground": "#e7e7e7",
+    "statusBar.background": "#2a061f",
+    "statusBar.border": "#2a061f",
+    "statusBar.foreground": "#e7e7e7",
+    "statusBarItem.hoverBackground": "#570c40",
+    "titleBar.border": "#2a061f",
+    "titleBar.inactiveBackground": "#2a061f99",
+    "titleBar.inactiveForeground": "#e7e7e799"
+  },
+  "python.pythonPath": "/Users/ranihorev/Documents/Code/knowpro/knowpro-backend/venv/bin/python3",
+  "peacock.color": "#2a061f",
+  "python.linting.pylintEnabled": true,
+  "python.linting.enabled": true,
+  "python.jediEnabled": false,
+  "python.formatting.provider": "autopep8",
+  "python.linting.pylintArgs": [
+    "--load-plugins",
+    "pylint-flask"
+  ],
+  "cSpell.words": [
+    "arxiv",
+    "ilike"
+  ]
+}
