@@ -122,28 +122,5 @@ class NewPaper(Resource):
 
         return metadata
 
-    def patch(self):
-        # TODO: add input validation
-        current_user = get_jwt_identity()
-        parser = reqparse.RequestParser()
-        parser.add_argument('md5', type=str, required=True)
-        parser.add_argument('title', type=str, required=True)
-        parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True,
-                            dest="time_published")
-        parser.add_argument('abstract', type=str, required=True, dest="summary")
-        parser.add_argument('authors', type=dict, required=True, action="append")
-        data = parser.parse_args()
-        add_user_data(data, 'uploaded_by')
-        data['created_at'] = datetime.utcnow()
-        data['is_private'] = True
-        data['link'] = key_to_url(data['md5'], with_prefix=True) + '.pdf'
-        paper = db_papers.insert_one(data)
-        paper = db_papers.find_one({'_id': paper.inserted_id})
-        for author in data.authors:
-            db_authors.update({'_id': author},
-                              {'$addToSet': {'papers': str(paper['_id'])}}, True)
-        add_to_library('save', current_user, paper)
-        return {'paper_id': str(paper['_id'])}
-
 
 api.add_resource(NewPaper, "/add")
