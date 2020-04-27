@@ -7,6 +7,7 @@ from sqlalchemy_searchable import make_searchable
 from sqlalchemy_utils import TSVectorType
 from sqlalchemy_utils import ChoiceType
 from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy_continuum import make_versioned
 
 from .. import app
 
@@ -17,6 +18,7 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 make_searchable(db.metadata)
+make_versioned(user_cls=None)
 
 paper_author_table = db.Table('paper_author', db.metadata,
                               db.Column('paper_id', db.Integer, db.ForeignKey('paper.id')),
@@ -51,6 +53,8 @@ class User(db.Model):
 
 class Paper(db.Model):
     __tablename__ = 'paper'
+    __versioned__ = {}
+
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
     link = db.Column(db.String, nullable=False)
@@ -77,6 +81,7 @@ class Paper(db.Model):
 
 class ArxivPaper(db.Model):
     __tablename__ = 'arxiv_paper'
+    __versioned__ = {}
     paper_id = db.Column(db.ForeignKey('paper.id'), primary_key=True)
     json_data = db.Column(db.JSON)
 
