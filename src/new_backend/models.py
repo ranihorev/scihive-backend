@@ -14,11 +14,12 @@ from .. import app
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_URI')
 
+make_versioned(user_cls=None)
+
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
 make_searchable(db.metadata)
-make_versioned(user_cls=None)
 
 paper_author_table = db.Table('paper_author', db.metadata,
                               db.Column('paper_id', db.Integer, db.ForeignKey('paper.id')),
@@ -53,16 +54,18 @@ class User(db.Model):
 
 class Paper(db.Model):
     __tablename__ = 'paper'
-    __versioned__ = {}
+    __versioned__ = { 
+        'exclude': ['authors', 'tags', 'collections', 'comments', 'tweets']
+    }
 
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     title = db.Column(db.String, nullable=False)
-    link = db.Column(db.String, nullable=False)
+    link = db.Column(db.String)
     pdf_link = db.Column(db.String, nullable=False)
-    publication_date = db.Column(db.DateTime, nullable=False)
+    publication_date = db.Column(db.DateTime(timezone=True), nullable=False)
     abstract = db.Column(db.String, nullable=True)
-    original_id = db.Column(db.String, nullable=False)
-    last_update_date = db.Column(db.DateTime, nullable=False)
+    original_id = db.Column(db.String)
+    last_update_date = db.Column(db.DateTime(timezone=True), nullable=False)
     is_private = db.Column(db.Boolean, nullable=True)
     authors = db.relationship("Author", back_populates="papers", secondary=paper_author_table)
     tags = db.relationship("Tag", back_populates="papers", secondary=paper_tag_table)
@@ -70,7 +73,7 @@ class Paper(db.Model):
     search_vector = db.Column(TSVectorType('title', 'abstract'))
     comments = db.relationship("Comment")
     tweets = db.relationship("Tweet")
-    twitter_score = db.Column(db.Integer, nullable=True)
+    twitter_score = db.Column(db.Integer)
 
     def __repr__(self):
         return f"{self.id} - {self.title}"
@@ -81,7 +84,6 @@ class Paper(db.Model):
 
 class ArxivPaper(db.Model):
     __tablename__ = 'arxiv_paper'
-    __versioned__ = {}
     paper_id = db.Column(db.ForeignKey('paper.id'), primary_key=True)
     json_data = db.Column(db.JSON)
 
@@ -96,7 +98,7 @@ class Tag(db.Model):
 
 class Author(db.Model):
     __tablename__ = 'author'
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(80), nullable=False)
     papers = db.relationship("Paper", back_populates="authors", secondary=paper_author_table)
 
@@ -109,7 +111,7 @@ class Collection(db.Model):
     color = db.Column(db.String(30), nullable=True)
     papers = db.relationship("Paper", back_populates="collections", secondary=paper_collection_table)
     users = db.relationship("User", back_populates="collections", secondary=user_collection_table)
-    creation_date = db.Column(db.DateTime, nullable=False)
+    creation_date = db.Column(db.DateTime(timezone=True), nullable=False)
     created_by_id = db.Column(db.ForeignKey('user.id'), nullable=False)
     created_by = db.relationship("User")
 
@@ -129,7 +131,7 @@ class Comment(db.Model):
     text = db.Column(db.String, nullable=False)
     paper_id = db.Column(db.ForeignKey('paper.id'))
     paper = db.relationship("Paper")
-    creation_date = db.Column(db.DateTime, nullable=False)
+    creation_date = db.Column(db.DateTime(timezone=True), nullable=False)
     user_id = db.Column(db.ForeignKey('user.id'), nullable=True)
     user = db.relationship("User")
     position = db.Column(db.JSON)
@@ -160,8 +162,8 @@ class Tweet(db.Model):
     id = db.Column(db.String(50), primary_key=True)  # We assume a single paper per tweet
     paper_id = db.Column(db.ForeignKey('paper.id'))
     paper = db.relationship("Paper")
-    insertion_date = db.Column(db.DateTime, nullable=False)
-    creation_date = db.Column(db.DateTime, nullable=False)
+    insertion_date = db.Column(db.DateTime(timezone=True), nullable=False)
+    creation_date = db.Column(db.DateTime(timezone=True), nullable=False)
     lang = db.Column(db.String(20))
     retweets = db.Column(db.Integer)
     likes = db.Column(db.Integer)

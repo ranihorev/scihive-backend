@@ -8,15 +8,15 @@ from flask import Blueprint
 from flask_jwt_extended import get_jwt_identity, jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
-from src.new_backend.models import Collection, Comment, Paper, db
+from src.new_backend.models import Collection, Comment, Paper, db, Author
 
 from .acronym_extractor import extract_acronyms
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
 from .paper_query_utils import (PUBLIC_TYPES, Github, get_paper_by_id,
                                 get_paper_with_pdf, include_stats)
 from .query_utils import fix_paper_id
-from .user_utils import add_user_data, find_by_email, get_user
-from .models import Paper, Author, db
+from .user_utils import add_user_data, find_by_email, get_user, add_to_library
+from .s3_utils import key_to_url
 
 app = Blueprint('paper', __name__)
 api = Api(app)
@@ -345,25 +345,22 @@ class EditPaperResource(Resource):
         parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True,
                             dest="time_published")
         parser.add_argument('md5', type=str, required=True)
-        parser.add_argument('abstract', type=str, required=True, dest="summary")
-        parser.add_argument('authors', type=dict, required=True, action="append")
+        parser.add_argument('abstract', type=str, required=True)
+        parser.add_argument('authors', type=str, required=True, action="append")
         paper_data = parser.parse_args()
         
         # If the paper didn't exist in our database (or it's a new version), we add it
-        paper = db.session.query(Paper).filter(Paper.original_id == rawid).first()
+        paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
 
         if not paper:
-            paper_data['created_at'] = datetime.utcnow()
+            paper_data['last_update_date'] = datetime.utcnow()
             paper_data['is_private'] = True
-            paper_data['link'] = key_to_url(data['md5'], with_prefix=True) + '.pdf'
+            paper_data['pdf_link'] = key_to_url(paper_data['md5'], with_prefix=True) + '.pdf'
 
-            paper = new Paper(title=paper_data['title'], pdf_link=paper_data['link'], publication_date=paper_data['time_published'],
-                abstract=paper_data['abstract'], last_update_date=paper_data['created_at'])
+            paper = Paper(title=paper_data['title'], pdf_link=paper_data['pdf_link'], publication_date=paper_data['time_published'],
+                abstract=paper_data['abstract'], last_update_date=paper_data['last_update_date'], is_private=paper_data['is_private'])
 
-            add_user_data(paper_data, 'uploaded_by') # TO DO: To review
-
-        for author in paper_data['authors']:
-            author_name = author['name']
+        for author_name in paper_data['authors']:
             existing_author = db.session.query(Author).filter(Author.name == author_name).first()
 
             if not existing_author:
@@ -374,7 +371,6 @@ class EditPaperResource(Resource):
         db.session.add(paper)
         db.session.flush()
 
-        add_to_library('save', current_user, paper) # TO DO: review
         return {'paper_id': str(paper.id)}
 
 # Still need to be converted from Mongo to PostGres

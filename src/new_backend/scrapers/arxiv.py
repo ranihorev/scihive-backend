@@ -15,6 +15,7 @@ import feedparser
 from ..models import Paper, Author, ArxivPaper, Tag, db
 from .utils import catch_exceptions
 from src.logger import logger_config
+import pytz
 
 logger = logging.getLogger(__name__)
 BASE_URL = 'http://export.arxiv.org/api/query?'  # base api query url
@@ -133,7 +134,7 @@ def handle_entry(e):
         arxiv_paper = ArxivPaper(paper_id=paper.id, json_data=e)
         db.session.add(arxiv_paper)
 
-    elif paper.last_update_date < paper_data['time_published'].date():
+    elif paper.last_update_date < paper_data['time_published']:
         # Updating the existing paper in the database
         paper.title = paper_data['title']
         paper.abstract = paper_data['summary']
