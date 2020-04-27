@@ -338,28 +338,38 @@ class EditPaperResource(Resource):
     method_decorators = [jwt_required]
 
     @marshal_with(paper_fields)
-    def post(self, paper_id):
+    def post(self):
         current_user = get_jwt_identity()
         parser = reqparse.RequestParser()
+        parser.add_argument('id', type=str, required=False)
         parser.add_argument('title', type=str, required=True)
         parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True,
-                            dest="time_published")
-        parser.add_argument('md5', type=str, required=True)
+                            dest="publication_date")
+        parser.add_argument('md5', type=str, required=False)
         parser.add_argument('abstract', type=str, required=True)
         parser.add_argument('authors', type=str, required=True, action="append")
         paper_data = parser.parse_args()
+
+        if 'id' not in paper_data and 'md5' not in paper_data:
+            abort(403)
         
         # If the paper didn't exist in our database (or it's a new version), we add it
-        paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
+        paper = db.session.query(Paper).filter(Paper.id == paper_data['id']).first()
+
+        paper_data['pdf_link'] = key_to_url(paper_data['md5'], with_prefix=True) + '.pdf'
+        paper_data['last_update_date'] = datetime.utcnow()
+        paper_data['is_private'] = True
 
         if not paper:
-            paper_data['last_update_date'] = datetime.utcnow()
-            paper_data['is_private'] = True
-            paper_data['pdf_link'] = key_to_url(paper_data['md5'], with_prefix=True) + '.pdf'
-
-            paper = Paper(title=paper_data['title'], pdf_link=paper_data['pdf_link'], publication_date=paper_data['time_published'],
+            paper = Paper(title=paper_data['title'], pdf_link=paper_data['pdf_link'], publication_date=paper_data['publication_date'], 
                 abstract=paper_data['abstract'], last_update_date=paper_data['last_update_date'], is_private=paper_data['is_private'])
-
+            db.session.add(paper)
+        else:
+            paper.title = paper_data['title']
+            paper.pdf_link = paper_data['pdf_link']
+            paper.publication_date = paper_data['publication_date']
+            paper.abstract = paper_data['abstract']
+            
         for author_name in paper_data['authors']:
             existing_author = db.session.query(Author).filter(Author.name == author_name).first()
 
@@ -368,8 +378,7 @@ class EditPaperResource(Resource):
                 new_author.papers.append(paper)
                 db.session.add(new_author)
 
-        db.session.add(paper)
-        db.session.flush()
+        db.session.commit()
 
         return {'paper_id': str(paper.id)}
 
@@ -383,4 +392,4 @@ api.add_resource(PaperAcronymsResource, "/<paper_id>/acronyms")
 api.add_resource(NewCommentResource, "/<paper_id>/new_comment")
 api.add_resource(CommentResource, "/<paper_id>/comment/<comment_id>")
 api.add_resource(PaperReferencesResource, "/<paper_id>/references")
-api.add_resource(EditPaperResource, "/<paper_id>/edit")
+api.add_resource(EditPaperResource, "/edit")
