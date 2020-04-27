@@ -132,18 +132,29 @@ class NewPaper(Resource):
                             dest="time_published")
         parser.add_argument('abstract', type=str, required=True, dest="summary")
         parser.add_argument('authors', type=dict, required=True, action="append")
-        data = parser.parse_args()
-        add_user_data(data, 'uploaded_by')
-        data['created_at'] = datetime.utcnow()
-        data['is_private'] = True
-        data['link'] = key_to_url(data['md5'], with_prefix=True) + '.pdf'
-        paper = db_papers.insert_one(data)
-        paper = db_papers.find_one({'_id': paper.inserted_id})
-        for author in data.authors:
-            db_authors.update({'_id': author},
-                              {'$addToSet': {'papers': str(paper['_id'])}}, True)
-        add_to_library('save', current_user, paper)
-        return {'paper_id': str(paper['_id'])}
+        paper_data = parser.parse_args()
+        add_user_data(paper_data, 'uploaded_by') # TO DO: To review
+        paper_data['created_at'] = datetime.utcnow()
+        paper_data['is_private'] = True
+        paper_data['link'] = key_to_url(data['md5'], with_prefix=True) + '.pdf'
+
+        paper = new Paper(title=paper_data['title'], pdf_link=paper_data['link'], publication_date=paper_data['time_published'],
+                      abstract=paper_data['abstract'], last_update_date=paper_data['created_at'])
+        
+        for author in paper_data['authors']:
+            author_name = author['name']
+            existing_author = db.session.query(Author).filter(Author.name == author_name).first()
+
+            if not existing_author:
+                new_author = Author(name=author_name)
+                new_author.papers.append(paper)
+                db.session.add(new_author)
+
+        db.session.add(paper)
+        db.session.flush()
+
+        add_to_library('save', current_user, paper) # TO DO: review
+        return {'paper_id': str(paper.id)}
 
 
 api.add_resource(NewPaper, "/add")
