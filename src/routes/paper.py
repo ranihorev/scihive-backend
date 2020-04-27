@@ -16,6 +16,7 @@ from .paper_query_utils import (PUBLIC_TYPES, Github, get_paper_by_id,
                                 get_paper_with_pdf, include_stats)
 from .query_utils import fix_paper_id
 from .user_utils import add_user_data, find_by_email, get_user
+from .models import Paper, Author, db
 
 app = Blueprint('paper', __name__)
 api = Api(app)
@@ -343,26 +344,40 @@ class EditPaperResource(Resource):
         parser.add_argument('title', type=str, required=True)
         parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True,
                             dest="time_published")
+        parser.add_argument('md5', type=str, required=True)
         parser.add_argument('abstract', type=str, required=True, dest="summary")
         parser.add_argument('authors', type=dict, required=True, action="append")
-        data = parser.parse_args()
-        paper_id = fix_paper_id(paper_id)
-        old_data = db_papers.find_one(paper_id, {'_id': 0, 'title': 1, 'time_published': 1, 'summary': 1, 'authors': 1})
-        changes = {}
-        for key in old_data:
-            if data.get(key) != old_data.get(key):
-                changes[key] = old_data.get(key)
+        paper_data = parser.parse_args()
+        
+        # If the paper didn't exist in our database (or it's a new version), we add it
+        paper = db.session.query(Paper).filter(Paper.original_id == rawid).first()
 
-        if changes:
-            changes['stored_at'] = datetime.utcnow()
-            changes['changed_by'] = current_user
-            db_papers.update_one({'_id': fix_paper_id(paper_id)}, {'$set': data, '$push': {'history': changes}})
-        resp = get_paper_with_pdf(paper_id)
-        return resp
+        if not paper:
+            paper_data['created_at'] = datetime.utcnow()
+            paper_data['is_private'] = True
+            paper_data['link'] = key_to_url(data['md5'], with_prefix=True) + '.pdf'
 
+            paper = new Paper(title=paper_data['title'], pdf_link=paper_data['link'], publication_date=paper_data['time_published'],
+                abstract=paper_data['abstract'], last_update_date=paper_data['created_at'])
+
+            add_user_data(paper_data, 'uploaded_by') # TO DO: To review
+
+        for author in paper_data['authors']:
+            author_name = author['name']
+            existing_author = db.session.query(Author).filter(Author.name == author_name).first()
+
+            if not existing_author:
+                new_author = Author(name=author_name)
+                new_author.papers.append(paper)
+                db.session.add(new_author)
+
+        db.session.add(paper)
+        db.session.flush()
+
+        add_to_library('save', current_user, paper) # TO DO: review
+        return {'paper_id': str(paper.id)}
 
 # Still need to be converted from Mongo to PostGres
-api.add_resource(EditPaperResource, "/<paper_id>/edit")
 api.add_resource(CommentsResource, "/<paper_id>/comments")
 api.add_resource(ReplyResource, "/<paper_id>/comment/<comment_id>/reply")
 api.add_resource(PaperResource, "/<paper_id>")
@@ -372,3 +387,4 @@ api.add_resource(PaperAcronymsResource, "/<paper_id>/acronyms")
 api.add_resource(NewCommentResource, "/<paper_id>/new_comment")
 api.add_resource(CommentResource, "/<paper_id>/comment/<comment_id>")
 api.add_resource(PaperReferencesResource, "/<paper_id>/references")
+api.add_resource(EditPaperResource, "/<paper_id>/edit")

@@ -122,39 +122,5 @@ class NewPaper(Resource):
 
         return metadata
 
-    def patch(self):
-        # TODO: add input validation
-        current_user = get_jwt_identity()
-        parser = reqparse.RequestParser()
-        parser.add_argument('md5', type=str, required=True)
-        parser.add_argument('title', type=str, required=True)
-        parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True,
-                            dest="time_published")
-        parser.add_argument('abstract', type=str, required=True, dest="summary")
-        parser.add_argument('authors', type=dict, required=True, action="append")
-        paper_data = parser.parse_args()
-        add_user_data(paper_data, 'uploaded_by') # TO DO: To review
-        paper_data['created_at'] = datetime.utcnow()
-        paper_data['is_private'] = True
-        paper_data['link'] = key_to_url(data['md5'], with_prefix=True) + '.pdf'
-
-        paper = new Paper(title=paper_data['title'], pdf_link=paper_data['link'], publication_date=paper_data['time_published'],
-                      abstract=paper_data['abstract'], last_update_date=paper_data['created_at'])
-        
-        for author in paper_data['authors']:
-            author_name = author['name']
-            existing_author = db.session.query(Author).filter(Author.name == author_name).first()
-
-            if not existing_author:
-                new_author = Author(name=author_name)
-                new_author.papers.append(paper)
-                db.session.add(new_author)
-
-        db.session.add(paper)
-        db.session.flush()
-
-        add_to_library('save', current_user, paper) # TO DO: review
-        return {'paper_id': str(paper.id)}
-
 
 api.add_resource(NewPaper, "/add")
