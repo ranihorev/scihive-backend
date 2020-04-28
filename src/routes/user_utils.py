@@ -95,6 +95,6 @@ def get_user():
     current_user = get_jwt_identity()
 
     if current_user:
-        return db.session.query(User).filter(User.email == current_user).first()
+        return User.query.filter(User.email == current_user).first()
 
     return None

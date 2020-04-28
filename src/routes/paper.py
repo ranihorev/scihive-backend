@@ -48,14 +48,13 @@ new_reply_parser = reqparse.RequestParser()
 new_reply_parser.add_argument('text', help='This field cannot be blank', type=str, location='json', required=True)
 
 paper_fields = {
-    'url': fields.String(attribute='pdf_link'),
-    'saved_in_library': fields.Boolean,
+    'url': fields.String(attribute='local_pdf'),
     'title': fields.String,
     'authors': fields.Nested({'name': fields.String}),
-    'time_published': fields.DateTime(dt_format='rfc822'),
-    'summary': fields.String,
+    'time_published': fields.DateTime(attribute='publication_date', dt_format='rfc822'),
+    'abstract': fields.String,
     'code': Github(attribute='code'),
-    'groups': fields.Raw,
+    'groups': fields.Nested({'name': fields.String}),
     'is_editable': fields.Boolean(attribute='is_private', default=False)
 }
 
@@ -185,7 +184,6 @@ class NewCommentResource(Resource):
 
         paper = Paper.query.get_or_404(paper_id)
 
-        # collection = db.Column(db.ForeignKey('collection.id'))
         try:
             user_id = get_user().id
         except Exception:
@@ -202,19 +200,14 @@ class NewCommentResource(Resource):
 
 
 class CommentResource(Resource):
-    method_decorators = [jwt_optional]
+    method_decorators = [jwt_required]
 
     def _get_comment(self, comment_id):
+        comment = Comment.query.get_or_404(comment_id)
         current_user = get_jwt_identity()
-        if not current_user:
-            abort(401, messsage='Unauthorized to get comment')
-        comment = db.session.query(CommentResource).filter(CommentResource.id == comment_id).first()
-        if not comment:
-            abort(404, messsage='Comment not found')
 
-        if not 'user' in comment or comment['user']['email'] != current_user:
-            abort(401, messsage='Unauthorized to get comment')
-        return comment
+        if comment.user.email != current_user:
+            abort(403, message='unauthorized to delete comment')
 
     @marshal_with(comment_fields, envelope='comment')
     def patch(self, comment_id):
@@ -225,15 +218,15 @@ class CommentResource(Resource):
                                          required=True)
         data = edit_comment_parser.parse_args()
         comment.text = data['comment']
-        comment.shared_with = data['visibility']
+        comment.shared_with = data['visibility']['type']
+        comment.shared_with = data['visibility']['id'] if data['visibility']['type'] == 'group' else None
         db.session.commit()
 
         add_metadata(comment)
         return comment
 
     def delete(self, comment_id):
-        # TODO Add error handling
-        comment = db.session.query(CommentResource).filter(CommentResource.id == comment_id).first()
+        comment = self._get_comment(comment_id)
         db.session.delete(comment)
         db.session.commit()
 
@@ -263,8 +256,7 @@ class ReplyResource(Resource):
         return comment
 
 
-def get_paper_item(paper_id, item, latex_fn, version=None, force_update=False):
-    paper = db.session.query(PaperResource).filter(PaperResource.id == paper_id).first()
+def get_paper_item(paper, item, latex_fn, version=None, force_update=False):
     state = ItemState.existing
     if not paper:
         abort(404, message='Paper not found')
@@ -274,10 +266,10 @@ def get_paper_item(paper_id, item, latex_fn, version=None, force_update=False):
         state = ItemState.new if not old_value else ItemState.updated
 
         try:
-            new_value = latex_fn(paper_id)
+            new_value = latex_fn(paper.original_id)
             setattr(paper, item, new_value)
         except Exception as e:
-            logger.error(f'Failed to retrieve {item} for {paper_id} - {e}')
+            logger.error(f'Failed to retrieve {item} for {paper.id} - {e}')
             abort(500, message=f'Failed to retrieve {item}')
     return new_value, old_value, state
 
@@ -288,14 +280,14 @@ class PaperReferencesResource(Resource):
     def get(self, paper_id):
         query_parser = reqparse.RequestParser()
         query_parser.add_argument('force', type=str, required=False)
-        paper = db.session.query(PaperResource).filter(PaperResource.id == paper_id).first()
+        paper = Paper.query.get_or_404(paper_id)
 
         # Rani: how to address private papers?
-        if paper.get('is_private'):
+        if paper.is_private:
             return []
 
         force_update = bool(query_parser.parse_args().get('force'))
-        references, _, _ = get_paper_item(paper_id, 'references', extract_references_from_latex, REFERENCES_VERSION,
+        references, _, _ = get_paper_item(paper, 'references', extract_references_from_latex, REFERENCES_VERSION,
                                           force_update=force_update)
         return references['data']
 
@@ -344,38 +336,22 @@ class EditPaperResource(Resource):
         parser.add_argument('title', type=str, required=True)
         parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True,
                             dest="time_published")
-        parser.add_argument('md5', type=str, required=True)
         parser.add_argument('abstract', type=str, required=True, dest="summary")
         parser.add_argument('authors', type=dict, required=True, action="append")
-        paper_data = parser.parse_args()
-        
-        # If the paper didn't exist in our database (or it's a new version), we add it
-        paper = db.session.query(Paper).filter(Paper.original_id == rawid).first()
+        data = parser.parse_args()
+        old_data = db_papers.find_one(paper_id, {'_id': 0, 'title': 1, 'time_published': 1, 'summary': 1, 'authors': 1})
+        changes = {}
+        for key in old_data:
+            if data.get(key) != old_data.get(key):
+                changes[key] = old_data.get(key)
 
-        if not paper:
-            paper_data['created_at'] = datetime.utcnow()
-            paper_data['is_private'] = True
-            paper_data['link'] = key_to_url(data['md5'], with_prefix=True) + '.pdf'
+        if changes:
+            changes['stored_at'] = datetime.utcnow()
+            changes['changed_by'] = current_user
+            db_papers.update_one({'_id': fix_paper_id(paper_id)}, {'$set': data, '$push': {'history': changes}})
+        resp = get_paper_with_pdf(paper_id)
+        return resp
 
-            paper = new Paper(title=paper_data['title'], pdf_link=paper_data['link'], publication_date=paper_data['time_published'],
-                abstract=paper_data['abstract'], last_update_date=paper_data['created_at'])
-
-            add_user_data(paper_data, 'uploaded_by') # TO DO: To review
-
-        for author in paper_data['authors']:
-            author_name = author['name']
-            existing_author = db.session.query(Author).filter(Author.name == author_name).first()
-
-            if not existing_author:
-                new_author = Author(name=author_name)
-                new_author.papers.append(paper)
-                db.session.add(new_author)
-
-        db.session.add(paper)
-        db.session.flush()
-
-        add_to_library('save', current_user, paper) # TO DO: review
-        return {'paper_id': str(paper.id)}
 
 # Still need to be converted from Mongo to PostGres
 api.add_resource(CommentsResource, "/<paper_id>/comments")

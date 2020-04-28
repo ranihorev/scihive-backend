@@ -54,7 +54,8 @@ class Paper(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
     link = db.Column(db.String, nullable=False)
-    pdf_link = db.Column(db.String, nullable=False)
+    original_pdf = db.Column(db.String, nullable=False)
+    local_pdf = db.Column(db.String, nullable=True)
     publication_date = db.Column(db.DateTime, nullable=False)
     abstract = db.Column(db.String, nullable=True)
     original_id = db.Column(db.String, nullable=False)
@@ -70,9 +71,6 @@ class Paper(db.Model):
 
     def __repr__(self):
         return f"{self.id} - {self.title}"
-
-    # @hybrid_property
-    # def num_comments(self):
 
 
 class ArxivPaper(db.Model):

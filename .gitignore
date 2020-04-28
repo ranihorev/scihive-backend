@@ -16,7 +16,6 @@ twitter.txt
 reddit_keys.json
 node_modules
 venv/
-.vscode/
 .idea/
 
 .env

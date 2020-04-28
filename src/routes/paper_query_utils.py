@@ -8,13 +8,14 @@ from flask_jwt_extended import get_jwt_identity
 from .groups import get_user_group_ids
 from .s3_utils import arxiv_to_s3
 from .query_utils import fix_paper_id
-from ..tasks.fetch_papers import fetch_entry
 from .user_utils import find_by_email
 from . import db_comments, db_group_papers
 from flask_restful import reqparse, fields, abort
 from . import db_papers
 from . import db_groups
 import pymongo
+from src.new_backend.models import Paper, db
+from src.new_backend.scrapers.arxiv import fetch_entry
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +156,7 @@ def get_papers(library=False, page_size=20):
         filters['_id'] = {'$in': group_paper_ids}
         if args.get('sort') == 'date_added':
             facet['papers'] = [{'$lookup': create_papers_groups_lookup([group_id], 'group')}, {'$unwind': '$group'}] + \
-                              facet['papers']
+                facet['papers']
     else:
         filters['is_private'] = {'$exists': False}
 
@@ -252,28 +253,17 @@ def abs_to_pdf(url):
     return url.replace('abs', 'pdf').replace('http', 'https') + '.pdf'
 
 
-def get_paper_by_id(paper_id: str, selected_fields: dict = None):
-    return db_papers.find_one({'_id': fix_paper_id(paper_id)}, selected_fields)
+def get_paper_or_none(paper_id: str):
+    return Paper.query.filter(Paper.id == paper_id).first()
 
 
 def get_paper_with_pdf(paper_id):
-    paper = get_paper_by_id(paper_id)
+    paper = get_paper_or_none(paper_id)
     if not paper:
         # Fetch from arxiv
-        paper = fetch_entry(paper_id)
+        fetch_entry(paper_id)
+        paper = get_paper_or_none(paper_id)
         if not paper:
             abort(404, message='Paper not found')
 
-        paper['_id'] = paper['id']
-
-    if paper.get('is_private'):
-        paper['pdf_link'] = paper['link']
-        return paper
-
-    pdf_url = abs_to_pdf(paper['link'])
-
-    if os.environ.get('S3_BUCKET_NAME'):
-        pdf_url = arxiv_to_s3(pdf_url)
-
-    paper['pdf_link'] = pdf_url
     return paper
