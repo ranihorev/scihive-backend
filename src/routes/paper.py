@@ -9,13 +9,14 @@ from flask_jwt_extended import get_jwt_identity, jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
 from sqlalchemy import or_
-from src.new_backend.models import Collection, Comment, Paper, db
+from src.new_backend.models import Collection, Comment, Paper, db, Author
 
 from .acronym_extractor import extract_acronyms
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
 from .paper_query_utils import (PUBLIC_TYPES, Github, get_paper_with_pdf, include_stats)
 from .query_utils import fix_paper_id
 from .user_utils import add_user_data, find_by_email, get_user
+from src.routes.s3_utils import key_to_url
 
 app = Blueprint('paper', __name__)
 api = Api(app)
@@ -335,32 +336,52 @@ class PaperAcronymsResource(Resource):
         matches = self._enrich_matches(new_acronyms['matches'], new_acronyms['short_forms'])
         return matches
 
-
-class EditPaperResource(Resource):
     method_decorators = [jwt_required]
 
     @marshal_with(paper_fields)
-    def post(self, paper_id):
+    def post(self):
         current_user = get_jwt_identity()
         parser = reqparse.RequestParser()
+        parser.add_argument('id', type=str, required=False)
         parser.add_argument('title', type=str, required=True)
         parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True,
-                            dest="time_published")
-        parser.add_argument('abstract', type=str, required=True, dest="summary")
-        parser.add_argument('authors', type=dict, required=True, action="append")
-        data = parser.parse_args()
-        old_data = db_papers.find_one(paper_id, {'_id': 0, 'title': 1, 'time_published': 1, 'summary': 1, 'authors': 1})
-        changes = {}
-        for key in old_data:
-            if data.get(key) != old_data.get(key):
-                changes[key] = old_data.get(key)
+                            dest="publication_date")
+        parser.add_argument('md5', type=str, required=False)
+        parser.add_argument('abstract', type=str, required=True)
+        parser.add_argument('authors', type=str, required=True, action="append")
+        paper_data = parser.parse_args()
 
-        if changes:
-            changes['stored_at'] = datetime.utcnow()
-            changes['changed_by'] = current_user
-            db_papers.update_one({'_id': fix_paper_id(paper_id)}, {'$set': data, '$push': {'history': changes}})
-        resp = get_paper_with_pdf(paper_id)
-        return resp
+        if 'id' not in paper_data and 'md5' not in paper_data:
+            abort(403)
+
+        # If the paper didn't exist in our database (or it's a new version), we add it
+        paper = db.session.query(Paper).filter(Paper.id == paper_data['id']).first()
+
+        paper_data['pdf_link'] = key_to_url(paper_data['md5'], with_prefix=True) + '.pdf'
+        paper_data['last_update_date'] = datetime.utcnow()
+        paper_data['is_private'] = True
+
+        if not paper:
+            paper = Paper(title=paper_data['title'], pdf_link=paper_data['pdf_link'], publication_date=paper_data['publication_date'],
+                          abstract=paper_data['abstract'], last_update_date=paper_data['last_update_date'], is_private=paper_data['is_private'])
+            db.session.add(paper)
+        else:
+            paper.title = paper_data['title']
+            paper.pdf_link = paper_data['pdf_link']
+            paper.publication_date = paper_data['publication_date']
+            paper.abstract = paper_data['abstract']
+
+        for author_name in paper_data['authors']:
+            existing_author = db.session.query(Author).filter(Author.name == author_name).first()
+
+            if not existing_author:
+                new_author = Author(name=author_name)
+                new_author.papers.append(paper)
+                db.session.add(new_author)
+
+        db.session.commit()
+
+        return {'paper_id': str(paper.id)}
 
 
 # Still need to be converted from Mongo to PostGres
@@ -373,4 +394,4 @@ api.add_resource(PaperResource, "/<paper_id>")
 api.add_resource(NewCommentResource, "/<paper_id>/new_comment")
 api.add_resource(CommentResource, "/<paper_id>/comment/<comment_id>")
 api.add_resource(PaperReferencesResource, "/<paper_id>/references")
-api.add_resource(EditPaperResource, "/<paper_id>/edit")
+api.add_resource(EditPaperResource, "/edit")
