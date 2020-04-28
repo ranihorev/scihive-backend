@@ -8,15 +8,14 @@ from flask import Blueprint
 from flask_jwt_extended import get_jwt_identity, jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
+from sqlalchemy import or_
 from src.new_backend.models import Collection, Comment, Paper, db
 
 from .acronym_extractor import extract_acronyms
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
-from .paper_query_utils import (PUBLIC_TYPES, Github, get_paper_by_id,
-                                get_paper_with_pdf, include_stats)
+from .paper_query_utils import (PUBLIC_TYPES, Github, get_paper_with_pdf, include_stats)
 from .query_utils import fix_paper_id
 from .user_utils import add_user_data, find_by_email, get_user
-from .models import Paper, Author, db
 
 app = Blueprint('paper', __name__)
 api = Api(app)
@@ -54,7 +53,7 @@ paper_fields = {
     'time_published': fields.DateTime(attribute='publication_date', dt_format='rfc822'),
     'abstract': fields.String,
     'code': Github(attribute='code'),
-    'groups': fields.Nested({'name': fields.String}),
+    'groups': fields.Nested({'id': fields.Integer, 'name': fields.String}),
     'is_editable': fields.Boolean(attribute='is_private', default=False)
 }
 
@@ -66,13 +65,10 @@ class PaperResource(Resource):
     def get(self, paper_id):
         current_user = get_jwt_identity()
         paper = get_paper_with_pdf(paper_id)
-        paper['groups'] = []
         if current_user:
-            user = find_by_email(current_user, {"_id": 1})
-            paper['groups'] = list(db_group_papers.find({'paper_id': fix_paper_id(
-                paper_id), 'user': str(user['_id'])}, {'group_id': 1, 'is_library': 1}))
-        paper = include_stats([paper], user=get_jwt_identity())[0]
-
+            user = get_user()
+            paper.groups = Collection.query.filter(Collection.users.any(
+                id=user.id), Collection.papers.any(id=paper.id)).all()
         return paper
 
 
@@ -82,18 +78,6 @@ replies_fields = {
     'text': fields.String,
     'createdAt': fields.DateTime(dt_format='rfc822', attribute='created_at'),
 }
-
-
-class UsernameField(fields.Raw):
-    def format(self, obj):
-        return ''
-
-
-class VisibilityField(fields.Raw):
-    def format(self, obj):
-        if isinstance(obj, dict):
-            return obj
-        return {'type': obj}
 
 
 comment_fields = {
@@ -131,24 +115,52 @@ def add_metadata(comments):
         add_single_meta(comments)
 
 
+def anonymize_user(paper: Paper):
+    if paper.shared_with == 'anonymous':
+        return ''
+    else:
+        return paper.user.username
+
+
+def can_edit(paper: Paper):
+    current_user = get_jwt_identity()
+    if not current_user:
+        return False
+    return paper.user.email == current_user
+
+
+comment_fields = {
+    'id': fields.String(),
+    'content': fields.Raw(),
+    'comment': fields.Raw(attribute='highlighted_text'),
+    'position': fields.Raw,
+    'username': fields.String(attribute=lambda x: anonymize_user(x)),
+    'canEdit': fields.String(attribute=lambda x: can_edit(x)),
+    'createdAt': fields.DateTime(dt_format='rfc822', attribute='creation_date'),
+    # 'replies': fields.List(fields.Nested(replies_fields)),
+    'visibility': fields.String(attribute='shared_with'),
+    'isGeneral': fields.Boolean(attribute='is_general'),
+}
+
+
 class CommentsResource(Resource):
     method_decorators = [jwt_optional]
 
     @marshal_with(comment_fields, envelope='comments')
     def get(self, paper_id):
-        current_user = get_jwt_identity()
-        user_filter = [{'user.email': current_user}] if current_user else []
         parser = reqparse.RequestParser()
-        parser.add_argument('group', required=False)
+        parser.add_argument('group', required=False, location='args')
         group_id = parser.parse_args().get('group')
+        user = get_user()
+        query = Comment.query.filter(Comment.paper_id == paper_id)
         if group_id:
-            visibility_filter = {'$or': [{'visibility.id': group_id}] + user_filter}
+            query = query.filter(Comment.collection_id == group_id)
         else:
-            visibility_filter = {'$or': [{'visibility.type': {'$in': PUBLIC_TYPES}},
-                                         {'visibility': {'$in': PUBLIC_TYPES}}, ] + user_filter}
-        comments = list(db_comments.find({'$and': [{'pid': paper_id}, visibility_filter]}))
-        add_metadata(comments)
-        return comments
+            if user:
+                query = query.filter(Comment.shared_with.in_(PUBLIC_TYPES))
+            else:
+                query = query.filter(or_(Comment.shared_with.in_(PUBLIC_TYPES), Comment.user_id == user.id))
+        return query.all()
 
 
 class NewCommentResource(Resource):
@@ -194,8 +206,6 @@ class NewCommentResource(Resource):
 
         db.session.add(comment)
         db.session.commit()
-
-        add_metadata(data)
         return comment
 
 
@@ -354,12 +364,12 @@ class EditPaperResource(Resource):
 
 
 # Still need to be converted from Mongo to PostGres
-api.add_resource(CommentsResource, "/<paper_id>/comments")
 api.add_resource(ReplyResource, "/<paper_id>/comment/<comment_id>/reply")
-api.add_resource(PaperResource, "/<paper_id>")
 api.add_resource(PaperAcronymsResource, "/<paper_id>/acronyms")
 
 # Done (untested)
+api.add_resource(CommentsResource, "/<paper_id>/comments")
+api.add_resource(PaperResource, "/<paper_id>")
 api.add_resource(NewCommentResource, "/<paper_id>/new_comment")
 api.add_resource(CommentResource, "/<paper_id>/comment/<comment_id>")
 api.add_resource(PaperReferencesResource, "/<paper_id>/references")
