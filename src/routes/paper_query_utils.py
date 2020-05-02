@@ -13,25 +13,8 @@ from src.new_backend.scrapers.arxiv import fetch_entry
 logger = logging.getLogger(__name__)
 
 SCORE_META = {'$meta': 'textScore'}
-SORT_DICT = {
-    'tweets': 'twtr_sum',
-    'date': 'time_published',
-    'score': 'score',
-    'bookmarks': 'total_bookmarks',
-    'date_added': 'group.date'
-}
-AGE_DICT = {'day': 1, '3days': 3, 'week': 7, 'month': 30, 'year': 365, 'all': -1}
 
 PUBLIC_TYPES = ['public', 'anonymous']
-
-query_parser = reqparse.RequestParser()
-query_parser.add_argument('q', type=str, required=False)
-query_parser.add_argument('author', type=str, required=False)
-query_parser.add_argument('page_num', type=int, required=False, default=1)
-query_parser.add_argument('sort', type=str, required=False, choices=list(SORT_DICT.keys()), store_missing=False)
-query_parser.add_argument('age', type=str, required=False, choices=list(AGE_DICT.keys()), default='week')
-query_parser.add_argument('categories', type=str, required=False)
-query_parser.add_argument('group', type=str, required=False)
 
 
 class TwitterUrl(fields.Raw):

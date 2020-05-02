@@ -6,7 +6,7 @@ import logging
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
-from src.new_backend.models import Collection, Paper, db
+from src.new_backend.models import Collection, Paper, db, user_collection_table
 from .user_utils import get_user_by_email
 
 app = Blueprint('groups', __name__)
@@ -129,6 +129,9 @@ class Group(Resource):
                 group.papers.remove(paper)
             except ValueError:
                 pass
+
+        # TODO: optimize this:
+        paper.num_stars = len(paper.collections)
         db.session.commit()
         return {'message': 'success'}
 

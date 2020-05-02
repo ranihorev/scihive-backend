@@ -8,8 +8,7 @@ from flask_restful import Api, Resource, reqparse, marshal_with, fields
 from sqlalchemy_searchable import search
 from sqlalchemy import or_
 
-from src.new_backend.models import Author, Collection, Paper, db
-from src.routes.paper_query_utils import SORT_DICT, AGE_DICT
+from src.new_backend.models import Author, Collection, Paper, db, paper_collection_table
 from src.utils import get_file_path
 from src.routes.user_utils import get_user_by_email
 
@@ -67,6 +66,7 @@ papers_fields = {
     'authors': fields.Nested({'name': fields.String}),
     'time_published': fields.DateTime(dt_format='rfc822', attribute="publication_date"),
     'summary': fields.String(attribute="abstract"),
+    'groups': fields.Raw(attribute=lambda paper: [str(c.id) for c in paper.collections])
 }
 
 papers_list_fields = {
@@ -75,12 +75,15 @@ papers_list_fields = {
 }
 
 
-def get_sort(args):
-    field = args.get('sort', 'date')
-    options = {
-        "date": Paper.publication_date.desc(),
-    }
-    return options.get(field)
+SORT_DICT = {
+    'tweets': Paper.twitter_score.desc(),
+    'date': Paper.publication_date.desc(),
+    'score': 'score',
+    'bookmarks': Paper.num_stars.desc(),
+    'date_added': paper_collection_table.c.date_added.desc()
+}
+
+AGE_DICT = {'day': 1, '3days': 3, 'week': 7, 'month': 30, 'year': 365, 'all': -1}
 
 
 class Papers(Resource):
@@ -104,6 +107,7 @@ class Papers(Resource):
         q = args.get('q', '')
         author = args.get('author', '')
         age = args.get('age', 'all')
+        sort = args.get('sort', 'date')
 
         query = db.session.query(Paper)
         if q:
@@ -128,6 +132,12 @@ class Papers(Resource):
 
         if author:
             query = query.filter(Paper.authors.any(name=author))
+
+        sort_by = SORT_DICT.get(sort)
+        if sort_by is not None:
+            if sort == 'date_added':
+                query = query.join(paper_collection_table)
+            query = query.order_by(sort_by)
         papers_items = query.paginate(page=page_num, per_page=10)
 
         return {"count": papers_items.total, "papers": papers_items.items}

@@ -34,7 +34,9 @@ paper_tag_table = db.Table('paper_tag', db.metadata,
 
 paper_collection_table = db.Table('paper_collection', db.metadata,
                                   db.Column('paper_id', db.Integer, db.ForeignKey('paper.id')),
-                                  db.Column('collection_id', db.Integer, db.ForeignKey('collection.id'))
+                                  db.Column('collection_id', db.Integer, db.ForeignKey('collection.id')),
+                                  db.Column('date_added', db.DateTime(timezone=True),
+                                            nullable=False, default=datetime.now)
                                   )
 
 user_collection_table = db.Table('user_collection', db.metadata,
@@ -76,6 +78,7 @@ class Paper(db.Model):
     comments = db.relationship("Comment")
     tweets = db.relationship("Tweet")
     twitter_score = db.Column(db.Integer)
+    num_stars = db.Column(db.Integer, default=0)
 
     def __repr__(self):
         return f"{self.id} - {self.title}"
