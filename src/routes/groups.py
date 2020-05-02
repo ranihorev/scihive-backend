@@ -1,7 +1,5 @@
-import pymongo
 from datetime import datetime
 
-from bson import ObjectId
 from flask import Blueprint
 import logging
 
@@ -9,9 +7,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
 from src.new_backend.models import Collection, Paper, db
-from .group_utils import get_group, add_user_to_group
-from .user_utils import find_by_email, add_remove_group, get_user_by_email
-from . import db_groups, db_users, db_group_papers
+from .user_utils import get_user_by_email
 
 app = Blueprint('groups', __name__)
 api = Api(app)
@@ -29,13 +25,6 @@ group_fields = {
     'created_at': fields.DateTime(dt_format='rfc822', attribute='creation_date'),
     'color': fields.String,
 }
-
-
-def get_user_group_ids(current_user=None):
-    # TODO: update
-    if not current_user:
-        current_user = get_jwt_identity()
-    return find_by_email(current_user, fields={'groups': 1}).get('groups', [])
 
 
 def get_user_groups(user):

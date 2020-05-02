@@ -14,8 +14,6 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_restful import Resource, Api, reqparse, marshal_with, fields, abort
 from typing import NamedTuple, List, Tuple
 
-from .user_utils import add_to_library, add_user_data
-from . import db_papers, db_authors
 from .s3_utils import upload_to_s3, key_to_url, calc_md5
 
 app = Blueprint('new_paper', __name__)

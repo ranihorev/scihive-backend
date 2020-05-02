@@ -1,6 +1,6 @@
 """
 Periodically checks Twitter for tweets about arxiv papers we recognize
-and logs the tweets into mongodb database "arxiv", under "tweets" collection.
+and logs the tweets into database "arxiv", under "tweets" collection.
 """
 import datetime
 import json
@@ -11,7 +11,6 @@ import re
 from collections import defaultdict
 from time import sleep
 
-import pymongo
 import pytz
 import tweepy
 from dotenv import load_dotenv

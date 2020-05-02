@@ -1,4 +1,3 @@
-import pymongo
 import requests
 import csv
 from io import StringIO

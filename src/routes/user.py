@@ -9,7 +9,7 @@ from flask_jwt_extended import (create_access_token, jwt_required, jwt_refresh_t
                                 get_jwt_identity, get_raw_jwt, set_access_cookies, unset_access_cookies)
 
 from ..new_backend.models import User, db, RevokedToken
-from .user_utils import find_by_email, generate_hash, verify_hash, get_user_by_email
+from .user_utils import generate_hash, verify_hash, get_user_by_email
 
 app = Blueprint('user', __name__)
 api = Api(app)
@@ -21,6 +21,7 @@ parser.add_argument('password', help='This field cannot be blank', required=True
 parser.add_argument('username', required=False)
 
 # Based on https://github.com/oleg-agapov/flask-jwt-auth/
+
 
 def make_error(status_code, message):
     response = jsonify()

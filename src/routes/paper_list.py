@@ -11,7 +11,6 @@ from sqlalchemy import or_
 from src.new_backend.models import Author, Collection, Paper, db
 from src.routes.paper_query_utils import SORT_DICT, AGE_DICT
 from src.utils import get_file_path
-from . import db_authors, db_papers
 from src.routes.user_utils import get_user_by_email
 
 app = Blueprint('paper_list', __name__)
@@ -133,94 +132,6 @@ class Papers(Resource):
 
         return {"count": papers_items.total, "papers": papers_items.items}
 
-        ##########################################
-        # TODO: Migrate and remove beyond this point
-        current_user = get_jwt_identity()
-        user_data = None
-        if current_user:
-            user_data = find_by_email(current_user, fields={'groups': 1, 'library_id': 1})
 
-        # Get arguments
-        q = args['q']
-
-        # group_id = args['group']
-
-        # Calculates skip for pagination
-        skips = page_size * (page_num - 1)
-
-        agg_query = []
-        filters = {}
-        facet = {
-            'papers': [
-                {'$sort': get_sort(args)},
-                {'$skip': skips},
-                {'$limit': page_size},
-            ],
-        }
-
-        if group_id:
-            group_papers = list(db_group_papers.find(
-                {'group_id': group_id}, {'paper_id': 1}))
-            group_paper_ids = [fix_paper_id(p['paper_id'])
-                               for p in group_papers]
-            filters['_id'] = {'$in': group_paper_ids}
-            if args.get('sort') == 'date_added':
-                facet['papers'] = [{'$lookup': create_papers_groups_lookup([group_id], 'group')},
-                                   {'$unwind': '$group'}] + \
-                    facet['papers']
-        else:
-            filters['is_private'] = {'$exists': False}
-
-        if q:
-            filters['$text'] = {'$search': q}
-
-        if current_user:
-            user_data = find_by_email(current_user, fields={
-                'groups': 1, 'library_id': 1})
-            group_ids = user_data.get('groups', [])
-            library_id = user_data.get('library_id')
-            group_ids = [str(g) for g in group_ids]
-            if library_id:
-                group_ids.append(library_id)
-            facet['papers'].insert(
-                0, {'$lookup': create_papers_groups_lookup(group_ids, 'groups')})
-
-        if page_num == 1:
-            facet['count'] = [
-                {"$count": "count"}
-            ]
-
-        agg_query += [
-            {'$match': filters},
-            {'$facet': facet},
-        ]
-
-        results = db_papers.aggregate(agg_query)
-
-        results = list(results)[0]
-
-        # Adds stats to query
-        papers = include_stats(results.get('papers'), user=current_user)
-        count = -1
-        if 'count' in results:
-            if not results['count']:
-                count = 0
-            else:
-                count = results['count'][0]['count']
-
-        return {'papers': papers, 'count': count}
-        return papers
-
-
-categories = json.load(
-    open(get_file_path(__file__, '../relevant_arxiv_categories.json'), 'r'))
-
-
-class Categories(Resource):
-    def get(self):
-        return categories
-
-
-api.add_resource(Categories, "/categories")
 api.add_resource(Autocomplete, "/autocomplete")
 api.add_resource(Papers, "/all")

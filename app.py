@@ -1,7 +1,6 @@
 import logging
 import os
 from src import app
-import pymongo
 from src.logger import logger_config
 
 
@@ -15,14 +14,6 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 
 port = int(os.environ.get('PORT', 5000))
-logger.info('connecting to mongodb...')
-client = pymongo.MongoClient()
-mdb = client.arxiv
-db_papers = mdb.papers
-db_authors = mdb.authors
-sem_sch_papers = mdb.sem_sch_papers
-sem_sch_authors = mdb.sem_sch_authors
-network_requests = mdb.network_requests
 
 # start
 if env == 'production':

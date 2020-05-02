@@ -13,9 +13,8 @@ from src.new_backend.models import Author, Collection, Comment, Paper, Reply, db
 
 from .acronym_extractor import extract_acronyms
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
-from .paper_query_utils import (PUBLIC_TYPES, Github, get_paper_with_pdf, include_stats)
-from .query_utils import fix_paper_id
-from .user_utils import add_user_data, find_by_email, get_user
+from .paper_query_utils import (PUBLIC_TYPES, Github, get_paper_with_pdf)
+from .user_utils import get_user
 from src.routes.s3_utils import key_to_url
 
 app = Blueprint('paper', __name__)
