@@ -9,6 +9,7 @@ from sqlalchemy_utils import ChoiceType
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_continuum import make_versioned
 
+from datetime import datetime
 from .. import app
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -54,7 +55,7 @@ class User(db.Model):
 
 class Paper(db.Model):
     __tablename__ = 'paper'
-    __versioned__ = { 
+    __versioned__ = {
         'exclude': ['authors', 'tags', 'collections', 'comments', 'tweets']
     }
 
@@ -136,6 +137,17 @@ class Comment(db.Model):
     shared_with = db.Column(ChoiceType(TYPES), nullable=False)
     collection_id = db.Column(db.ForeignKey('collection.id'), nullable=True)
     collection = db.relationship("Collection")
+    replies = db.relationship("Reply")
+
+
+class Reply(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    parent_id = db.Column(db.ForeignKey('comment.id'))
+    parent = db.relationship("Comment")
+    creation_date = db.Column(db.DateTime(timezone=True), nullable=False, default=datetime.now)
+    text = db.Column(db.String, nullable=False)
+    user_id = db.Column(db.ForeignKey('user.id'), nullable=True)
+    user = db.relationship("User")
 
 
 class RevokedToken(db.Model):

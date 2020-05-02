@@ -9,7 +9,7 @@ from flask_jwt_extended import get_jwt_identity, jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
 from sqlalchemy import or_
-from src.new_backend.models import Collection, Comment, Paper, db, Author
+from src.new_backend.models import Author, Collection, Comment, Paper, Reply, db
 
 from .acronym_extractor import extract_acronyms
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
@@ -44,9 +44,6 @@ def visibilityObj(obj):
 
 EMPTY_FIELD_MSG = 'This field cannot be blank'
 
-new_reply_parser = reqparse.RequestParser()
-new_reply_parser.add_argument('text', help='This field cannot be blank', type=str, location='json', required=True)
-
 paper_fields = {
     'url': fields.String(attribute='local_pdf'),
     'title': fields.String,
@@ -78,20 +75,6 @@ replies_fields = {
     'user': fields.String(attribute='user.username'),
     'text': fields.String,
     'createdAt': fields.DateTime(dt_format='rfc822', attribute='created_at'),
-}
-
-
-comment_fields = {
-    'id': fields.String(),
-    'content': fields.Raw(),
-    'comment': fields.Raw(attribute='highlighted_text'),
-    'position': fields.Raw,
-    'user': fields.String(attribute='user.username'),
-    # 'canEdit': fields.Boolean(),
-    'createdAt': fields.DateTime(dt_format='rfc822', attribute='creation_date'),
-    # 'replies': fields.List(fields.Nested(replies_fields)),
-    'visibility': fields.String(attribute='shared_with'),
-    'isGeneral': fields.Boolean(attribute='is_general'),
 }
 
 
@@ -247,23 +230,19 @@ class CommentResource(Resource):
 class ReplyResource(Resource):
     method_decorators = [jwt_optional]
 
-    def _get_comment(self, comment_id):
-        comment = db.session.query(CommentResource).filter(CommentResource.id == comment_id).first()
-        if not comment:
-            abort(404, messsage='Comment not found')
-        return comment
-
     @marshal_with(comment_fields, envelope='comment')
     def post(self, comment_id):
-        comment = self._get_comment(comment_id)
+        comment = Comment.query.get_or_404(comment_id)
+        new_reply_parser = reqparse.RequestParser()
+        new_reply_parser.add_argument('text', help='This field cannot be blank',
+                                      type=str, location='json', required=True)
         data = new_reply_parser.parse_args()
-        data['created_at'] = datetime.utcnow()
-        data['id'] = str(uuid.uuid4())
-        add_user_data(data)
-        new_values = {"$push": {'replies': data}}
-        db_comments.update_one(comment_id, new_values)
-        comment = self._get_comment(comment_id)
-        add_metadata(comment)
+        user = get_user()
+
+        reply = Reply(parent_id=comment.id, text=data['text'], user_id=user.id if user else None)
+        db.session.add(reply)
+        db.session.commit()
+        db.session.refresh(comment)
         return comment
 
 
@@ -303,39 +282,41 @@ class PaperReferencesResource(Resource):
         return references['data']
 
 
-class PaperAcronymsResource(Resource):
-    method_decorators = [jwt_optional]
+# class PaperAcronymsResource(Resource):
+#     method_decorators = [jwt_optional]
 
-    def _update_acronyms_counter(self, acronyms, inc_value=1):
-        for short_form, long_form in acronyms.items():
-            db_acronyms.update({'short_form': short_form}, {'$inc': {f'long_form.{long_form}': inc_value}}, True)
+#     def _update_acronyms_counter(self, acronyms, inc_value=1):
+#         for short_form, long_form in acronyms.items():
+#             db_acronyms.update({'short_form': short_form}, {'$inc': {f'long_form.{long_form}': inc_value}}, True)
 
-    def _enrich_matches(self, matches, short_forms):
-        additional_matches = db_acronyms.find({"short_form": {"$in": short_forms}})
-        for m in additional_matches:
-            cur_short_form = m.get('short_form')
-            if m.get('verified'):
-                matches[cur_short_form] = m.get('verified')
-            elif cur_short_form in matches:
-                pass
-            else:
-                long_forms = m.get('long_form')
-                if long_forms:
-                    most_common = max(long_forms,
-                                      key=(lambda key: long_forms[key] if isinstance(long_forms[key], int) else 0))
-                    matches[cur_short_form] = most_common
-        return matches
+#     def _enrich_matches(self, matches, short_forms):
+#         additional_matches = db_acronyms.find({"short_form": {"$in": short_forms}})
+#         for m in additional_matches:
+#             cur_short_form = m.get('short_form')
+#             if m.get('verified'):
+#                 matches[cur_short_form] = m.get('verified')
+#             elif cur_short_form in matches:
+#                 pass
+#             else:
+#                 long_forms = m.get('long_form')
+#                 if long_forms:
+#                     most_common = max(long_forms,
+#                                       key=(lambda key: long_forms[key] if isinstance(long_forms[key], int) else 0))
+#                     matches[cur_short_form] = most_common
+#         return matches
 
-    def get(self, paper_id):
-        new_acronyms, old_acronyms, state = get_paper_item(paper_id, 'acronyms', extract_acronyms)
-        if state == ItemState.new:
-            self._update_acronyms_counter(new_acronyms["matches"])
-        elif state == ItemState.updated:
-            self._update_acronyms_counter(old_acronyms["matches"], -1)
-            self._update_acronyms_counter(new_acronyms["matches"], 1)
-        matches = self._enrich_matches(new_acronyms['matches'], new_acronyms['short_forms'])
-        return matches
+#     def get(self, paper_id):
+#         new_acronyms, old_acronyms, state = get_paper_item(paper_id, 'acronyms', extract_acronyms)
+#         if state == ItemState.new:
+#             self._update_acronyms_counter(new_acronyms["matches"])
+#         elif state == ItemState.updated:
+#             self._update_acronyms_counter(old_acronyms["matches"], -1)
+#             self._update_acronyms_counter(new_acronyms["matches"], 1)
+#         matches = self._enrich_matches(new_acronyms['matches'], new_acronyms['short_forms'])
+#         return matches
 
+
+class EditPaperResource(Resource):
     method_decorators = [jwt_required]
 
     @marshal_with(paper_fields)
@@ -386,7 +367,7 @@ class PaperAcronymsResource(Resource):
 
 # Still need to be converted from Mongo to PostGres
 api.add_resource(ReplyResource, "/<paper_id>/comment/<comment_id>/reply")
-api.add_resource(PaperAcronymsResource, "/<paper_id>/acronyms")
+# api.add_resource(PaperAcronymsResource, "/<paper_id>/acronyms")
 
 # Done (untested)
 api.add_resource(CommentsResource, "/<paper_id>/comments")
