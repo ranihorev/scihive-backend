@@ -19,3 +19,4 @@ venv/
 .idea/
 
 .env
+src/new_backend/mongo_data/
