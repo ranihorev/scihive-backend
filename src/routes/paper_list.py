@@ -78,12 +78,22 @@ papers_list_fields = {
 SORT_DICT = {
     'tweets': Paper.twitter_score.desc(),
     'date': Paper.publication_date.desc(),
-    'score': 'score',
+    'score': None,  # sort is handles in the query itself
     'bookmarks': Paper.num_stars.desc(),
     'date_added': paper_collection_table.c.date_added.desc()
 }
 
 AGE_DICT = {'day': 1, '3days': 3, 'week': 7, 'month': 30, 'year': 365, 'all': -1}
+
+
+def sort_query(query, args):
+    sort = args.get('sort', 'date')
+    sort_by = SORT_DICT.get(sort)
+    if sort_by is not None:
+        if sort == 'date_added':
+            query = query.join(paper_collection_table)
+        query = query.order_by(sort_by)
+    return query
 
 
 class Papers(Resource):
@@ -101,17 +111,17 @@ class Papers(Resource):
             AGE_DICT.keys()), default='week', location='args')
         query_parser.add_argument('library', type=bool, required=False, default=False, location='args')
         query_parser.add_argument('group', type=str, required=False, location='args')
+        query_parser.add_argument('q', type=str, required=False, location='args')
         args = query_parser.parse_args()
 
         page_num = args.get('page_num', 0)
         q = args.get('q', '')
         author = args.get('author', '')
         age = args.get('age', 'all')
-        sort = args.get('sort', 'date')
 
         query = db.session.query(Paper)
         if q:
-            query = search(query, q)
+            query = search(query, q, sort=True)
 
         if age != 'all':  # TODO: replace with integer
             dnow_utc = datetime.datetime.now()
@@ -133,11 +143,7 @@ class Papers(Resource):
         if author:
             query = query.filter(Paper.authors.any(name=author))
 
-        sort_by = SORT_DICT.get(sort)
-        if sort_by is not None:
-            if sort == 'date_added':
-                query = query.join(paper_collection_table)
-            query = query.order_by(sort_by)
+        query = sort_query(query, args)
         papers_items = query.paginate(page=page_num, per_page=10)
 
         return {"count": papers_items.total, "papers": papers_items.items}
