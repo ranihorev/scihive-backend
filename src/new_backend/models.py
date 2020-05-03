@@ -79,6 +79,7 @@ class Paper(db.Model):
     tweets = db.relationship("Tweet")
     twitter_score = db.Column(db.Integer)
     num_stars = db.Column(db.Integer, default=0)
+    references = db.Column(db.JSON)
 
     def __repr__(self):
         return f"{self.id} - {self.title}"

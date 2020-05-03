@@ -44,6 +44,7 @@ def visibilityObj(obj):
 EMPTY_FIELD_MSG = 'This field cannot be blank'
 
 paper_fields = {
+    'id': fields.String,
     'url': fields.String(attribute='local_pdf'),
     'title': fields.String,
     'authors': fields.Nested({'name': fields.String}),
@@ -112,16 +113,21 @@ def can_edit(paper: Paper):
     return paper.user.email == current_user
 
 
+visibility_fields = {
+    'type': fields.String(attribute='shared_with'),
+    'id': fields.String(attribute='collection_id')
+}
+
 comment_fields = {
-    'id': fields.String(),
-    'content': fields.Raw(),
-    'comment': fields.Raw(attribute='highlighted_text'),
+    'id': fields.String,
+    'content': fields.String(attribute='text'),
+    'comment': fields.String(attribute='highlighted_text'),
     'position': fields.Raw,
     'username': fields.String(attribute=lambda x: anonymize_user(x)),
     'canEdit': fields.String(attribute=lambda x: can_edit(x)),
     'createdAt': fields.DateTime(dt_format='rfc822', attribute='creation_date'),
     # 'replies': fields.List(fields.Nested(replies_fields)),
-    'visibility': fields.String(attribute='shared_with'),
+    'visibility': visibility_fields,
     'isGeneral': fields.Boolean(attribute='is_general'),
 }
 

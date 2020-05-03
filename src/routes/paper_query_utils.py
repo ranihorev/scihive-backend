@@ -55,4 +55,11 @@ def get_paper_with_pdf(paper_id):
         if not paper:
             abort(404, message='Paper not found')
 
+    if not paper.local_pdf:
+        # TODO: expand this method to any source
+        if not os.environ.get('S3_BUCKET_NAME'):
+            logger.error('S3 Bucket name is missing')
+        paper.local_pdf = arxiv_to_s3(paper.original_pdf)
+        db.session.commit()
+
     return paper
