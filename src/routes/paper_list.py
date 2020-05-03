@@ -65,8 +65,10 @@ papers_fields = {
     'saved_in_library': fields.Boolean,
     'authors': fields.Nested({'name': fields.String}),
     'time_published': fields.DateTime(dt_format='rfc822', attribute="publication_date"),
-    'summary': fields.String(attribute="abstract"),
-    'groups': fields.Raw(attribute=lambda paper: [str(c.id) for c in paper.collections])
+    'abstract': fields.String(attribute="abstract"),
+    'groups': fields.Raw(attribute=lambda paper: [str(c.id) for c in paper.collections]),
+    'twitter_score': fields.Integer,
+    'num_stars': fields.Integer,
 }
 
 papers_list_fields = {
