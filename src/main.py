@@ -12,6 +12,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_caching import Cache
 from .routes.paper import app as paper_routes
+from .routes.comments import app as comments_routes
 from .routes.paper_list import app as paper_list_routes
 from .routes.user import app as user_routes
 from .routes.groups import app as groups_routes
@@ -70,6 +71,7 @@ cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
 app.register_blueprint(paper_list_routes, url_prefix='/papers')
 app.register_blueprint(paper_routes, url_prefix='/paper')
+app.register_blueprint(comments_routes, url_prefix='/paper')
 app.register_blueprint(user_routes, url_prefix='/user')
 app.register_blueprint(groups_routes, url_prefix='/groups')
 app.register_blueprint(admin_routes, url_prefix='/admin')
