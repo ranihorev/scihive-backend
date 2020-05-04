@@ -6,6 +6,7 @@ import re
 # paper = db.session.query(Paper).filter(Paper.original_id == rawid).first()
 old_paper_id_map = {}
 old_group_id_map = {}
+old_user_id_map = {}
 
 def convert_comments(file_name='mongo_data/comments.bson'):
     global old_group_id_map
@@ -119,11 +120,12 @@ def convert_papers(file_name='mongo_data/papers.bson'):
 
 
 def convert_users(file_name='mongo_data/users.bson'):
+    global old_user_id_map
+
     # Ex
     # {'_id': ObjectId('5cb76867debc51623e186966'), 'email': 'ranihorev@gmail.com', 'password': 'pbkdf2:sha256:150000$YiHVt53M$743234a52a0e62056f079e8343e71056c728fce95fb8ed46246149a7e6438e1f', 'username': 'ranihorev', 'library': ['1904.08920'], 'groups': [ObjectId('5ccc55cfdebc5136066e913d'), ObjectId('5d9c007fdebc513900073ddf')], 'isAdmin': True, 'library_id': '7e6cf503-721f-4b8a-8447-130088720018'}
     with open(file_name, 'rb') as f:
         for doc in bson.decode_all(f.read())[:5]:
-            id = doc['_id']
             user = User(email=doc['email'], password=doc['password'], username=doc['username'])
             db.session.add(user)
 
@@ -136,6 +138,8 @@ def convert_users(file_name='mongo_data/users.bson'):
             for paper in doc['library']:
                 collection.papers.add(paper)
 
+            old_user_id_map[doc['_id']] = user.id
+
     # TODO: groups
     # TODO: what about library_id??
 
@@ -145,20 +149,23 @@ def convert_groups(file_name='mongo_data/groups.bson'):
     # Ex
     # {'_id': ObjectId('5cd5e175debc517430f2f957'), 'name': 'Ecology', 'created_at': datetime.datetime(2019, 5, 10, 20, 39, 17, 142000), 'created_by': ObjectId('5cbcccafdebc511d170ab359'), 'users': [ObjectId('5cbcccafdebc511d170ab359')], 'papers': ['1005.3980', '1007.4914', '1010.6251', '0911.5556', '1503.01150', '1906.09144', '1709.01861'], 'color': 'YELLOW'}
     with open(file_name, 'rb') as f:
-        for doc in bson.decode_all(f.read())[:5]:
-            id = doc['_id']
-            collection = Collection(is_library=doc['is_library'], name=doc['name'], color=doc['color'], creation_date=doc['creation_date'])
+        for doc in bson.decode_all(f.read()):
+            collection = Collection(is_library=doc['is_library'], name=doc['name'], color=doc['color'], creation_date=doc['created_at'])
+
+            user = db.session.query(User).filter(User.id == old_user_id_map[doc['users'][0]]).first()
+            
+            if user:
+                collection.user = user
+
             db.session.add(collection)
 
-    # TODO: papers, created_by, created_by_id
-    # Rani said to ignore papers here
+    # TODO: is created_by and user the same?
 
     db.session.flush()
 
 def convert_group_papers(file_name='mongo_data/group_papers.bson'):
-    pass
     # Ex
-    # {'_id': ObjectId('5dcaf30914029c5323020255'), 'group_id': '4f62a896-c054-4d82-83bc-bd8621013438', 'paper_id': '1904.05873', 'date': datetime.datetime(2019, 11, 12, 17, 59, 37, 813000), 'is_library': True, 'user': '5cb37c3ddebc5125a336dcf4'}
+    # {'_id': ObjectId('5dcaf30914029c532302025d'), 'group_id': 'a3b56b94-aab2-4018-bf8a-13e1e5218ba7', 'paper_id': '1904.09970', 'date': datetime.datetime(2019, 11, 12, 17, 59, 37, 829000), 'is_library': True, 'user': '5cbcccafdebc511d170ab359'}
     # with open(file_name, 'rb') as f:
     #     for doc in bson.decode_all(f.read())[:5]:
     #         id = doc['_id']
@@ -188,8 +195,8 @@ def main():
     convert_papers()
     convert_authors()
     convert_users()
-    convert_groups() # TODO
-    convert_group_papers() # TODO
+    convert_groups()
+    # convert_group_papers() # TODO
     convert_comments()
     convert_tweets()
     # convert_acronyms()
