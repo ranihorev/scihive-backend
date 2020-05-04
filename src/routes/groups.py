@@ -1,12 +1,13 @@
+import logging
 from datetime import datetime
 
 from flask import Blueprint
-import logging
-
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
+from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_restful import (Api, Resource, abort, fields, inputs, marshal_with,
+                           reqparse)
 
 from src.new_backend.models import Collection, Paper, db, user_collection_table
+
 from .user_utils import get_user_by_email
 
 app = Blueprint('groups', __name__)
@@ -48,6 +49,7 @@ class Groups(Resource):
         data = parser.parse_args()
         group = Collection.query.get_or_404(data.get('id'))
         group.users.append(user)
+        db.session.commit()
         return get_user_groups(user)
 
 
@@ -117,7 +119,8 @@ class Group(Resource):
     def post(self, group_id):
         parser = reqparse.RequestParser()
         parser.add_argument('paper_id', required=True, help="paper_id is missing")
-        parser.add_argument('add', required=True, help="should specify if add (add=1) or remove (add=0)", type=bool)
+        parser.add_argument('add', required=True,
+                            help="should specify if add (add=1) or remove (add=0)", type=inputs.boolean)
         data = parser.parse_args()
         user = get_user_by_email()
         paper = Paper.query.get_or_404(data.get('paper_id'))
