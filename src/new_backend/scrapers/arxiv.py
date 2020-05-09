@@ -18,6 +18,7 @@ from src.logger import logger_config
 from src.routes.s3_utils import arxiv_to_s3
 import os
 import pytz
+from sqlalchemy.orm.exc import NoResultFound
 
 logger = logging.getLogger(__name__)
 BASE_URL = 'http://export.arxiv.org/api/query?'  # base api query url
@@ -129,12 +130,13 @@ def handle_entry(e, download_to_s3=False):
         # Adding new authors to the paper
         for author in paper_data['authors']:
             author_name = author['name']
-            existing_author = db.session.query(Author).filter(Author.name == author_name).first()
+            try:
+                existing_author = Author.query.filter(Author.name == author_name).first()
+            except NoResultFound:
+                existing_author = Author(name=author_name)
+                db.session.add(existing_author)
 
-            if not existing_author:
-                new_author = Author(name=author_name)
-                new_author.papers.append(paper)
-                db.session.add(new_author)
+            author.papers.append(paper)
 
         # We create a new paper in database (and an arXiv paper object)
         added = 1

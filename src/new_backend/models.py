@@ -8,6 +8,7 @@ from sqlalchemy_utils import TSVectorType
 from sqlalchemy_utils import ChoiceType
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_continuum import make_versioned
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from datetime import datetime
 from .. import app
@@ -64,11 +65,11 @@ class Paper(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     title = db.Column(db.String, nullable=False)
     link = db.Column(db.String, nullable=True)
-    original_pdf = db.Column(db.String, nullable=False)
+    original_pdf = db.Column(db.String, nullable=True)
     local_pdf = db.Column(db.String, nullable=True)
     publication_date = db.Column(db.DateTime(timezone=True), nullable=False)
     abstract = db.Column(db.String, nullable=True)
-    original_id = db.Column(db.String)
+    original_id = db.Column(db.String, nullable=True)
     last_update_date = db.Column(db.DateTime(timezone=True), nullable=False)
     is_private = db.Column(db.Boolean, nullable=True)
     authors = db.relationship("Author", back_populates="papers", secondary=paper_author_table)
@@ -77,7 +78,7 @@ class Paper(db.Model):
     search_vector = db.Column(TSVectorType('title', 'abstract'))
     comments = db.relationship("Comment")
     tweets = db.relationship("Tweet")
-    twitter_score = db.Column(db.Integer)
+    twitter_score = db.Column(db.Integer, default=0)
     num_stars = db.Column(db.Integer, default=0)
     references = db.Column(db.JSON)
 
@@ -103,13 +104,15 @@ class Author(db.Model):
     __tablename__ = 'author'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     name = db.Column(db.String(80), nullable=False)
+    first_name = db.Column(db.String(80), nullable=True)
+    last_name = db.Column(db.String(80), nullable=True)
+    organization = db.Column(ARRAY(db.String), nullable=True)
     papers = db.relationship("Paper", back_populates="authors", secondary=paper_author_table)
 
 
 class Collection(db.Model):
     __tablename__ = 'collection'
     id = db.Column(db.Integer, primary_key=True)
-    is_library = db.Column(db.Boolean)
     name = db.Column(db.String(100), nullable=False)
     color = db.Column(db.String(30), nullable=True)
     papers = db.relationship("Paper", back_populates="collections", secondary=paper_collection_table)
@@ -117,6 +120,7 @@ class Collection(db.Model):
     creation_date = db.Column(db.DateTime(timezone=True), nullable=False)
     created_by_id = db.Column(db.ForeignKey('user.id'), nullable=False)
     created_by = db.relationship("User")
+    is_uploads = db.Column(db.Boolean, nullable=True)
 
 
 class Comment(db.Model):

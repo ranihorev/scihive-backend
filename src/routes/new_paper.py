@@ -15,6 +15,9 @@ from flask_restful import Resource, Api, reqparse, marshal_with, fields, abort
 from typing import NamedTuple, List, Tuple
 
 from .s3_utils import upload_to_s3, key_to_url, calc_md5
+from src.new_backend.models import Author, Collection, Paper, db
+from src.routes.user_utils import get_user
+from sqlalchemy.orm.exc import NoResultFound
 
 app = Blueprint('new_paper', __name__)
 api = Api(app)
@@ -31,7 +34,7 @@ def get_all_tag_texts(tree, tag):
     return [e.text for e in element]
 
 
-class Author(NamedTuple):
+class AuthorObj(NamedTuple):
     first_name: str
     last_name: str
     org: List[str]
@@ -45,7 +48,7 @@ class AuthorMarshal(fields.Raw):
         return {'name': value.get_name()}
 
 
-def extract_paper_metadata(file_content) -> Tuple[str, List[Author], str]:
+def extract_paper_metadata(file_content) -> Tuple[str, List[AuthorObj], str]:
     try:
         grobid_res = requests.post('http://cloud.science-miner.com/grobid/api/processHeaderDocument',
                                    data={'consolidateHeader': 1}, files={'input': file_content})
@@ -60,11 +63,11 @@ def extract_paper_metadata(file_content) -> Tuple[str, List[Author], str]:
     title = get_tag_text(tree, 'title')
 
     authors_tree = tree.findall('.//author')
-    authors: List[Author] = []
+    authors: List[AuthorObj] = []
     for author_tree in authors_tree:
-        author = Author(first_name=get_tag_text(author_tree, 'forename'),
-                        last_name=get_tag_text(author_tree, 'surname'),
-                        org=get_all_tag_texts(author_tree, 'orgName'))
+        author = AuthorObj(first_name=get_tag_text(author_tree, 'forename'),
+                           last_name=get_tag_text(author_tree, 'surname'),
+                           org=get_all_tag_texts(author_tree, 'orgName'))
         authors.append(author)
     abstract: str = tree.find('.//abstract') or ''
     if abstract:
@@ -91,9 +94,7 @@ def extract_paper_metadata(file_content) -> Tuple[str, List[Author], str]:
 class NewPaper(Resource):
     method_decorators = [jwt_required]
 
-    @marshal_with(
-        {'title': fields.String, 'abstract': fields.String, 'md5': fields.String, 'authors': fields.List(AuthorMarshal),
-         'date': fields.DateTime(dt_format='rfc822')})
+    @marshal_with({'id': fields.String})
     def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument('file', type=werkzeug.datastructures.FileStorage, location='files')
@@ -108,6 +109,14 @@ class NewPaper(Resource):
         else:
             file_stream = data.file.stream
 
+        user = get_user()
+        uploads_collection = Collection.query.filter(
+            Collection.created_by_id == user.id, Collection.is_uploads == True).first()
+        if not uploads_collection:
+            uploads_collection = Collection(creation_date=datetime.utcnow(),
+                                            name="Uploads", created_by_id=user.id, is_uploads=True)
+            db.session.commit()
+
         content = file_stream.read()
         filename_md5 = calc_md5(content)
         upload_to_s3(filename_md5, file_stream)
@@ -118,7 +127,26 @@ class NewPaper(Resource):
             if success:
                 cache.set(filename_md5, metadata, expire=24 * 60 * 60)
 
-        return metadata
+        pdf_link = key_to_url(metadata['md5'], with_prefix=True) + '.pdf'
+        paper = Paper(title=metadata['title'], original_pdf=pdf_link, local_pdf=pdf_link, publication_date=metadata['date'],
+                      abstract=metadata['abstract'], last_update_date=datetime.now(), is_private=True)
+        db.session.add(paper)
+
+        for current_author in metadata['authors']:
+            try:
+                author = Author.query.filter(
+                    Author.first_name == current_author.first_name, Author.last_name == current_author.last_name).one()
+            except NoResultFound:
+                author = Author(name=f'{current_author.first_name} {current_author.last_name}',
+                                first_name=current_author.first_name, last_name=current_author.last_name, organization=current_author.org)
+                db.session.add(author)
+            author.papers.append(paper)
+
+        db.session.flush()
+        uploads_collection.papers.append(paper)
+        db.session.commit()
+
+        return {'id': paper.id}
 
 
 api.add_resource(NewPaper, "/add")
