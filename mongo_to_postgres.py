@@ -1,86 +1,109 @@
 from src.new_backend.models import Collection, Comment, Paper, db, Author, Tag, User, Tweet
 import bson
 import re
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.exc import MultipleResultsFound
+import datetime
 
 # Useful stuff
 # paper = db.session.query(Paper).filter(Paper.original_id == rawid).first()
-old_paper_id_map = {}
 old_group_id_map = {}
-old_user_id_map = {}
 data_dir = 'src/new_backend/mongo_data'
+
+def create_comment(doc):
+    """
+    Creates a comment in Postgres based on the Mongo comment doc
+    """
+    # Ex:
+    # {'_id': ObjectId('5cc657e4debc51503e266113'), 'comment': {'text': ''}, 'content': {'text': 'Deep nonlinear classifiers can fit their data so well that network designers are often faced with thechoice of including stochastic regularizer like adding noise to hidden layers or applying dropout'}, 'position': {'boundingRect': {'x1': 136.15625, 'y1': 576.828125, 'x2': 635.42041015625, 'y2': 605.640625, 'width': 771.6, 'height': 998.5411764705882}, 'rects': [{'x1': 136.15625, 'y1': 576.828125, 'x2': 635.42041015625, 'y2': 591.828125, 'width': 771.6, 'height': 998.5411764705882}, {'x1': 136.15625, 'y1': 590.640625, 'x2': 611.1009521484375, 'y2': 605.640625, 'width': 771.6, 'height': 998.5411764705882}], 'pageNumber': 1}, 'visibility': 'public', 'pid': '1606.08415', 'created_at': datetime.datetime(2019, 4, 29, 1, 48, 20, 966000), 'user': {'username': 'Guest'}}
+    id = doc['_id']
+    
+    # Skip highlights that don't include text
+    if 'content' not in doc:
+        return None
+
+    if 'type' in doc['visibility']:
+        visibility = doc['visibility']['type']
+    else:
+        visibility = doc['visibility']
+
+    comment = Comment(text=doc['comment'].get('text'), highlighted_text=doc['content'].get('text'), position=doc['position'], shared_with=visibility, creation_date=doc['created_at'])
+
+    # Adding the shared with property (visibility in the previous Mongo model)
+
+    if visibility == 'group':
+        collection = db.session.query(Collection).filter(Collection.old_id == doc['visibility']['id']).first()
+        # TODO: should create group if it doesn't exist
+
+        if collection:
+            comment.collection = collection
+
+    # Adding the paper
+    paper = db.session.query(Paper).filter(Paper.original_id == str(doc['pid'])).first()
+
+    if not paper:
+        paper_doc = get_paper_doc(str(doc['pid']))
+        paper = create_paper(paper_doc)
+
+    comment.paper = paper
+
+    # Adding the user
+    email = doc['user'].get('email')
+    user = None
+
+    if email:
+        user = db.session.query(User).filter(User.email == email).first()
+    
+    if user:
+        comment.user = user
+
+    db.session.add(comment)
+    db.session.commit()
+
+    return comment
+
+    # TODO: handle guest? e.g. 'user': {'username': 'Guest'} and 'user': {'email': 'julian.harris@gmail.com', 'username': 'julian'}
+    # TODO: handle reply comments!
+    # TODO: what is user doesn't yet exist, should prob create it
 
 def convert_comments(file_name=f'{data_dir}/comments.bson'):
     global old_group_id_map
     print('\n\nConverting comments')
 
     with open(file_name, 'rb') as f:
-        for doc in bson.decode_all(f.read())[:10]:
+        for doc in bson.decode_all(f.read()):
             print(doc)
-
-            # Ex:
-            # {'_id': ObjectId('5cc657e4debc51503e266113'), 'comment': {'text': ''}, 'content': {'text': 'Deep nonlinear classifiers can fit their data so well that network designers are often faced with thechoice of including stochastic regularizer like adding noise to hidden layers or applying dropout'}, 'position': {'boundingRect': {'x1': 136.15625, 'y1': 576.828125, 'x2': 635.42041015625, 'y2': 605.640625, 'width': 771.6, 'height': 998.5411764705882}, 'rects': [{'x1': 136.15625, 'y1': 576.828125, 'x2': 635.42041015625, 'y2': 591.828125, 'width': 771.6, 'height': 998.5411764705882}, {'x1': 136.15625, 'y1': 590.640625, 'x2': 611.1009521484375, 'y2': 605.640625, 'width': 771.6, 'height': 998.5411764705882}], 'pageNumber': 1}, 'visibility': 'public', 'pid': '1606.08415', 'created_at': datetime.datetime(2019, 4, 29, 1, 48, 20, 966000), 'user': {'username': 'Guest'}}
-            id = doc['_id']
-            
-            # Skip highlights that don't include text
-            if 'content' not in doc:
-                continue
-
-            comment = Comment(text=doc['comment'].get('text'), highlighted_text=doc['content'].get('text'), position=doc['position'], shared_with=doc['visibility'], creation_date=doc['created_at'])
-
-            # Adding the shared with property (visibility in the previous Mongo model)
-            comment.shared_with = doc['visibility']
-
-            if doc['visibility'] == 'group':
-                collection = db.session.query(Collection).filter(Collection.id == old_group_id_map[doc['visibility']['id']]).first()
-                comment.collection.append(collection)
-
-            # # Adding the paper
-            # paper = db.session.query(Paper).filter(Paper.original_id == doc['pid']).first()
-
-            # if paper:
-            #     comment.paper = paper
-
-            # Adding the user
-            # email = doc['user'].get('email')
-            # user = None
-
-            # if email:
-            #     user = db.session.query(User).filter(User.email == email).first()
-            
-            # if user:
-            #     comment.user = user
-
-            db.session.add(comment)
-
-            # TODO: handle guest? e.g. 'user': {'username': 'Guest'} and 'user': {'email': 'julian.harris@gmail.com', 'username': 'julian'}
-            # TODO: handle reply comments!
-
-    db.session.flush()
+            create_comment(doc)
 
 def convert_authors(file_name=f'{data_dir}/authors.bson'):
     print('\n\nConverting authors')
-    global old_paper_id_map
     bson_file = open(file_name, 'rb')
 
-    for doc in bson.decode_all(bson_file.read())[:10]:
+    for doc in bson.decode_all(bson_file.read()):
         print(doc)
 
         # Doc example: {'_id': 'A . M. Barrett', 'papers': ['1905.10835']}
-        author_id = doc['_id']
+        author_name = doc['_id']
 
-        for paper in doc['papers']:
+        try:
+            author = db.session.query(Author).filter(Author.name == author_name).one()
+        except MultipleResultsFound as e:
+            print(e)
+        except NoResultFound as e:
             author = Author(name=doc['_id'])
             db.session.add(author)
+            db.session.commit()
 
+        for paper_id in doc['papers']:
             # Add relationship between author and paper
-            for paper in doc['papers']:
-                new_paper_id = old_paper_id_map.get(paper)
+            paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
+            # TODO: should check if relationship exists already?
 
-                if new_paper_id:
-                    paper = db.session.query(Paper).filter(Paper.id == old_paper_id_map[paper]).first()
+            if not paper:
+                doc = get_paper_doc(paper_id)
+                paper = create_paper(doc)
 
-                    if paper:
-                        author.papers.append(paper)
+            author.papers.append(paper)
 
     db.session.commit()
 
@@ -105,9 +128,9 @@ def add_tags(tags, paper, source='arXiv'):
         if not tag:
             tag = Tag(name=tag_name, source=source)
             db.session.add(tag)
+            db.session.commit()
 
         tag.papers.append(paper)
-
 
 # Returns the tags in a given paper_data (the tags are CS, CS.ML, gr, etc), always in lower-case
 def get_tags(paper_data):
@@ -121,65 +144,150 @@ def get_tags(paper_data):
 
     return tags
 
+def create_paper(doc):
+    """
+    Adds the paper from the Mongo doc into Postgres
+    """
+    pdf_link = get_pdf_link(doc)
+
+    paper = db.session.query(Paper).filter(Paper.original_id == doc['_rawid']).first()
+
+    if not paper:
+        paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'], original_id = doc['_rawid'], is_private=False, publication_date=doc['published'], last_update_date=doc['updated'])
+
+        db.session.add(paper)
+        db.session.commit()
+
+        # Handling tags
+        tags = get_tags(doc)
+        add_tags(tags, paper)
+
+    # TODO: need Tweeter Score? References?
+    
+    db.session.commit()
+
+    return paper
+
+
+def get_user_doc(user_id, file_name=f'{data_dir}/users.bson'):
+    """
+    Retrieves the doc of a user by the id
+    """
+    with open(file_name, 'rb') as f:
+        for doc in bson.decode_all(f.read()):
+            if doc['_id'] == user_id:
+                return doc
+
+    return None
+
+def get_paper_doc(paper_id, file_name=f'{data_dir}/papers.bson'):
+    """
+    Retrieves the doc of a paper by its id
+    """
+    with open(file_name, 'rb') as f:
+        for doc in bson.decode_all(f.read()):
+            if doc['_rawid'] == paper_id:
+                return doc
+
+    return None
 
 def convert_papers(file_name=f'{data_dir}/papers.bson'):
-    global old_paper_id_map
     print("\n\nConverting papers")
 
     with open(file_name, 'rb') as f:
-        for doc in bson.decode_all(f.read())[:5]:
+        for doc in bson.decode_all(f.read()):
             print(doc)
 
-            pdf_link = get_pdf_link(doc)
-            paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'], original_id = doc['_rawid'], is_private=False, publication_date=doc['published'], last_update_date=doc['updated'])
+            create_paper(doc)
 
-            db.session.add(paper)
-            old_paper_id_map[doc['_id']] = paper.id
+def create_user(doc):
+    """
+    Creates a user in Postgres based on a Mongo doc for a user
+    """
+    # doc = {'_id': ObjectId('5cb76867debc51623e186966'), 'email': 'ranihorev@gmail.com', 'password': 'pbkdf2:sha256:150000$YiHVt53M$743234a52a0e62056f079e8343e71056c728fce95fb8ed46246149a7e6438e1f', 'username': 'ranihorev', 'library': ['1904.08920'], 'groups': [ObjectId('5ccc55cfdebc5136066e913d'), ObjectId('5d9c007fdebc513900073ddf')], 'isAdmin': True, 'library_id': '7e6cf503-721f-4b8a-8447-130088720018'}
+    user = db.session.query(User).filter(User.old_id == str(doc['_id'])).first()
 
-            # Handling tags
-            tags = get_tags(doc)
-            add_tags(tags, paper)
+    if not user:
+        print(doc)
+        
+        user = User(email=doc['email'], password=doc['password'], username=doc['username'], old_id=str(doc['_id']))
+        db.session.add(user)
+        db.session.commit()
+
+    # Creating the library for the user
+    # TODO: what should be the creation_date?
+    collection = db.session.query(Collection).filter(Collection.created_by == user).first()
+
+    if not collection:
+        collection = Collection(is_library=True, name='Saved', creation_date=datetime.datetime.utcnow(), created_by=user)
+        db.session.add(collection)
+        db.session.commit()
+
+    # Add library papers
+    if 'library' in doc:
+        for paper_id in doc['library']:
+            paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
+
+            if not paper:
+                doc = get_paper_doc(paper_id)
+                paper = create_paper(doc)
+
+            # TODO: check for duplicates on relationships
+            # if paper:
+            #     collection.papers.add(paper)
 
     db.session.commit()
-
-    # TODO: what is published_parsed and updated_parsed?
-    # TODO: should we use arxiv_primary_category?
-
+    return user
 
 def convert_users(file_name=f'{data_dir}/users.bson'):
-    global old_user_id_map
     print("\n\nConverting users")
 
     # Ex
     # {'_id': ObjectId('5cb76867debc51623e186966'), 'email': 'ranihorev@gmail.com', 'password': 'pbkdf2:sha256:150000$YiHVt53M$743234a52a0e62056f079e8343e71056c728fce95fb8ed46246149a7e6438e1f', 'username': 'ranihorev', 'library': ['1904.08920'], 'groups': [ObjectId('5ccc55cfdebc5136066e913d'), ObjectId('5d9c007fdebc513900073ddf')], 'isAdmin': True, 'library_id': '7e6cf503-721f-4b8a-8447-130088720018'}
     with open(file_name, 'rb') as f:
-        for doc in bson.decode_all(f.read())[:5]:
+        for doc in bson.decode_all(f.read()):
             print(doc)
-            user = User(email=doc['email'], password=doc['password'], username=doc['username'])
-            db.session.add(user)
-
-            # Creating a library for the user
-            # TODO: color? what should be the creation_date?
-            collection = Collection(is_library=True, name='Saved')
-            db.session.add(collection)
-
-            # Add papers in library
-            if 'library' in doc:
-                for paper_id in doc['library']:
-                    new_paper_id = old_paper_id_map.get(paper_id)
-
-                    if new_paper_id:
-                        paper = db.session.query(Paper).filter(Paper.id == old_paper_id_map[paper]).first()
-
-                        if paper:
-                            collection.papers.add(paper)
-
-            old_user_id_map[doc['_id']] = user.id
+            create_user(doc)
 
     # TODO: groups
     # TODO: what about library_id??
 
-    db.session.flush()
+def create_group(doc):
+    """
+    Creates a collection based on a mongo doc of a group
+    """
+
+    color = doc.get('color', None)
+    collection = db.session.query(Collection).filter(Collection.old_id == str(doc['_id'])).first()
+
+    if collection:
+        return collection
+
+    collection = Collection(is_library=False, name=doc['name'], color=color, creation_date=doc['created_at'], old_id=str(doc['_id']))
+
+    for user_id in doc['users']:
+        user = db.session.query(User).filter(User.old_id == str(user_id)).first()
+
+        if not user:
+            user_doc = get_user_doc(user_id)
+            user = create_user(user_doc)
+
+        # TODO: check if collection and user are already linked - why not working?
+        # collection.users.add(user)
+
+    created_by = str(doc['created_by'])
+    created_by_user = db.session.query(User).filter(User.old_id == created_by).first()
+
+    if not created_by_user:
+        doc = get_user_doc(created_by)
+        created_by_user = create_user(doc)
+
+    collection.created_by = created_by_user
+    db.session.add(collection)
+
+    db.session.commit()
+
+    return collection
 
 def convert_groups(file_name=f'{data_dir}/groups.bson'):
     print("\n\nConverting groups")
@@ -189,30 +297,13 @@ def convert_groups(file_name=f'{data_dir}/groups.bson'):
     with open(file_name, 'rb') as f:
         for doc in bson.decode_all(f.read()):
             print(doc)
-
-            color = doc.get('color', None)
-            collection = Collection(is_library=False, name=doc['name'], color=color, creation_date=doc['created_at'])
-
-            for old_user_id in doc['users']:
-                if old_user_id in old_user_id_map:
-                    user = db.session.query(User).filter(User.id == old_user_id_map[old_user_id]).first()
-                
-                    if user:
-                        collection.users.add(user)
-
-            created_by = str(doc['created_by'])
-
-            if created_by in old_user_id_map:
-                collection.created_by_id = old_user_id_map[created_by]
-                db.session.add(collection)
-
-    db.session.flush()
+            collection = create_group(doc)
 
 # def convert_group_papers(file_name=f'{data_dir}/group_papers.bson'):
     # Ex
     # {'_id': ObjectId('5dcaf30914029c532302025d'), 'group_id': 'a3b56b94-aab2-4018-bf8a-13e1e5218ba7', 'paper_id': '1904.09970', 'date': datetime.datetime(2019, 11, 12, 17, 59, 37, 829000), 'is_library': True, 'user': '5cbcccafdebc511d170ab359'}
     # with open(file_name, 'rb') as f:
-    #     for doc in bson.decode_all(f.read())[:5]:
+    #     for doc in bson.decode_all(f.read()):
     #         id = doc['_id']
     #         collection = Collection(is_library=doc['is_library'], name=doc['name'], color=doc['color'], creation_date=doc['creation_date'])
     #         db.session.add(collection)
@@ -221,31 +312,52 @@ def convert_groups(file_name=f'{data_dir}/groups.bson'):
 
     # db.session.flush()
 
+def create_tweet(doc):
+    """
+    Creates a Tweet object in Postgres based on a mongo db doc
+    """
+
+    tweet_id = str(doc['_id'])
+
+    tweet = db.session.query(Tweet).filter(Tweet.id == tweet_id).first()
+
+    if not tweet:
+        tweet = Tweet(id=tweet_id, insertion_date=doc['inserted_at_date'], creation_date=doc['created_at_date'], lang=doc['lang'], text=doc['text'], retweets=doc['retweets'], likes=doc['likes'], replies=doc['replies'], user_screen_name=doc['user_screen_name'], user_name=doc['user_name'], user_followers_count=doc['user_followers_count'], user_following_count=doc['user_following_count'])
+
+    paper_id = str(doc['pids'][0])
+    paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
+
+    if not paper:
+        paper_doc = get_paper_doc(paper_id)
+        paper = create_paper(paper_doc)
+
+    tweet.paper = paper # Not sure I can do this, maybe need an add
+    db.session.add(tweet)
+    db.session.commit()
+
+    # TODO: why is pids a set of papers?
+    # TODO: add created_at_time with created_at_date
+
+
 def convert_tweets(file_name=f'{data_dir}/tweets.bson'):
     print("\n\nConverting tweets")
     # Ex
     # {'_id': '1000018920986808328', 'pids': ['1804.03984'], 'inserted_at_date': datetime.datetime(2020, 5, 1, 23, 46, 44, 341000), 'created_at_date': datetime.datetime(2018, 5, 25, 14, 21, 4), 'created_at_time': 1527258064.0, 'lang': 'en', 'text': 'Coolest part of @aggielaz et al\'s most recent emergent communication paper: when agents jointly learn "conceptual" reprs alongside communication protocol, these concepts are heavily biased by the natural statistics of the environment. https://t.co/K1X6ZSwH3G https://t.co/2eqav3ax6g', 'retweets': 2, 'likes': 5, 'replies': 0, 'user_screen_name': 'j_gauthier', 'user_name': 'Jon Gauthier', 'user_followers_count': 4304, 'user_following_count': 457}
     with open(file_name, 'rb') as f:
-        for doc in bson.decode_all(f.read())[:5]:
+        for doc in bson.decode_all(f.read()):
             print(doc)
-            id = doc['_id']
-            tweet = Tweet(insertion_date=doc['inserted_at_date'], creation_date=doc['created_at_date'], lang=doc['lang'], text=doc['text'], retweets=doc['retweets'], likes=doc['likes'], replies=doc['replies'], user_screen_name=doc['user_screen_name'], user_name=doc['user_name'], user_followers_count=doc['user_followers_count'], user_following_count=doc['user_following_count'])
-            tweet.paper_id = doc['pids'][0] # Not sure I can do this, maybe need an add
-            db.session.add(tweet)
-
-    # TODO: why is pids a set of papers?
-    # TODO: add created_at_time with created_at_date
-
-    db.session.flush()
+            tweet = create_tweet(doc)
 
 def main():
+    # TODO: should start with a convert tags to speed this up?
     convert_papers()
-    # convert_authors()
-    # convert_groups()
-    # convert_users() # TODO
+    convert_authors()
+    convert_users()
+    convert_groups()
+    convert_comments()
+    convert_tweets()
+    
     # convert_group_papers() # TODO
-    # convert_comments()
-    # convert_tweets()
     # convert_acronyms()
 
 if __name__ == '__main__':
