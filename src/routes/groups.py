@@ -56,22 +56,22 @@ class Groups(Resource):
 class NewGroup(Resource):
     method_decorators = [jwt_required]
 
-    @marshal_with(group_fields)
+    @marshal_with({'groups': fields.List(fields.Nested(group_fields)), 'new_id': fields.String})
     def post(self):
-        # UPGRADED
         current_user = get_jwt_identity()
         parser = reqparse.RequestParser()
         parser.add_argument('name', help='This field cannot be blank', required=True)
         parser.add_argument('color', required=False, type=str)
         data = parser.parse_args()
         user = get_user_by_email(current_user)
-        collection = Collection(is_library=False, creation_date=datetime.utcnow(), name=data.get('name'),
+        collection = Collection(creation_date=datetime.utcnow(), name=data.get('name'),
                                 color=data.get('color'), created_by_id=user.id)
         collection.users.append(user)
         db.session.add(collection)
         db.session.commit()
         all_collections = get_user_groups(user)
-        return all_collections
+        response = {'groups': all_collections, 'new_id': collection.id}
+        return response
 
 
 extended_group_fields = dict(group_fields)
