@@ -118,14 +118,13 @@ class NewPaper(Resource):
         metadata, expire = cache.get(filename_md5, expire_time=True)
         if not metadata:
             success, metadata = extract_paper_metadata(content)
-            metadata['md5'] = filename_md5
             if success:
                 cache.set(filename_md5, metadata, expire=24 * 60 * 60)
 
         # Create paper
-        pdf_link = key_to_url(metadata['md5'], with_prefix=True) + '.pdf'
+        pdf_link = key_to_url(filename_md5, with_prefix=True) + '.pdf'
         paper = Paper(title=metadata['title'], original_pdf=pdf_link, local_pdf=pdf_link, publication_date=metadata['date'],
-                      abstract=metadata['abstract'], last_update_date=datetime.now(), is_private=True)
+                      abstract=metadata['abstract'], last_update_date=datetime.now(), is_private=True, original_id=filename_md5)
         db.session.add(paper)
 
         # Create authors
