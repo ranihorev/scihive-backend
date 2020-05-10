@@ -13,6 +13,7 @@ from src.new_backend.models import (Author, Collection, Paper, db,
                                     paper_collection_table)
 from src.routes.user_utils import get_user_by_email
 from src.utils import get_file_path
+from .paper_query_utils import paper_with_code_fields
 
 app = Blueprint('paper_list', __name__)
 api = Api(app)
@@ -71,6 +72,7 @@ papers_fields = {
     'groups': fields.Raw(attribute='collection_ids'),
     'twitter_score': fields.Integer,
     'num_stars': fields.Integer,
+    'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True)
 }
 
 papers_list_fields = {
@@ -165,8 +167,8 @@ class Papers(Resource):
             query = query.filter(Paper.authors.any(name=author))
 
         query = sort_query(query, args)
-        paginated_result = query.paginate(page=page_num, per_page=10)
 
+        paginated_result = query.paginate(page=page_num, per_page=10)
         papers = paginated_result.items
         if user:
             papers = add_collections(paginated_result.items, user)

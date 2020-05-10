@@ -12,18 +12,12 @@ from src.routes.s3_utils import key_to_url
 
 from .acronym_extractor import extract_acronyms
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
-from .paper_query_utils import Github, get_paper_with_pdf
+from .paper_query_utils import get_paper_with_pdf, paper_with_code_fields
 from .user_utils import get_user
 
 app = Blueprint('paper', __name__)
 api = Api(app)
 logger = logging.getLogger(__name__)
-
-
-class ItemState(Enum):
-    existing = 1
-    updated = 2
-    new = 3
 
 
 paper_fields = {
@@ -33,10 +27,16 @@ paper_fields = {
     'authors': fields.Nested({'name': fields.String, 'id': fields.String}),
     'time_published': fields.DateTime(attribute='publication_date', dt_format='rfc822'),
     'abstract': fields.String,
-    'code': Github(attribute='code'),
+    'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True),
     'groups': fields.Nested({'id': fields.Integer, 'name': fields.String}),
     'is_editable': fields.Boolean(attribute='is_private', default=False)
 }
+
+
+class ItemState(Enum):
+    existing = 1
+    updated = 2
+    new = 3
 
 
 def add_groups_to_paper(paper: Paper):

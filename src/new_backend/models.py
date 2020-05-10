@@ -81,6 +81,7 @@ class Paper(db.Model):
     twitter_score = db.Column(db.Integer, default=0)
     num_stars = db.Column(db.Integer, default=0)
     references = db.Column(db.JSON)
+    paper_with_code = db.relationship("PaperWithCode", uselist=False)
 
     def __repr__(self):
         return f"{self.id} - {self.title}"
@@ -173,6 +174,7 @@ class PaperWithCode(db.Model):
     link = db.Column(db.String(150), nullable=False)
     stars = db.Column(db.Integer)
     framework = db.Column(db.String(50), nullable=True)
+    last_update_date = db.Column(db.DateTime(timezone=True), nullable=False)
 
 
 class Tweet(db.Model):

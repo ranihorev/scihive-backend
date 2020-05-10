@@ -6,12 +6,11 @@ from dotenv import load_dotenv
 import os
 
 from .utils import catch_exceptions
-from src.new_backend.models import Paper
+from src.new_backend.models import Paper, PaperWithCode, db
 from src.logger import logger_config
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
-
-load_dotenv()
 
 
 def fetch_data():
@@ -25,10 +24,11 @@ def fetch_data():
 
 
 def update_db(data):
+    now = datetime.utcnow()
     for row in data:
         try:
             arxiv_id = row['arxiv_id']
-            paper = Paper.query.filter(original_id=arxiv_id).first()
+            paper = Paper.query.filter(Paper.original_id == arxiv_id).first()
             if not paper:
                 logger.info(f'Paper not found - {arxiv_id}')
                 continue
@@ -36,23 +36,17 @@ def update_db(data):
             logger.warning(f'arxiv_id is missing for row {row}')
             continue
 
-        # if papers.find(cur_id).count() > 0:
-        #     obj = {
-        #         'github_link': row.get('github_link'),
-        #         'extraction_conf': row.get('high_conf', '') == 'True',
-        #         'conferences': row.get('proceeding', ''),
-        #         'stars': int(row.get('stars', 0)),
-        #         'framework': row.get('framework'),
-        #         'datasets': row.get('datasets', '').split('|'),
-        #         'tasks': row.get('tasks', '').split('|'),
-        #         'paperswithcode_link': row.get('url', '')
-        #     }
-        #     try:
-        #         papers.update(cur_id, {'$set': {'code': obj}})
-        #     except Exception as e:
-        #         logger.error('Failed to update paper {} - {}'.format(cur_id['_id'], e))
-        # else:
-        #     logger.info('Paper not found - {}'.format(cur_id['_id']))
+        stars = int(row.get('stars', 0))
+        if not paper.paper_with_code:
+            obj = PaperWithCode(paper_id=paper.id, github_link=row.get('github_link'), link=row.get(
+                'url', ''), stars=stars, framework=row.get('framework'), last_update_date=now)
+            db.session.add(obj)
+        else:
+            if paper.paper_with_code.stars != stars:
+                paper.paper_with_code.stars = stars
+                paper.paper_with_code.last_update_date = now
+
+        db.session.commit()
 
 
 @catch_exceptions(logger=logger)

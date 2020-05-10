@@ -92,12 +92,12 @@ def fetch_arxiv():
 
 
 @app.cli.command("fetch-paperswithcode")
-def fetch_arxiv():
+def fetch_papers_with_code():
     paperswithcode.run()
 
 
 @app.cli.command("fetch-twitter")
-def fetch_arxiv():
+def fetch_twitter():
     twitter.main_twitter_fetcher()
 
 

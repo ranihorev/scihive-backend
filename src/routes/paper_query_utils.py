@@ -17,25 +17,11 @@ SCORE_META = {'$meta': 'textScore'}
 PUBLIC_TYPES = ['public', 'anonymous']
 
 
-class TwitterUrl(fields.Raw):
-    def format(self, objs):
-        links = []
-        for obj in objs:
-            link = 'https://twitter.com/' + obj['tname'] + '/status/' + obj['tid']
-            score = obj['likes'] + 2 * obj['rt'] + 4 * obj.get('replies', 0)
-            links.append({'link': link, 'name': obj['tname'], 'score': score})
-        return links
-
-
-class Github(fields.Raw):
-    def format(self, obj):
-        if not obj.get('github_link'):
-            return None
-        return {
-            'github': obj['github_link'],
-            'stars': obj.get('stars', 0),
-            'paperswithcode': obj.get('paperswithcode_link')
-        }
+paper_with_code_fields = {
+    'github': fields.String(attribute='github_link'),
+    'stars': fields.Integer(attribute='stars'),
+    'paperswithcode': fields.String(attribute='link')
+}
 
 
 def abs_to_pdf(url):
