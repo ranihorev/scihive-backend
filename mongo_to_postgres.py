@@ -144,6 +144,40 @@ def get_tags(paper_data):
 
     return tags
 
+def convert_tags(file_name=f'{data_dir}/papers.bson'):
+    """
+    Generates all the tags in the first run
+    """
+    print("\n\nConverting tags")
+    
+    all_tags = set()
+    count = 0
+
+    # Making a list of all tags to be added
+    with open(file_name, 'rb') as f:
+        for doc in bson.decode_all(f.read()):
+            if count % 1000 == 0:
+                print(f'{count} papers scanned, total {len(all_tags)} found so far')
+
+            tags = get_tags(doc)
+
+            for tag_name in tags:
+                # For the time being we ignore non-arxiv tags.
+                # ArXiv tags are always of the form archive.subject (https://arxiv.org/help/arxiv_identifier)
+                if not re.match('[A-Za-z\\-]+\\.[A-Za-z\\-]+', tag_name):
+                    continue
+
+                all_tags.add(tag_name)
+            
+            count += 1
+
+    print(f'Total {len(all_tags)} unique tags')
+    
+    for tag_name in all_tags:
+        tag = Tag(name=tag_name, source='arXiv')
+        db.session.add(tag)
+    db.session.commit()
+
 def create_paper(doc):
     """
     Adds the paper from the Mongo doc into Postgres
@@ -155,16 +189,19 @@ def create_paper(doc):
     if not paper:
         paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'], original_id = doc['_rawid'], is_private=False, publication_date=doc['published'], last_update_date=doc['updated'])
 
+        # Handling tags
+        tag_names = get_tags(doc)
+
+        for tag_name in tag_names:
+            tag = db.session.query(Tag).filter(Tag.name == tag_name).first()
+
+            if tag:
+                paper.tags.append(tag)
+
         db.session.add(paper)
         db.session.commit()
 
-        # Handling tags
-        tags = get_tags(doc)
-        add_tags(tags, paper)
-
     # TODO: need Tweeter Score? References?
-    
-    db.session.commit()
 
     return paper
 
@@ -194,11 +231,18 @@ def get_paper_doc(paper_id, file_name=f'{data_dir}/papers.bson'):
 def convert_papers(file_name=f'{data_dir}/papers.bson'):
     print("\n\nConverting papers")
 
+    current_count = 0
+    
     with open(file_name, 'rb') as f:
-        for doc in bson.decode_all(f.read()):
-            print(doc)
+        docs = bson.decode_all(f.read())
+        papers_count = len(docs)
 
+        for doc in docs:
+            # print(doc)
+            if current_count % 1000 == 0:
+                print(f'{current_count}/{papers_count} compeleted')
             create_paper(doc)
+            current_count += 1
 
 def create_user(doc):
     """
@@ -350,13 +394,13 @@ def convert_tweets(file_name=f'{data_dir}/tweets.bson'):
 
 def main():
     # TODO: should start with a convert tags to speed this up?
+    convert_tags()
     convert_papers()
     convert_authors()
-    convert_users()
-    convert_groups()
-    convert_comments()
-    convert_tweets()
-    
+    # convert_users()
+    # convert_groups()
+    # convert_comments()
+    # convert_tweets()
     # convert_group_papers() # TODO
     # convert_acronyms()
 
