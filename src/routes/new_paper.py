@@ -109,17 +109,12 @@ class NewPaper(Resource):
         else:
             file_stream = data.file.stream
 
-        user = get_user()
-        uploads_collection = Collection.query.filter(
-            Collection.created_by_id == user.id, Collection.is_uploads == True).first()
-        if not uploads_collection:
-            uploads_collection = Collection(creation_date=datetime.utcnow(),
-                                            name="Uploads", created_by_id=user.id, is_uploads=True)
-            db.session.commit()
-
+        # Upload to s3
         content = file_stream.read()
         filename_md5 = calc_md5(content)
         upload_to_s3(filename_md5, file_stream)
+
+        # get paper meta data
         metadata, expire = cache.get(filename_md5, expire_time=True)
         if not metadata:
             success, metadata = extract_paper_metadata(content)
@@ -127,11 +122,13 @@ class NewPaper(Resource):
             if success:
                 cache.set(filename_md5, metadata, expire=24 * 60 * 60)
 
+        # Create paper
         pdf_link = key_to_url(metadata['md5'], with_prefix=True) + '.pdf'
         paper = Paper(title=metadata['title'], original_pdf=pdf_link, local_pdf=pdf_link, publication_date=metadata['date'],
                       abstract=metadata['abstract'], last_update_date=datetime.now(), is_private=True)
         db.session.add(paper)
 
+        # Create authors
         for current_author in metadata['authors']:
             try:
                 author = Author.query.filter(
@@ -142,7 +139,16 @@ class NewPaper(Resource):
                 db.session.add(author)
             author.papers.append(paper)
 
-        db.session.flush()
+        user = get_user()
+        # Check if user has a collection for uploads (and that they are still in that group)
+        uploads_collection = Collection.query.filter(
+            Collection.created_by_id == user.id, Collection.users.any(id=user.id), Collection.is_uploads == True).first()
+        if not uploads_collection:
+            # Create
+            uploads_collection = Collection(creation_date=datetime.utcnow(),
+                                            name="Uploads", created_by_id=user.id, is_uploads=True)
+            uploads_collection.users.append(user)
+
         uploads_collection.papers.append(paper)
         db.session.commit()
 
