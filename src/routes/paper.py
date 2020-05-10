@@ -2,17 +2,18 @@ import logging
 from datetime import datetime
 from enum import Enum
 
+import pytz
 from flask import Blueprint
 from flask_jwt_extended import get_jwt_identity, jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
 from src.new_backend.models import Author, Collection, Paper, db
+from src.routes.s3_utils import key_to_url
 
 from .acronym_extractor import extract_acronyms
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
-from .paper_query_utils import (Github, get_paper_with_pdf)
+from .paper_query_utils import Github, get_paper_with_pdf
 from .user_utils import get_user
-from src.routes.s3_utils import key_to_url
 
 app = Blueprint('paper', __name__)
 api = Api(app)
@@ -161,10 +162,10 @@ class EditPaperResource(Resource):
         current_user = get_jwt_identity()
         parser = reqparse.RequestParser()
         parser.add_argument('title', type=str, required=True)
-        parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ'), required=True,
+        parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.UTC), required=True,
                             dest="publication_date")
         parser.add_argument('abstract', type=str, required=True)
-        parser.add_argument('authors', type=validateAuthor, required=True, action="append")
+        parser.add_argument('authors', type=validateAuthor, required=False, action="append")
         parser.add_argument('removed_authors', type=str, required=False, action="append", default=[])
         paper_data = parser.parse_args()
 
@@ -183,7 +184,7 @@ class EditPaperResource(Resource):
             author = Author.query.get(author_id)
             paper.authors.remove(author)
 
-        for author_data in paper_data['authors']:
+        for author_data in (paper_data.get('authors') or []):
             author_name = author_data.get('name')
             author_id = author_data.get('id')
             if author_id:
