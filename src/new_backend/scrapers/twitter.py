@@ -111,7 +111,7 @@ def fetch_tweets(api):
 
     if os.path.isfile(USERS_FILENAME):
         usernames = json.load(open(USERS_FILENAME, 'r'))
-        # results += fetch_twitter_users(api, usernames)
+        results += fetch_twitter_users(api, usernames)
     else:
         logger.warning('Users file is missing')
     return results

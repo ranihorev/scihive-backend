@@ -92,7 +92,6 @@ def add_tags(tags, paper, source='arXiv'):
 
 def handle_entry(e, download_to_s3=False):
     paper_data = encode_feedparser_dict(e)
-    # print(paper_data)
 
     # Count of added and skipper papers
     added = 0
@@ -130,13 +129,12 @@ def handle_entry(e, download_to_s3=False):
         # Adding new authors to the paper
         for author in paper_data['authors']:
             author_name = author['name']
-            try:
-                existing_author = Author.query.filter(Author.name == author_name).first()
-            except NoResultFound:
+            existing_author = Author.query.filter(Author.name == author_name).first()
+            if not existing_author:
                 existing_author = Author(name=author_name)
                 db.session.add(existing_author)
 
-            author.papers.append(paper)
+            existing_author.papers.append(paper)
 
         # We create a new paper in database (and an arXiv paper object)
         added = 1
@@ -251,11 +249,9 @@ def parse_arguments():
 
 
 def run():
-    logger_config(info_filename='arxiv.log')
-
     # Parse input arguments
     args = parse_arguments()
-    print(f'Searching arXiv for {args.search_query}')
+    logger.info(f'Searching arXiv for {args.search_query}')
 
     # Fetching papers
     fetch_papers(args.start_index, args.max_index, args.results_per_iteration,

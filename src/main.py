@@ -23,6 +23,8 @@ from .new_backend.scrapers import paperswithcode
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from src.new_backend.scrapers import twitter
+import threading
+from .run_background_tasks import run_scheduled_tasks
 
 
 env = os.environ.get('ENV', 'development')
@@ -76,6 +78,12 @@ app.register_blueprint(user_routes, url_prefix='/user')
 app.register_blueprint(groups_routes, url_prefix='/groups')
 app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
+
+
+is_main_process = not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true"
+if os.environ.get('RUN_BACKGROUND_TASKS') and is_main_process:
+    tasks = threading.Thread(target=run_scheduled_tasks, daemon=True)
+    tasks.start()
 
 
 @app.cli.command("fetch-arxiv")

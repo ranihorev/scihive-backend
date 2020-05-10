@@ -29,6 +29,8 @@
   ],
   "cSpell.words": [
     "arxiv",
-    "ilike"
+    "ilike",
+    "pytz",
+    "tzinfo"
   ]
 }
