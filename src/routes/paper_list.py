@@ -161,7 +161,7 @@ class Papers(Resource):
             query = query.filter(Paper.collections.any(Collection.users.any(id=user.id)))
 
         if not group_id and not is_library:
-            query.filter(Paper.is_private.isnot(True))
+            query = query.filter(Paper.is_private.isnot(True))
 
         if author:
             query = query.filter(Paper.authors.any(name=author))
