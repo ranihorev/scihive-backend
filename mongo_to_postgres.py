@@ -205,19 +205,15 @@ def create_paper(doc):
     pdf_link = get_pdf_link(doc)
 
     paper = None
-    
+    original_id = str(doc['_id'])
+
     # 'md5': 'a62ef6230541e7db562998b2495eaa76', 'time_published': datetime.datetime(2015, 1, 15, 5, 0), 
     # 'uploaded_by': {'email': 'jmramirezo@unal.edu.co', 'username': 'jmramirezo'}, 'created_at': datetime.datetime(2020, 1, 15, 16, 24, 0, 442000), 'is_private': True, 'link': 'https://arxiv.lyrn.ai/papers/a62ef6230541e7db562998b2495eaa76.pdf', 'total_bookmarks': 3, 'history': [{'time_published': datetime.datetime(2020, 1, 15, 16, 23, 52), 'stored_at': datetime.datetime(2020, 1, 20, 18, 7, 8, 745000), 'changed_by': 'jmramirezo@unal.edu.co'}
-    if '_rawid' in doc:
-        paper = db.session.query(Paper).filter(Paper.original_id == doc['_rawid']).first()
+    paper = db.session.query(Paper).filter(Paper.original_id == original_id).first()
 
     if not paper:
         print(doc)
-        paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'], is_private=False, publication_date=doc['published'], last_update_date=doc['updated'])
-        if '_rawid' in doc:
-            paper.original_id = doc['_rawid']
-        elif 'md5' in doc:
-            paper.original_id = doc['md5']
+        paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'], is_private=False, publication_date=doc['published'], last_update_date=doc['updated'], original_id=original_id)
 
         # Handling tags
         tag_names = get_tags(doc)
@@ -230,7 +226,6 @@ def create_paper(doc):
 
         db.session.add(paper)
         db.session.commit()
-
 
     return paper
 
@@ -256,6 +251,39 @@ def get_paper_doc(paper_id, file_name=f'{data_dir}/papers.bson'):
                 return doc
 
     return None
+
+def fix_papers(file_name=f'{data_dir}/papers.bson'):
+    print("\nFixing papers id")
+
+    current_count = 0
+    
+    with open(file_name, 'rb') as f:
+        docs = bson.decode_all(f.read())
+        papers_count = len(docs)
+
+        for doc in docs:
+            # print(doc)
+            if current_count % 1000 == 0:
+                print(f'{current_count}/{papers_count} compeleted')
+
+            paper = None
+            if '_rawid' in doc:
+                old_original_id = str(doc['_rawid'])
+            else:
+                old_original_id = str(doc['_id'])
+
+            original_id = str(doc['_id'])
+
+            # 'md5': 'a62ef6230541e7db562998b2495eaa76', 'time_published': datetime.datetime(2015, 1, 15, 5, 0), 
+            # 'uploaded_by': {'email': 'jmramirezo@unal.edu.co', 'username': 'jmramirezo'}, 'created_at': datetime.datetime(2020, 1, 15, 16, 24, 0, 442000), 'is_private': True, 'link': 'https://arxiv.lyrn.ai/papers/a62ef6230541e7db562998b2495eaa76.pdf', 'total_bookmarks': 3, 'history': [{'time_published': datetime.datetime(2020, 1, 15, 16, 23, 52), 'stored_at': datetime.datetime(2020, 1, 20, 18, 7, 8, 745000), 'changed_by': 'jmramirezo@unal.edu.co'}
+            paper = db.session.query(Paper).filter(Paper.original_id == old_original_id).first()
+
+            if paper:
+                paper.original_id = original_id
+
+                db.session.commit()
+
+            current_count += 1
 
 def convert_papers(file_name=f'{data_dir}/papers.bson'):
     print("\n\nConverting papers")
@@ -456,14 +484,15 @@ def convert_tweets(file_name=f'{data_dir}/tweets.bson'):
             tweet = create_tweet(doc)
 
 def main():
-    # convert_tags() # ~1 min
-    # convert_papers() # ~45 mins
-    # convert_authors() # ~2 hours
-    # convert_users()
-    # convert_groups()
-    # convert_comments()
-    # convert_tweets() # 35 mins
+    convert_tags() # ~1 min
+    convert_papers() # ~45 mins
+    convert_authors() # ~2 hours
+    convert_users()
+    convert_groups()
+    convert_comments()
+    convert_tweets() # 35 mins
     convert_group_papers() # 1 min
+    # fix_papers()
 
     # Not converting for now
     # convert_acronyms()
