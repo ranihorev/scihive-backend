@@ -54,6 +54,7 @@ class User(db.Model):
     password = db.Column(db.String(100), nullable=False)
     collections = db.relationship("Collection", back_populates="users", secondary=user_collection_table)
     comments = db.relationship("Comment")
+    old_id = db.Column(db.String(80))
 
 
 class Paper(db.Model):
@@ -122,6 +123,7 @@ class Collection(db.Model):
     created_by_id = db.Column(db.ForeignKey('user.id'), nullable=False)
     created_by = db.relationship("User")
     is_uploads = db.Column(db.Boolean, nullable=True)
+    old_id = db.Column(db.String(80))
 
 
 class Comment(db.Model):
