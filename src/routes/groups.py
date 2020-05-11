@@ -103,7 +103,7 @@ class Group(Resource):
     def patch(self, group_id: str):
         user = get_user_by_email()
         group = Collection.query.get_or_404(group_id)
-        if group.created_at != user:
+        if group.created_by != user:
             abort(403, message="Only group owner can edit group")
         parser = reqparse.RequestParser()
         parser.add_argument('name', required=False, type=str)
