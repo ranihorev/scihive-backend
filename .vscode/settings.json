@@ -17,7 +17,7 @@
     "titleBar.inactiveBackground": "#2a061f99",
     "titleBar.inactiveForeground": "#e7e7e799"
   },
-  "python.pythonPath": "/Users/ranihorev/Documents/Code/knowpro/knowpro-backend/venv/bin/python3",
+  "python.pythonPath": "venv/bin/python3",
   "peacock.color": "#2a061f",
   "python.linting.pylintEnabled": true,
   "python.linting.enabled": true,

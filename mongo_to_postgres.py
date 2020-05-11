@@ -206,7 +206,6 @@ def create_paper(doc):
 
     paper = None
     
-    # TODO: handle uploaded papers:
     # 'md5': 'a62ef6230541e7db562998b2495eaa76', 'time_published': datetime.datetime(2015, 1, 15, 5, 0), 
     # 'uploaded_by': {'email': 'jmramirezo@unal.edu.co', 'username': 'jmramirezo'}, 'created_at': datetime.datetime(2020, 1, 15, 16, 24, 0, 442000), 'is_private': True, 'link': 'https://arxiv.lyrn.ai/papers/a62ef6230541e7db562998b2495eaa76.pdf', 'total_bookmarks': 3, 'history': [{'time_published': datetime.datetime(2020, 1, 15, 16, 23, 52), 'stored_at': datetime.datetime(2020, 1, 20, 18, 7, 8, 745000), 'changed_by': 'jmramirezo@unal.edu.co'}
     if '_rawid' in doc:
@@ -232,7 +231,6 @@ def create_paper(doc):
         db.session.add(paper)
         db.session.commit()
 
-    # TODO: need Tweeter Score? References?
 
     return paper
 
@@ -293,7 +291,7 @@ def create_user(doc):
         collection = db.session.query(Collection).filter(Collection.old_id == doc['library_id']).first()
 
         if not collection:
-            collection = Collection(is_library=True, name='Saved', creation_date=datetime.datetime.utcnow(), created_by=user, old_id=doc['library_id'])
+            collection = Collection(name='Saved', creation_date=datetime.datetime.utcnow(), created_by=user, old_id=doc['library_id'])
             db.session.add(collection)
             db.session.commit()
 
@@ -355,21 +353,20 @@ def create_group(doc):
                 user_doc = get_user_doc(user_id)
                 user = create_user(user_doc)
 
-            # TODO: check if collection and user are already linked - why not working?
             if user not in collection.users:
                 collection.users.append(user)
 
-    if not collection.papers:
-        if 'papers' in doc:
-            for paper_id in doc['papers']:
-                paper = db.session.query(Paper).filter(Paper.original_id == str(paper_id)).first()
+    # if not collection.papers:
+    #     if 'papers' in doc:
+    #         for paper_id in doc['papers']:
+    #             paper = db.session.query(Paper).filter(Paper.original_id == str(paper_id)).first()
 
-                if not paper:
-                    paper_doc = get_paper_doc(paper_id)
-                    paper = create_paper(paper_doc)
+    #             if not paper:
+    #                 paper_doc = get_paper_doc(paper_id)
+    #                 paper = create_paper(paper_doc)
 
-                if paper not in collection.papers:
-                    collection.papers.append(paper)
+    #             if paper not in collection.papers:
+    #                 collection.papers.append(paper)
 
     db.session.add(collection)
     db.session.commit()
@@ -385,18 +382,37 @@ def convert_groups(file_name=f'{data_dir}/groups.bson'):
         for doc in bson.decode_all(f.read()):
             collection = create_group(doc)
 
-# def convert_group_papers(file_name=f'{data_dir}/group_papers.bson'):
+def convert_group_papers(file_name=f'{data_dir}/group_papers.bson'):
     # Ex
-    # {'_id': ObjectId('5dcaf30914029c532302025d'), 'group_id': 'a3b56b94-aab2-4018-bf8a-13e1e5218ba7', 'paper_id': '1904.09970', 'date': datetime.datetime(2019, 11, 12, 17, 59, 37, 829000), 'is_library': True, 'user': '5cbcccafdebc511d170ab359'}
-    # with open(file_name, 'rb') as f:
-    #     for doc in bson.decode_all(f.read()):
-    #         id = doc['_id']
-    #         collection = Collection(is_library=doc['is_library'], name=doc['name'], color=doc['color'], creation_date=doc['creation_date'])
-    #         db.session.add(collection)
+    # {'_id': ObjectId('5dcaf30914029c532302025d'), 'group_id': '   ', 'paper_id': '1904.09970', 'date': datetime.datetime(2019, 11, 12, 17, 59, 37, 829000), 'is_library': True, 'user': '5cbcccafdebc511d170ab359'}
+    count = 0
+    
+    with open(file_name, 'rb') as f:
+        docs = bson.decode_all(f.read())
+        total_group_papers = len(docs)
 
-    # # TODO: users, papers, created_by, created_by_id
+        for doc in docs:
+            collection = db.session.query(Collection).filter(Collection.old_id == str(doc['group_id'])).first()
+            user = db.session.query(User).filter(User.old_id == str(doc['user'])).first()
 
-    # db.session.flush()
+            if user and not collection:
+                collection = Collection(name='Saved', creation_date=datetime.datetime.utcnow(), created_by=user, old_id=str(doc['group_id']))
+                db.session.add(collection)
+                db.session.commit()
+
+            paper = Paper.query.filter(Paper.original_id == str(doc['paper_id'])).first()
+
+            if collection and user and paper:
+                collection.papers.append(paper)
+            else:
+                print("Error mapping group paper")
+                print(doc)
+            
+            count += 1
+            if count % 100 == 0:
+                print(f'Parsed {count}/{total_group_papers} group papers')
+
+            db.session.commit()
 
 def create_tweet(doc):
     """
@@ -424,9 +440,6 @@ def create_tweet(doc):
     db.session.add(tweet)
     db.session.commit()
 
-    # TODO: should we support multiple pids for a tweet?
-    # TODO: add created_at_time with created_at_date
-
 def convert_tweets(file_name=f'{data_dir}/tweets.bson'):
     print("\n\nConverting tweets")
     # Ex
@@ -443,17 +456,16 @@ def convert_tweets(file_name=f'{data_dir}/tweets.bson'):
             tweet = create_tweet(doc)
 
 def main():
-    # TODO: should start with a convert tags to speed this up?
     # convert_tags() # ~1 min
     # convert_papers() # ~45 mins
     # convert_authors() # ~2 hours
     # convert_users()
     # convert_groups()
     # convert_comments()
-    convert_tweets() # 35 mins
+    # convert_tweets() # 35 mins
+    convert_group_papers() # 1 min
 
     # Not converting for now
-    # convert_group_papers() # TODO
     # convert_acronyms()
 
 if __name__ == '__main__':
