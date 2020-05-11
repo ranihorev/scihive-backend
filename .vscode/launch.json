@@ -29,6 +29,12 @@
       "args": ["run", "--no-debugger", "--port=5000"]
     },
     {
+      "name": "Migrate",
+      "type": "python",
+      "request": "launch",
+      "program": "mongo_to_postgres.py",
+    },
+    {
       "name": "Fetch Twitter",
       "type": "python",
       "request": "launch",

@@ -53,6 +53,7 @@ class User(db.Model):
     password = db.Column(db.String(100), nullable=False)
     collections = db.relationship("Collection", back_populates="users", secondary=user_collection_table)
     comments = db.relationship("Comment")
+    old_id = db.Column(db.String(80))
 
 
 class Paper(db.Model):
@@ -76,7 +77,7 @@ class Paper(db.Model):
     collections = db.relationship("Collection", back_populates="papers", secondary=paper_collection_table)
     search_vector = db.Column(TSVectorType('title', 'abstract'))
     comments = db.relationship("Comment")
-    tweets = db.relationship("Tweet")
+    ptweets = db.relationship("Tweet")
     twitter_score = db.Column(db.Integer)
     num_stars = db.Column(db.Integer, default=0)
     references = db.Column(db.JSON)
@@ -117,6 +118,7 @@ class Collection(db.Model):
     creation_date = db.Column(db.DateTime(timezone=True), nullable=False)
     created_by_id = db.Column(db.ForeignKey('user.id'), nullable=False)
     created_by = db.relationship("User")
+    old_id = db.Column(db.String(80))
 
 
 class Comment(db.Model):

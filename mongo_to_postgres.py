@@ -1,4 +1,4 @@
-from src.new_backend.models import Collection, Comment, Paper, db, Author, Tag, User, Tweet
+from src.new_backend.models import Collection, Comment, Reply, Paper, db, Author, Tag, User, Tweet
 import bson
 import re
 from sqlalchemy.orm.exc import NoResultFound
@@ -39,13 +39,13 @@ def create_comment(doc):
             comment.collection = collection
 
     # Adding the paper
-    paper = db.session.query(Paper).filter(Paper.original_id == str(doc['pid'])).first()
+    comment.paper = db.session.query(Paper).filter(Paper.original_id == str(doc['pid'])).first()
 
-    if not paper:
-        paper_doc = get_paper_doc(str(doc['pid']))
-        paper = create_paper(paper_doc)
+    # if not paper:
+    #     paper_doc = get_paper_doc(str(doc['pid']))
+    #     paper = create_paper(paper_doc)
 
-    comment.paper = paper
+    # comment.paper = paper
 
     # Adding the user
     email = doc['user'].get('email')
@@ -60,11 +60,21 @@ def create_comment(doc):
     db.session.add(comment)
     db.session.commit()
 
-    return comment
+    # Adding the replies if they exist
+    # [{'text': 'asdf', 'created_at': datetime.datetime(2019, 11, 8, 5, 47, 27, 107000), 'id': 'c96b6a13-faac-4376-b3da-63245e0acb1d', 'user': {'email': 'yaron.hadad@gmail.com', 'username': 'Yaron'}}]
+    if 'replies' in doc:
+        replies_doc = doc['replies']
 
-    # TODO: handle guest? e.g. 'user': {'username': 'Guest'} and 'user': {'email': 'julian.harris@gmail.com', 'username': 'julian'}
-    # TODO: handle reply comments!
-    # TODO: what is user doesn't yet exist, should prob create it
+        for reply_doc in replies_doc:
+            reply = Reply(text=reply_doc['text'], creation_date=reply_doc['created_at'], parent=comment)
+
+            if 'email' in reply_doc['user']:
+                reply.user = db.session.query(User).filter(User.email == reply_doc['user']['email']).first()
+
+            db.session.add(reply)
+            db.session.commit()
+
+    return comment
 
 def convert_comments(file_name=f'{data_dir}/comments.bson'):
     global old_group_id_map
@@ -72,25 +82,29 @@ def convert_comments(file_name=f'{data_dir}/comments.bson'):
 
     with open(file_name, 'rb') as f:
         for doc in bson.decode_all(f.read()):
-            print(doc)
-            create_comment(doc)
+            comment = create_comment(doc)
 
 def convert_authors(file_name=f'{data_dir}/authors.bson'):
     print('\n\nConverting authors')
     bson_file = open(file_name, 'rb')
 
-    for doc in bson.decode_all(bson_file.read()):
-        print(doc)
+    count = 0
+    docs = bson.decode_all(bson_file.read())
+    total_authors = len(docs)
+
+    for doc in docs:
+        # print(doc)
 
         # Doc example: {'_id': 'A . M. Barrett', 'papers': ['1905.10835']}
         author_name = doc['_id']
+        
+        if type(author_name) == type({}):
+            author_name = author_name['name']
 
-        try:
-            author = db.session.query(Author).filter(Author.name == author_name).one()
-        except MultipleResultsFound as e:
-            print(e)
-        except NoResultFound as e:
-            author = Author(name=doc['_id'])
+        author = db.session.query(Author).filter(Author.name == author_name).first()
+
+        if not author:
+            author = Author(name=author_name[:79])
             db.session.add(author)
             db.session.commit()
 
@@ -99,13 +113,19 @@ def convert_authors(file_name=f'{data_dir}/authors.bson'):
             paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
             # TODO: should check if relationship exists already?
 
-            if not paper:
-                doc = get_paper_doc(paper_id)
-                paper = create_paper(doc)
+            # if not paper:
+            #     doc = get_paper_doc(paper_id)
+            #     paper = create_paper(doc)
 
-            author.papers.append(paper)
+            if paper:
+                author.papers.append(paper)
 
-    db.session.commit()
+        db.session.commit()
+
+        if count % 1000 == 0:
+            print(f'{count}/{total_authors} completed')
+
+        count += 1
 
 def get_pdf_link(paper_data):
     for link in paper_data.get('links', []):
@@ -184,10 +204,21 @@ def create_paper(doc):
     """
     pdf_link = get_pdf_link(doc)
 
-    paper = db.session.query(Paper).filter(Paper.original_id == doc['_rawid']).first()
+    paper = None
+    
+    # TODO: handle uploaded papers:
+    # 'md5': 'a62ef6230541e7db562998b2495eaa76', 'time_published': datetime.datetime(2015, 1, 15, 5, 0), 
+    # 'uploaded_by': {'email': 'jmramirezo@unal.edu.co', 'username': 'jmramirezo'}, 'created_at': datetime.datetime(2020, 1, 15, 16, 24, 0, 442000), 'is_private': True, 'link': 'https://arxiv.lyrn.ai/papers/a62ef6230541e7db562998b2495eaa76.pdf', 'total_bookmarks': 3, 'history': [{'time_published': datetime.datetime(2020, 1, 15, 16, 23, 52), 'stored_at': datetime.datetime(2020, 1, 20, 18, 7, 8, 745000), 'changed_by': 'jmramirezo@unal.edu.co'}
+    if '_rawid' in doc:
+        paper = db.session.query(Paper).filter(Paper.original_id == doc['_rawid']).first()
 
     if not paper:
-        paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'], original_id = doc['_rawid'], is_private=False, publication_date=doc['published'], last_update_date=doc['updated'])
+        print(doc)
+        paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'], is_private=False, publication_date=doc['published'], last_update_date=doc['updated'])
+        if '_rawid' in doc:
+            paper.original_id = doc['_rawid']
+        elif 'md5' in doc:
+            paper.original_id = doc['md5']
 
         # Handling tags
         tag_names = get_tags(doc)
@@ -241,6 +272,7 @@ def convert_papers(file_name=f'{data_dir}/papers.bson'):
             # print(doc)
             if current_count % 1000 == 0:
                 print(f'{current_count}/{papers_count} compeleted')
+
             create_paper(doc)
             current_count += 1
 
@@ -252,33 +284,35 @@ def create_user(doc):
     user = db.session.query(User).filter(User.old_id == str(doc['_id'])).first()
 
     if not user:
-        print(doc)
-        
         user = User(email=doc['email'], password=doc['password'], username=doc['username'], old_id=str(doc['_id']))
         db.session.add(user)
         db.session.commit()
 
     # Creating the library for the user
-    # TODO: what should be the creation_date?
-    collection = db.session.query(Collection).filter(Collection.created_by == user).first()
+    if 'library_id' in doc:
+        collection = db.session.query(Collection).filter(Collection.old_id == doc['library_id']).first()
 
-    if not collection:
-        collection = Collection(is_library=True, name='Saved', creation_date=datetime.datetime.utcnow(), created_by=user)
-        db.session.add(collection)
-        db.session.commit()
+        if not collection:
+            collection = Collection(is_library=True, name='Saved', creation_date=datetime.datetime.utcnow(), created_by=user, old_id=doc['library_id'])
+            db.session.add(collection)
+            db.session.commit()
 
-    # Add library papers
-    if 'library' in doc:
-        for paper_id in doc['library']:
-            paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
+        if not user in collection.users:
+            collection.users.append(user)
 
-            if not paper:
-                doc = get_paper_doc(paper_id)
-                paper = create_paper(doc)
+        # Add library papers TODO: change to library_id object
+        # if 'library' in doc:
+        #     for paper_id in doc['library']:
+        #         paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
 
-            # TODO: check for duplicates on relationships
-            # if paper:
-            #     collection.papers.add(paper)
+        #         if not paper:
+        #             doc = get_paper_doc(paper_id)
+        #             paper = create_paper(doc)
+
+        #         if paper and not paper in collection.papers:
+        #             collection.papers.append(paper)
+
+    # TODO: groups
 
     db.session.commit()
     return user
@@ -290,34 +324,16 @@ def convert_users(file_name=f'{data_dir}/users.bson'):
     # {'_id': ObjectId('5cb76867debc51623e186966'), 'email': 'ranihorev@gmail.com', 'password': 'pbkdf2:sha256:150000$YiHVt53M$743234a52a0e62056f079e8343e71056c728fce95fb8ed46246149a7e6438e1f', 'username': 'ranihorev', 'library': ['1904.08920'], 'groups': [ObjectId('5ccc55cfdebc5136066e913d'), ObjectId('5d9c007fdebc513900073ddf')], 'isAdmin': True, 'library_id': '7e6cf503-721f-4b8a-8447-130088720018'}
     with open(file_name, 'rb') as f:
         for doc in bson.decode_all(f.read()):
-            print(doc)
             create_user(doc)
-
-    # TODO: groups
-    # TODO: what about library_id??
 
 def create_group(doc):
     """
     Creates a collection based on a mongo doc of a group
     """
 
+    # {'_id': ObjectId('5cd5e175debc517430f2f957'), 'name': 'Ecology', 'created_at': datetime.datetime(2019, 5, 10, 20, 39, 17, 142000), 'created_by': ObjectId('5cbcccafdebc511d170ab359'), 'users': [ObjectId('5cbcccafdebc511d170ab359')], 'papers': ['1005.3980', '1007.4914', '1010.6251', '0911.5556', '1503.01150', '1906.09144', '1709.01861'], 'color': 'YELLOW'}
+
     color = doc.get('color', None)
-    collection = db.session.query(Collection).filter(Collection.old_id == str(doc['_id'])).first()
-
-    if collection:
-        return collection
-
-    collection = Collection(is_library=False, name=doc['name'], color=color, creation_date=doc['created_at'], old_id=str(doc['_id']))
-
-    for user_id in doc['users']:
-        user = db.session.query(User).filter(User.old_id == str(user_id)).first()
-
-        if not user:
-            user_doc = get_user_doc(user_id)
-            user = create_user(user_doc)
-
-        # TODO: check if collection and user are already linked - why not working?
-        # collection.users.add(user)
 
     created_by = str(doc['created_by'])
     created_by_user = db.session.query(User).filter(User.old_id == created_by).first()
@@ -326,9 +342,36 @@ def create_group(doc):
         doc = get_user_doc(created_by)
         created_by_user = create_user(doc)
 
-    collection.created_by = created_by_user
-    db.session.add(collection)
+    collection = db.session.query(Collection).filter(Collection.old_id == str(doc['_id'])).first()
 
+    if not collection:
+        collection = Collection(is_library=False, name=doc['name'], color=color, creation_date=doc['created_at'], old_id=str(doc['_id']), created_by = created_by_user)
+
+    if not collection.users:
+        for user_id in doc['users']:
+            user = db.session.query(User).filter(User.old_id == str(user_id)).first()
+
+            if not user:
+                user_doc = get_user_doc(user_id)
+                user = create_user(user_doc)
+
+            # TODO: check if collection and user are already linked - why not working?
+            if user not in collection.users:
+                collection.users.append(user)
+
+    if not collection.papers:
+        if 'papers' in doc:
+            for paper_id in doc['papers']:
+                paper = db.session.query(Paper).filter(Paper.original_id == str(paper_id)).first()
+
+                if not paper:
+                    paper_doc = get_paper_doc(paper_id)
+                    paper = create_paper(paper_doc)
+
+                if paper not in collection.papers:
+                    collection.papers.append(paper)
+
+    db.session.add(collection)
     db.session.commit()
 
     return collection
@@ -340,7 +383,6 @@ def convert_groups(file_name=f'{data_dir}/groups.bson'):
     # {'_id': ObjectId('5cd5e175debc517430f2f957'), 'name': 'Ecology', 'created_at': datetime.datetime(2019, 5, 10, 20, 39, 17, 142000), 'created_by': ObjectId('5cbcccafdebc511d170ab359'), 'users': [ObjectId('5cbcccafdebc511d170ab359')], 'papers': ['1005.3980', '1007.4914', '1010.6251', '0911.5556', '1503.01150', '1906.09144', '1709.01861'], 'color': 'YELLOW'}
     with open(file_name, 'rb') as f:
         for doc in bson.decode_all(f.read()):
-            print(doc)
             collection = create_group(doc)
 
 # def convert_group_papers(file_name=f'{data_dir}/group_papers.bson'):
@@ -360,47 +402,57 @@ def create_tweet(doc):
     """
     Creates a Tweet object in Postgres based on a mongo db doc
     """
+    # {'_id': '1000018920986808328', 'pids': ['1804.03984'], 'inserted_at_date': datetime.datetime(2020, 5, 1, 23, 46, 44, 341000), 'created_at_date': datetime.datetime(2018, 5, 25, 14, 21, 4), 'created_at_time': 1527258064.0, 'lang': 'en', 'text': 'Coolest part of @aggielaz et al\'s most recent emergent communication paper: when agents jointly learn "conceptual" reprs alongside communication protocol, these concepts are heavily biased by the natural statistics of the environment. https://t.co/K1X6ZSwH3G https://t.co/2eqav3ax6g', 'retweets': 2, 'likes': 5, 'replies': 0, 'user_screen_name': 'j_gauthier', 'user_name': 'Jon Gauthier', 'user_followers_count': 4304, 'user_following_count': 457}
 
     tweet_id = str(doc['_id'])
 
     tweet = db.session.query(Tweet).filter(Tweet.id == tweet_id).first()
 
-    if not tweet:
-        tweet = Tweet(id=tweet_id, insertion_date=doc['inserted_at_date'], creation_date=doc['created_at_date'], lang=doc['lang'], text=doc['text'], retweets=doc['retweets'], likes=doc['likes'], replies=doc['replies'], user_screen_name=doc['user_screen_name'], user_name=doc['user_name'], user_followers_count=doc['user_followers_count'], user_following_count=doc['user_following_count'])
+    if tweet:
+        return tweet
+    
+    tweet = Tweet(id=tweet_id, insertion_date=doc['inserted_at_date'], creation_date=doc['created_at_date'], lang=doc['lang'], text=doc['text'], retweets=doc['retweets'], likes=doc['likes'], replies=doc.get('replies'), user_screen_name=doc['user_screen_name'], user_name=doc.get('user_name'), user_followers_count=doc['user_followers_count'], user_following_count=doc['user_following_count'])
 
     paper_id = str(doc['pids'][0])
-    paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
+    tweet.paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
 
-    if not paper:
-        paper_doc = get_paper_doc(paper_id)
-        paper = create_paper(paper_doc)
+    # if not paper:
+    #     paper_doc = get_paper_doc(paper_id)
+    #     paper = create_paper(paper_doc)
 
-    tweet.paper = paper # Not sure I can do this, maybe need an add
+    # tweet.paper = paper # Not sure I can do this, maybe need an add
     db.session.add(tweet)
     db.session.commit()
 
-    # TODO: why is pids a set of papers?
+    # TODO: should we support multiple pids for a tweet?
     # TODO: add created_at_time with created_at_date
-
 
 def convert_tweets(file_name=f'{data_dir}/tweets.bson'):
     print("\n\nConverting tweets")
     # Ex
     # {'_id': '1000018920986808328', 'pids': ['1804.03984'], 'inserted_at_date': datetime.datetime(2020, 5, 1, 23, 46, 44, 341000), 'created_at_date': datetime.datetime(2018, 5, 25, 14, 21, 4), 'created_at_time': 1527258064.0, 'lang': 'en', 'text': 'Coolest part of @aggielaz et al\'s most recent emergent communication paper: when agents jointly learn "conceptual" reprs alongside communication protocol, these concepts are heavily biased by the natural statistics of the environment. https://t.co/K1X6ZSwH3G https://t.co/2eqav3ax6g', 'retweets': 2, 'likes': 5, 'replies': 0, 'user_screen_name': 'j_gauthier', 'user_name': 'Jon Gauthier', 'user_followers_count': 4304, 'user_following_count': 457}
     with open(file_name, 'rb') as f:
-        for doc in bson.decode_all(f.read()):
-            print(doc)
+        count = 0
+        docs = bson.decode_all(f.read())
+        total_tweets = len(docs)
+        for doc in docs:
+            count += 1
+            if count % 1000 == 0:
+                print(f'{count}/{total_tweets} tweets parsed')
+
             tweet = create_tweet(doc)
 
 def main():
     # TODO: should start with a convert tags to speed this up?
-    convert_tags()
-    convert_papers()
-    convert_authors()
+    # convert_tags() # ~1 min
+    # convert_papers() # ~45 mins
+    # convert_authors() # ~2 hours
     # convert_users()
     # convert_groups()
     # convert_comments()
-    # convert_tweets()
+    convert_tweets() # 35 mins
+
+    # Not converting for now
     # convert_group_papers() # TODO
     # convert_acronyms()
 
