@@ -49,12 +49,12 @@ user_collection_table = db.Table('user_collection', db.metadata,
 class User(db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(80), nullable=False)
+    email = db.Column(db.String(80), nullable=False, index=True)
     username = db.Column(db.String(50), nullable=False)
     password = db.Column(db.String(100), nullable=False)
     collections = db.relationship("Collection", back_populates="users", secondary=user_collection_table)
     comments = db.relationship("Comment")
-    old_id = db.Column(db.String(80))
+    old_id = db.Column(db.String(80), index=True)
 
 
 class Paper(db.Model):
@@ -70,7 +70,7 @@ class Paper(db.Model):
     local_pdf = db.Column(db.String, nullable=True)
     publication_date = db.Column(db.DateTime(timezone=True), nullable=False)
     abstract = db.Column(db.String, nullable=True)
-    original_id = db.Column(db.String, nullable=True)
+    original_id = db.Column(db.String, nullable=True, index=True)
     last_update_date = db.Column(db.DateTime(timezone=True), nullable=False)
     is_private = db.Column(db.Boolean, nullable=True)
     authors = db.relationship("Author", back_populates="papers", secondary=paper_author_table)
@@ -97,7 +97,7 @@ class ArxivPaper(db.Model):
 class Tag(db.Model):
     __tablename__ = 'tag'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False)
+    name = db.Column(db.String(50), nullable=False, index=True)
     papers = db.relationship("Paper", back_populates="tags", secondary=paper_tag_table)
     source = db.Column(db.String(30), nullable=False)
 
@@ -105,7 +105,7 @@ class Tag(db.Model):
 class Author(db.Model):
     __tablename__ = 'author'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(80), nullable=False)
+    name = db.Column(db.String(80), nullable=False, index=True)
     first_name = db.Column(db.String(80), nullable=True)
     last_name = db.Column(db.String(80), nullable=True)
     organization = db.Column(ARRAY(db.String), nullable=True)
@@ -123,7 +123,7 @@ class Collection(db.Model):
     created_by_id = db.Column(db.ForeignKey('user.id'), nullable=False)
     created_by = db.relationship("User")
     is_uploads = db.Column(db.Boolean, nullable=True)
-    old_id = db.Column(db.String(80))
+    old_id = db.Column(db.String(80), index=True)
 
 
 class Comment(db.Model):
