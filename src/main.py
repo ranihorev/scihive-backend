@@ -1,5 +1,6 @@
 import logging
 import os
+import click
 
 from src import app
 # create the DB:
@@ -108,5 +109,6 @@ def hello_world():
 
 
 @app.cli.command("migrate-db")
-def migrate_db():
-    migrate()
+@click.option('--path', help='folder path')
+def migrate_db(path):
+    migrate(path)

@@ -62,7 +62,7 @@
         "FLASK_ENV": "development",
         "FLASK_DEBUG": "0"
       },
-      "args": ["migrate-db"]
+      "args": ["migrate-db", "--path", "../backup"]
     }
   ]
 }
