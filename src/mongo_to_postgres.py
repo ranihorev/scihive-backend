@@ -8,7 +8,7 @@ import datetime
 # Useful stuff
 # paper = db.session.query(Paper).filter(Paper.original_id == rawid).first()
 old_group_id_map = {}
-data_dir = 'src/new_backend/mongo_data'
+base_dir = 'src/new_backend/mongo_data'
 
 
 def create_comment(doc):
@@ -79,7 +79,8 @@ def create_comment(doc):
     return comment
 
 
-def convert_comments(file_name=f'{data_dir}/comments.bson'):
+def convert_comments(file_name='comments.bson'):
+    file_name = f"{base_dir}/{file_name}"
     global old_group_id_map
     print('\n\nConverting comments')
 
@@ -88,7 +89,8 @@ def convert_comments(file_name=f'{data_dir}/comments.bson'):
             comment = create_comment(doc)
 
 
-def convert_authors(file_name=f'{data_dir}/authors.bson'):
+def convert_authors(file_name=f'authors.bson'):
+    file_name = f"{base_dir}/{file_name}"
     print('\n\nConverting authors')
     bson_file = open(file_name, 'rb')
 
@@ -97,7 +99,6 @@ def convert_authors(file_name=f'{data_dir}/authors.bson'):
     total_authors = len(docs)
 
     for doc in docs:
-        # print(doc)
 
         # Doc example: {'_id': 'A . M. Barrett', 'papers': ['1905.10835']}
         author_name = doc['_id']
@@ -112,17 +113,9 @@ def convert_authors(file_name=f'{data_dir}/authors.bson'):
             db.session.add(author)
             db.session.commit()
 
-        for paper_id in doc['papers']:
-            # Add relationship between author and paper
-            paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
-            # TODO: should check if relationship exists already?
-
-            # if not paper:
-            #     doc = get_paper_doc(paper_id)
-            #     paper = create_paper(doc)
-
-            if paper:
-                author.papers.append(paper)
+        papers = db.session.query(Paper).filter(Paper.original_id.in_(doc['papers'])).all()
+        for paper in papers:
+            author.papers.append(paper)
 
         db.session.commit()
 
@@ -173,10 +166,11 @@ def get_tags(paper_data):
     return tags
 
 
-def convert_tags(file_name=f'{data_dir}/papers.bson'):
+def convert_tags(file_name='papers.bson'):
     """
     Generates all the tags in the first run
     """
+    file_name = f"{base_dir}/{file_name}"
     print("\n\nConverting tags")
 
     all_tags = set()
@@ -219,7 +213,7 @@ def create_paper(doc):
 
     # 'md5': 'a62ef6230541e7db562998b2495eaa76', 'time_published': datetime.datetime(2015, 1, 15, 5, 0),
     # 'uploaded_by': {'email': 'jmramirezo@unal.edu.co', 'username': 'jmramirezo'}, 'created_at': datetime.datetime(2020, 1, 15, 16, 24, 0, 442000), 'is_private': True, 'link': 'https://arxiv.lyrn.ai/papers/a62ef6230541e7db562998b2495eaa76.pdf', 'total_bookmarks': 3, 'history': [{'time_published': datetime.datetime(2020, 1, 15, 16, 23, 52), 'stored_at': datetime.datetime(2020, 1, 20, 18, 7, 8, 745000), 'changed_by': 'jmramirezo@unal.edu.co'}
-    paper = db.session.query(Paper).filter(Paper.original_id == original_id).first()
+    paper = db.session.query(Paper.id).filter(Paper.original_id == original_id).scalar()
     publication_date = doc.get('published')
     last_update_date = doc.get('updated')
 
@@ -229,50 +223,48 @@ def create_paper(doc):
     if not last_update_date:
         last_update_date = doc.get('created_at')
 
-    if not paper:
+    if paper is None:
         paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'],
                       is_private=False, publication_date=publication_date, last_update_date=last_update_date, original_id=original_id)
 
         # Handling tags
         tag_names = get_tags(doc)
 
-        for tag_name in tag_names:
-            tag = db.session.query(Tag).filter(Tag.name == tag_name).first()
-
-            if tag:
-                paper.tags.append(tag)
+        existing_tags = Tag.query.filter(Tag.name.in_(tag_names)).all()
+        for tag in existing_tags:
+            paper.tags.append(tag)
 
         db.session.add(paper)
         db.session.commit()
 
-    return paper
 
-
-def get_user_doc(user_id, file_name=f'{data_dir}/users.bson'):
+def create_user_map(file_name='users.bson'):
     """
     Retrieves the doc of a user by the id
     """
+    file_name = f"{base_dir}/{file_name}"
+    users = {}
     with open(file_name, 'rb') as f:
         for doc in bson.decode_all(f.read()):
-            if doc['_id'] == user_id:
-                return doc
+            users[doc['_id']] = doc
 
-    return None
+    return users
+
+# def get_paper_doc(paper_id, file_name=f'papers.bson'):
+#     """
+#     Retrieves the doc of a paper by its id
+#     """
+#     file_name = f"{base_dir}/{file_name}"
+#     with open(file_name, 'rb') as f:
+#         for doc in bson.decode_all(f.read()):
+#             if doc['_rawid'] == paper_id:
+#                 return doc
+
+#     return None
 
 
-def get_paper_doc(paper_id, file_name=f'{data_dir}/papers.bson'):
-    """
-    Retrieves the doc of a paper by its id
-    """
-    with open(file_name, 'rb') as f:
-        for doc in bson.decode_all(f.read()):
-            if doc['_rawid'] == paper_id:
-                return doc
-
-    return None
-
-
-def fix_papers(file_name=f'{data_dir}/papers.bson'):
+def fix_papers(file_name=f'papers.bson'):
+    file_name = f"{base_dir}/{file_name}"
     print("\nFixing papers id")
 
     current_count = 0
@@ -306,9 +298,9 @@ def fix_papers(file_name=f'{data_dir}/papers.bson'):
             current_count += 1
 
 
-def convert_papers(file_name=f'{data_dir}/papers.bson'):
+def convert_papers(file_name=f'papers.bson'):
+    file_name = f"{base_dir}/{file_name}"
     print("\n\nConverting papers")
-
     current_count = 0
 
     with open(file_name, 'rb') as f:
@@ -367,7 +359,8 @@ def create_user(doc):
     return user
 
 
-def convert_users(file_name=f'{data_dir}/users.bson'):
+def convert_users(file_name='users.bson'):
+    file_name = f"{base_dir}/{file_name}"
     print("\n\nConverting users")
 
     # Ex
@@ -377,7 +370,7 @@ def convert_users(file_name=f'{data_dir}/users.bson'):
             create_user(doc)
 
 
-def create_group(doc):
+def create_group(doc, users):
     """
     Creates a collection based on a mongo doc of a group
     """
@@ -390,7 +383,7 @@ def create_group(doc):
     created_by_user = db.session.query(User).filter(User.old_id == created_by).first()
 
     if not created_by_user:
-        doc = get_user_doc(created_by)
+        doc = users.get(created_by)
         created_by_user = create_user(doc)
 
     collection = db.session.query(Collection).filter(Collection.old_id == str(doc['_id'])).first()
@@ -404,7 +397,7 @@ def create_group(doc):
             user = db.session.query(User).filter(User.old_id == str(user_id)).first()
 
             if not user:
-                user_doc = get_user_doc(user_id)
+                user_doc = users.get(user_id)
                 user = create_user(user_doc)
 
             if user not in collection.users:
@@ -428,19 +421,23 @@ def create_group(doc):
     return collection
 
 
-def convert_groups(file_name=f'{data_dir}/groups.bson'):
+def convert_groups(file_name=f'groups.bson'):
+    file_name = f"{base_dir}/{file_name}"
     print("\n\nConverting groups")
 
     # Ex
     # {'_id': ObjectId('5cd5e175debc517430f2f957'), 'name': 'Ecology', 'created_at': datetime.datetime(2019, 5, 10, 20, 39, 17, 142000), 'created_by': ObjectId('5cbcccafdebc511d170ab359'), 'users': [ObjectId('5cbcccafdebc511d170ab359')], 'papers': ['1005.3980', '1007.4914', '1010.6251', '0911.5556', '1503.01150', '1906.09144', '1709.01861'], 'color': 'YELLOW'}
+    users = create_user_map()
+
     with open(file_name, 'rb') as f:
         for doc in bson.decode_all(f.read()):
-            collection = create_group(doc)
+            collection = create_group(doc, users)
 
 
-def convert_group_papers(file_name=f'{data_dir}/group_papers.bson'):
+def convert_group_papers(file_name=f'group_papers.bson'):
     # Ex
     # {'_id': ObjectId('5dcaf30914029c532302025d'), 'group_id': '   ', 'paper_id': '1904.09970', 'date': datetime.datetime(2019, 11, 12, 17, 59, 37, 829000), 'is_library': True, 'user': '5cbcccafdebc511d170ab359'}
+    file_name = f"{base_dir}/{file_name}"
     count = 0
 
     with open(file_name, 'rb') as f:
@@ -480,16 +477,20 @@ def create_tweet(doc):
 
     tweet_id = str(doc['_id'])
 
-    tweet = db.session.query(Tweet).filter(Tweet.id == tweet_id).first()
+    if db.session.query(Tweet.id).filter(Tweet.id == tweet_id).scalar() is not None:
+        return
 
-    if tweet:
-        return tweet
+    original_paper_id = str(doc['pids'][0])
+    paper = db.session.query(Paper.id).filter(Paper.original_id == original_paper_id).first()
+
+    if not paper:
+        print(f'Paper is missing - {original_paper_id}')
+        return
 
     tweet = Tweet(id=tweet_id, insertion_date=doc['inserted_at_date'], creation_date=doc['created_at_date'], lang=doc['lang'], text=doc['text'], retweets=doc['retweets'], likes=doc['likes'], replies=doc.get(
-        'replies'), user_screen_name=doc['user_screen_name'], user_name=doc.get('user_name'), user_followers_count=doc['user_followers_count'], user_following_count=doc['user_following_count'])
+        'replies'), user_screen_name=doc['user_screen_name'], user_name=doc.get('user_name'), user_followers_count=doc['user_followers_count'], user_following_count=doc['user_following_count'], paper_id=paper.id)
 
-    paper_id = str(doc['pids'][0])
-    tweet.paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
+    # tweet.paper = db.session.query(Paper.id).filter(Paper.original_id == paper_id).first()
 
     # if not paper:
     #     paper_doc = get_paper_doc(paper_id)
@@ -500,7 +501,8 @@ def create_tweet(doc):
     db.session.commit()
 
 
-def convert_tweets(file_name=f'{data_dir}/tweets.bson'):
+def convert_tweets(file_name=f'tweets.bson'):
+    file_name = f"{base_dir}/{file_name}"
     print("\n\nConverting tweets")
     # Ex
     # {'_id': '1000018920986808328', 'pids': ['1804.03984'], 'inserted_at_date': datetime.datetime(2020, 5, 1, 23, 46, 44, 341000), 'created_at_date': datetime.datetime(2018, 5, 25, 14, 21, 4), 'created_at_time': 1527258064.0, 'lang': 'en', 'text': 'Coolest part of @aggielaz et al\'s most recent emergent communication paper: when agents jointly learn "conceptual" reprs alongside communication protocol, these concepts are heavily biased by the natural statistics of the environment. https://t.co/K1X6ZSwH3G https://t.co/2eqav3ax6g', 'retweets': 2, 'likes': 5, 'replies': 0, 'user_screen_name': 'j_gauthier', 'user_name': 'Jon Gauthier', 'user_followers_count': 4304, 'user_following_count': 457}
@@ -513,10 +515,14 @@ def convert_tweets(file_name=f'{data_dir}/tweets.bson'):
             if count % 1000 == 0:
                 print(f'{count}/{total_tweets} tweets parsed')
 
-            tweet = create_tweet(doc)
+            create_tweet(doc)
 
 
-def migrate():
+def migrate(data_dir=None):
+    global base_dir
+    if data_dir:
+        base_dir = data_dir
+
     convert_tags()  # ~1 min
     convert_papers()  # ~45 mins
     convert_authors()  # ~2 hours
