@@ -480,11 +480,11 @@ def create_tweet(doc):
     if db.session.query(Tweet.id).filter(Tweet.id == tweet_id).scalar() is not None:
         return
 
-    original_paper_id = str(doc['pids'][0])
-    paper = db.session.query(Paper.id).filter(Paper.original_id == original_paper_id).first()
+    original_paper_ids = str(doc['pids'])
+    paper = db.session.query(Paper.id).filter(Paper.original_id.in_(original_paper_ids)).first()
 
     if not paper:
-        print(f'Paper is missing - {original_paper_id}')
+        print(f'All papers are missing - {original_paper_ids}')
         return
 
     tweet = Tweet(id=tweet_id, insertion_date=doc['inserted_at_date'], creation_date=doc['created_at_date'], lang=doc['lang'], text=doc['text'], retweets=doc['retweets'], likes=doc['likes'], replies=doc.get(
