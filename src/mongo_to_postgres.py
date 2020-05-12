@@ -480,7 +480,7 @@ def create_tweet(doc):
     if db.session.query(Tweet.id).filter(Tweet.id == tweet_id).scalar() is not None:
         return
 
-    original_paper_ids = str(doc['pids'])
+    original_paper_ids = [str(id) for id in doc['pids']]
     paper = db.session.query(Paper.id).filter(Paper.original_id.in_(original_paper_ids)).first()
 
     if not paper:
