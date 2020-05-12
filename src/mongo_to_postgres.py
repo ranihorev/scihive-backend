@@ -320,8 +320,7 @@ def convert_papers(file_name=f'{data_dir}/papers.bson'):
             if current_count % 1000 == 0:
                 print(f'{current_count}/{papers_count} compeleted')
 
-            if current_count > 70000:
-                create_paper(doc)
+            create_paper(doc)
             current_count += 1
 
 
