@@ -132,7 +132,7 @@ def get_pdf_link(paper_data):
         if link.get('type', '') == 'application/pdf':
             return link.get('href', '')
 
-    return None
+    return paper_data.get('link')
 
 def add_tags(tags, paper, source='arXiv'):
     print("\n\nConverting tags")
@@ -210,10 +210,17 @@ def create_paper(doc):
     # 'md5': 'a62ef6230541e7db562998b2495eaa76', 'time_published': datetime.datetime(2015, 1, 15, 5, 0), 
     # 'uploaded_by': {'email': 'jmramirezo@unal.edu.co', 'username': 'jmramirezo'}, 'created_at': datetime.datetime(2020, 1, 15, 16, 24, 0, 442000), 'is_private': True, 'link': 'https://arxiv.lyrn.ai/papers/a62ef6230541e7db562998b2495eaa76.pdf', 'total_bookmarks': 3, 'history': [{'time_published': datetime.datetime(2020, 1, 15, 16, 23, 52), 'stored_at': datetime.datetime(2020, 1, 20, 18, 7, 8, 745000), 'changed_by': 'jmramirezo@unal.edu.co'}
     paper = db.session.query(Paper).filter(Paper.original_id == original_id).first()
+    publication_date = doc.get('published')
+    last_update_date = doc.get('updated')
+
+    if not publication_date:
+        publication_date = datetime.datetime(1970, 1, 1, 5, 0)
+
+    if not last_update_date:
+        last_update_date = doc.get('created_at')
 
     if not paper:
-        print(doc)
-        paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'], is_private=False, publication_date=doc['published'], last_update_date=doc['updated'], original_id=original_id)
+        paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'], is_private=False, publication_date=publication_date, last_update_date=last_update_date, original_id=original_id)
 
         # Handling tags
         tag_names = get_tags(doc)
@@ -299,7 +306,8 @@ def convert_papers(file_name=f'{data_dir}/papers.bson'):
             if current_count % 1000 == 0:
                 print(f'{current_count}/{papers_count} compeleted')
 
-            create_paper(doc)
+            if current_count > 70000:
+                create_paper(doc)
             current_count += 1
 
 def create_user(doc):
@@ -486,13 +494,12 @@ def convert_tweets(file_name=f'{data_dir}/tweets.bson'):
 def main():
     convert_tags() # ~1 min
     convert_papers() # ~45 mins
-    convert_authors() # ~2 hours
-    convert_users()
-    convert_groups()
-    convert_comments()
-    convert_tweets() # 35 mins
-    convert_group_papers() # 1 min
-    # fix_papers()
+    # convert_authors() # ~2 hours
+    # convert_users()
+    # convert_groups()
+    # convert_comments()
+    # convert_tweets() # 35 mins
+    # convert_group_papers() # 1 min
 
     # Not converting for now
     # convert_acronyms()
