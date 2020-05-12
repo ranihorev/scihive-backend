@@ -25,6 +25,7 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 from src.new_backend.scrapers import twitter
 import threading
 from .run_background_tasks import run_scheduled_tasks
+from .mongo_to_postgres import migrate
 
 
 env = os.environ.get('ENV', 'development')
@@ -104,3 +105,8 @@ def fetch_twitter():
 @app.route('/test')
 def hello_world():
     return 'Hello, World!'
+
+
+@app.cli.command("migrate-db")
+def migrate_db():
+    migrate()

@@ -1,4 +1,4 @@
-from src.new_backend.models import Collection, Comment, Reply, Paper, db, Author, Tag, User, Tweet
+from .new_backend.models import Collection, Comment, Reply, Paper, db, Author, Tag, User, Tweet
 import bson
 import re
 from sqlalchemy.orm.exc import NoResultFound
@@ -10,6 +10,7 @@ import datetime
 old_group_id_map = {}
 data_dir = 'src/new_backend/mongo_data'
 
+
 def create_comment(doc):
     """
     Creates a comment in Postgres based on the Mongo comment doc
@@ -17,7 +18,7 @@ def create_comment(doc):
     # Ex:
     # {'_id': ObjectId('5cc657e4debc51503e266113'), 'comment': {'text': ''}, 'content': {'text': 'Deep nonlinear classifiers can fit their data so well that network designers are often faced with thechoice of including stochastic regularizer like adding noise to hidden layers or applying dropout'}, 'position': {'boundingRect': {'x1': 136.15625, 'y1': 576.828125, 'x2': 635.42041015625, 'y2': 605.640625, 'width': 771.6, 'height': 998.5411764705882}, 'rects': [{'x1': 136.15625, 'y1': 576.828125, 'x2': 635.42041015625, 'y2': 591.828125, 'width': 771.6, 'height': 998.5411764705882}, {'x1': 136.15625, 'y1': 590.640625, 'x2': 611.1009521484375, 'y2': 605.640625, 'width': 771.6, 'height': 998.5411764705882}], 'pageNumber': 1}, 'visibility': 'public', 'pid': '1606.08415', 'created_at': datetime.datetime(2019, 4, 29, 1, 48, 20, 966000), 'user': {'username': 'Guest'}}
     id = doc['_id']
-    
+
     # Skip highlights that don't include text
     if 'content' not in doc:
         return None
@@ -27,7 +28,8 @@ def create_comment(doc):
     else:
         visibility = doc['visibility']
 
-    comment = Comment(text=doc['comment'].get('text'), highlighted_text=doc['content'].get('text'), position=doc['position'], shared_with=visibility, creation_date=doc['created_at'])
+    comment = Comment(text=doc['comment'].get('text'), highlighted_text=doc['content'].get(
+        'text'), position=doc['position'], shared_with=visibility, creation_date=doc['created_at'])
 
     # Adding the shared with property (visibility in the previous Mongo model)
 
@@ -53,7 +55,7 @@ def create_comment(doc):
 
     if email:
         user = db.session.query(User).filter(User.email == email).first()
-    
+
     if user:
         comment.user = user
 
@@ -76,6 +78,7 @@ def create_comment(doc):
 
     return comment
 
+
 def convert_comments(file_name=f'{data_dir}/comments.bson'):
     global old_group_id_map
     print('\n\nConverting comments')
@@ -83,6 +86,7 @@ def convert_comments(file_name=f'{data_dir}/comments.bson'):
     with open(file_name, 'rb') as f:
         for doc in bson.decode_all(f.read()):
             comment = create_comment(doc)
+
 
 def convert_authors(file_name=f'{data_dir}/authors.bson'):
     print('\n\nConverting authors')
@@ -97,7 +101,7 @@ def convert_authors(file_name=f'{data_dir}/authors.bson'):
 
         # Doc example: {'_id': 'A . M. Barrett', 'papers': ['1905.10835']}
         author_name = doc['_id']
-        
+
         if type(author_name) == type({}):
             author_name = author_name['name']
 
@@ -127,12 +131,14 @@ def convert_authors(file_name=f'{data_dir}/authors.bson'):
 
         count += 1
 
+
 def get_pdf_link(paper_data):
     for link in paper_data.get('links', []):
         if link.get('type', '') == 'application/pdf':
             return link.get('href', '')
 
     return paper_data.get('link')
+
 
 def add_tags(tags, paper, source='arXiv'):
     print("\n\nConverting tags")
@@ -153,6 +159,8 @@ def add_tags(tags, paper, source='arXiv'):
         tag.papers.append(paper)
 
 # Returns the tags in a given paper_data (the tags are CS, CS.ML, gr, etc), always in lower-case
+
+
 def get_tags(paper_data):
     tags = []
 
@@ -164,12 +172,13 @@ def get_tags(paper_data):
 
     return tags
 
+
 def convert_tags(file_name=f'{data_dir}/papers.bson'):
     """
     Generates all the tags in the first run
     """
     print("\n\nConverting tags")
-    
+
     all_tags = set()
     count = 0
 
@@ -188,15 +197,16 @@ def convert_tags(file_name=f'{data_dir}/papers.bson'):
                     continue
 
                 all_tags.add(tag_name)
-            
+
             count += 1
 
     print(f'Total {len(all_tags)} unique tags')
-    
+
     for tag_name in all_tags:
         tag = Tag(name=tag_name, source='arXiv')
         db.session.add(tag)
     db.session.commit()
+
 
 def create_paper(doc):
     """
@@ -207,7 +217,7 @@ def create_paper(doc):
     paper = None
     original_id = str(doc['_id'])
 
-    # 'md5': 'a62ef6230541e7db562998b2495eaa76', 'time_published': datetime.datetime(2015, 1, 15, 5, 0), 
+    # 'md5': 'a62ef6230541e7db562998b2495eaa76', 'time_published': datetime.datetime(2015, 1, 15, 5, 0),
     # 'uploaded_by': {'email': 'jmramirezo@unal.edu.co', 'username': 'jmramirezo'}, 'created_at': datetime.datetime(2020, 1, 15, 16, 24, 0, 442000), 'is_private': True, 'link': 'https://arxiv.lyrn.ai/papers/a62ef6230541e7db562998b2495eaa76.pdf', 'total_bookmarks': 3, 'history': [{'time_published': datetime.datetime(2020, 1, 15, 16, 23, 52), 'stored_at': datetime.datetime(2020, 1, 20, 18, 7, 8, 745000), 'changed_by': 'jmramirezo@unal.edu.co'}
     paper = db.session.query(Paper).filter(Paper.original_id == original_id).first()
     publication_date = doc.get('published')
@@ -220,7 +230,8 @@ def create_paper(doc):
         last_update_date = doc.get('created_at')
 
     if not paper:
-        paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'], is_private=False, publication_date=publication_date, last_update_date=last_update_date, original_id=original_id)
+        paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'],
+                      is_private=False, publication_date=publication_date, last_update_date=last_update_date, original_id=original_id)
 
         # Handling tags
         tag_names = get_tags(doc)
@@ -248,6 +259,7 @@ def get_user_doc(user_id, file_name=f'{data_dir}/users.bson'):
 
     return None
 
+
 def get_paper_doc(paper_id, file_name=f'{data_dir}/papers.bson'):
     """
     Retrieves the doc of a paper by its id
@@ -259,11 +271,12 @@ def get_paper_doc(paper_id, file_name=f'{data_dir}/papers.bson'):
 
     return None
 
+
 def fix_papers(file_name=f'{data_dir}/papers.bson'):
     print("\nFixing papers id")
 
     current_count = 0
-    
+
     with open(file_name, 'rb') as f:
         docs = bson.decode_all(f.read())
         papers_count = len(docs)
@@ -281,7 +294,7 @@ def fix_papers(file_name=f'{data_dir}/papers.bson'):
 
             original_id = str(doc['_id'])
 
-            # 'md5': 'a62ef6230541e7db562998b2495eaa76', 'time_published': datetime.datetime(2015, 1, 15, 5, 0), 
+            # 'md5': 'a62ef6230541e7db562998b2495eaa76', 'time_published': datetime.datetime(2015, 1, 15, 5, 0),
             # 'uploaded_by': {'email': 'jmramirezo@unal.edu.co', 'username': 'jmramirezo'}, 'created_at': datetime.datetime(2020, 1, 15, 16, 24, 0, 442000), 'is_private': True, 'link': 'https://arxiv.lyrn.ai/papers/a62ef6230541e7db562998b2495eaa76.pdf', 'total_bookmarks': 3, 'history': [{'time_published': datetime.datetime(2020, 1, 15, 16, 23, 52), 'stored_at': datetime.datetime(2020, 1, 20, 18, 7, 8, 745000), 'changed_by': 'jmramirezo@unal.edu.co'}
             paper = db.session.query(Paper).filter(Paper.original_id == old_original_id).first()
 
@@ -292,11 +305,12 @@ def fix_papers(file_name=f'{data_dir}/papers.bson'):
 
             current_count += 1
 
+
 def convert_papers(file_name=f'{data_dir}/papers.bson'):
     print("\n\nConverting papers")
 
     current_count = 0
-    
+
     with open(file_name, 'rb') as f:
         docs = bson.decode_all(f.read())
         papers_count = len(docs)
@@ -309,6 +323,7 @@ def convert_papers(file_name=f'{data_dir}/papers.bson'):
             if current_count > 70000:
                 create_paper(doc)
             current_count += 1
+
 
 def create_user(doc):
     """
@@ -327,7 +342,8 @@ def create_user(doc):
         collection = db.session.query(Collection).filter(Collection.old_id == doc['library_id']).first()
 
         if not collection:
-            collection = Collection(name='Saved', creation_date=datetime.datetime.utcnow(), created_by=user, old_id=doc['library_id'])
+            collection = Collection(name='Saved', creation_date=datetime.datetime.utcnow(),
+                                    created_by=user, old_id=doc['library_id'])
             db.session.add(collection)
             db.session.commit()
 
@@ -351,6 +367,7 @@ def create_user(doc):
     db.session.commit()
     return user
 
+
 def convert_users(file_name=f'{data_dir}/users.bson'):
     print("\n\nConverting users")
 
@@ -359,6 +376,7 @@ def convert_users(file_name=f'{data_dir}/users.bson'):
     with open(file_name, 'rb') as f:
         for doc in bson.decode_all(f.read()):
             create_user(doc)
+
 
 def create_group(doc):
     """
@@ -379,7 +397,8 @@ def create_group(doc):
     collection = db.session.query(Collection).filter(Collection.old_id == str(doc['_id'])).first()
 
     if not collection:
-        collection = Collection(is_library=False, name=doc['name'], color=color, creation_date=doc['created_at'], old_id=str(doc['_id']), created_by = created_by_user)
+        collection = Collection(is_library=False, name=doc['name'], color=color, creation_date=doc['created_at'], old_id=str(
+            doc['_id']), created_by=created_by_user)
 
     if not collection.users:
         for user_id in doc['users']:
@@ -409,6 +428,7 @@ def create_group(doc):
 
     return collection
 
+
 def convert_groups(file_name=f'{data_dir}/groups.bson'):
     print("\n\nConverting groups")
 
@@ -418,11 +438,12 @@ def convert_groups(file_name=f'{data_dir}/groups.bson'):
         for doc in bson.decode_all(f.read()):
             collection = create_group(doc)
 
+
 def convert_group_papers(file_name=f'{data_dir}/group_papers.bson'):
     # Ex
     # {'_id': ObjectId('5dcaf30914029c532302025d'), 'group_id': '   ', 'paper_id': '1904.09970', 'date': datetime.datetime(2019, 11, 12, 17, 59, 37, 829000), 'is_library': True, 'user': '5cbcccafdebc511d170ab359'}
     count = 0
-    
+
     with open(file_name, 'rb') as f:
         docs = bson.decode_all(f.read())
         total_group_papers = len(docs)
@@ -432,7 +453,8 @@ def convert_group_papers(file_name=f'{data_dir}/group_papers.bson'):
             user = db.session.query(User).filter(User.old_id == str(doc['user'])).first()
 
             if user and not collection:
-                collection = Collection(name='Saved', creation_date=datetime.datetime.utcnow(), created_by=user, old_id=str(doc['group_id']))
+                collection = Collection(name='Saved', creation_date=datetime.datetime.utcnow(),
+                                        created_by=user, old_id=str(doc['group_id']))
                 db.session.add(collection)
                 db.session.commit()
 
@@ -443,12 +465,13 @@ def convert_group_papers(file_name=f'{data_dir}/group_papers.bson'):
             else:
                 print("Error mapping group paper")
                 print(doc)
-            
+
             count += 1
             if count % 100 == 0:
                 print(f'Parsed {count}/{total_group_papers} group papers')
 
             db.session.commit()
+
 
 def create_tweet(doc):
     """
@@ -462,8 +485,9 @@ def create_tweet(doc):
 
     if tweet:
         return tweet
-    
-    tweet = Tweet(id=tweet_id, insertion_date=doc['inserted_at_date'], creation_date=doc['created_at_date'], lang=doc['lang'], text=doc['text'], retweets=doc['retweets'], likes=doc['likes'], replies=doc.get('replies'), user_screen_name=doc['user_screen_name'], user_name=doc.get('user_name'), user_followers_count=doc['user_followers_count'], user_following_count=doc['user_following_count'])
+
+    tweet = Tweet(id=tweet_id, insertion_date=doc['inserted_at_date'], creation_date=doc['created_at_date'], lang=doc['lang'], text=doc['text'], retweets=doc['retweets'], likes=doc['likes'], replies=doc.get(
+        'replies'), user_screen_name=doc['user_screen_name'], user_name=doc.get('user_name'), user_followers_count=doc['user_followers_count'], user_following_count=doc['user_following_count'])
 
     paper_id = str(doc['pids'][0])
     tweet.paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
@@ -475,6 +499,7 @@ def create_tweet(doc):
     # tweet.paper = paper # Not sure I can do this, maybe need an add
     db.session.add(tweet)
     db.session.commit()
+
 
 def convert_tweets(file_name=f'{data_dir}/tweets.bson'):
     print("\n\nConverting tweets")
@@ -491,18 +516,16 @@ def convert_tweets(file_name=f'{data_dir}/tweets.bson'):
 
             tweet = create_tweet(doc)
 
-def main():
-    convert_tags() # ~1 min
-    convert_papers() # ~45 mins
-    # convert_authors() # ~2 hours
-    # convert_users()
-    # convert_groups()
-    # convert_comments()
-    # convert_tweets() # 35 mins
-    # convert_group_papers() # 1 min
+
+def migrate():
+    convert_tags()  # ~1 min
+    convert_papers()  # ~45 mins
+    convert_authors()  # ~2 hours
+    convert_users()
+    convert_groups()
+    convert_comments()
+    convert_tweets()  # 35 mins
+    convert_group_papers()  # 1 min
 
     # Not converting for now
     # convert_acronyms()
-
-if __name__ == '__main__':
-    main()
