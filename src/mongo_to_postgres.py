@@ -320,8 +320,7 @@ def convert_papers(file_name=f'{data_dir}/papers.bson'):
             if current_count % 1000 == 0:
                 print(f'{current_count}/{papers_count} compeleted')
 
-            if current_count > 70000:
-                create_paper(doc)
+            create_paper(doc)
             current_count += 1
 
 
@@ -397,7 +396,7 @@ def create_group(doc):
     collection = db.session.query(Collection).filter(Collection.old_id == str(doc['_id'])).first()
 
     if not collection:
-        collection = Collection(is_library=False, name=doc['name'], color=color, creation_date=doc['created_at'], old_id=str(
+        collection = Collection(name=doc['name'], color=color, creation_date=doc['created_at'], old_id=str(
             doc['_id']), created_by=created_by_user)
 
     if not collection.users:
