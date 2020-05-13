@@ -69,7 +69,7 @@ papers_fields = {
     'authors': fields.Nested({'name': fields.String}),
     'time_published': fields.DateTime(dt_format='rfc822', attribute="publication_date"),
     'abstract': fields.String(attribute="abstract"),
-    'groups': fields.Raw(attribute='collection_ids'),
+    'groups': fields.Raw(attribute='collection_ids', default=[]),
     'twitter_score': fields.Integer,
     'num_stars': fields.Integer,
     'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True)
