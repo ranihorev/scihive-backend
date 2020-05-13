@@ -28,7 +28,7 @@ paper_fields = {
     'time_published': fields.DateTime(attribute='publication_date', dt_format='rfc822'),
     'abstract': fields.String,
     'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True),
-    'groups': fields.Nested({'id': fields.Integer, 'name': fields.String}),
+    'groups': fields.Nested({'id': fields.Integer, 'name': fields.String}, default=[]),
     'is_editable': fields.Boolean(attribute='is_private', default=False)
 }
 
