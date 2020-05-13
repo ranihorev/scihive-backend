@@ -13,7 +13,7 @@ port = int(os.environ.get('PORT', 5000))
 logger = logging.getLogger(__name__)
 
 # Don't run server if there are command arguments
-if len(sys.argv) == 1:
+if len(sys.argv) == 1 or sys.argv[1] == 'run':
     # start
     if env == 'production':
         # run on Tornado instead, since running raw Flask in prod is not recommended
