@@ -11,7 +11,7 @@ from sqlalchemy_searchable import search
 
 from src.new_backend.models import (Author, Collection, Paper, db,
                                     paper_collection_table)
-from src.routes.user_utils import get_user_by_email
+from src.routes.user_utils import get_user
 from src.utils import get_file_path
 from .paper_query_utils import paper_with_code_fields
 
@@ -141,7 +141,7 @@ class Papers(Resource):
         author = args.get('author', '')
         age = args.get('age', 'all')
 
-        user = get_user_by_email()
+        user = get_user()
 
         query = db.session.query(Paper)
         if q:
