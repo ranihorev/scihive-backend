@@ -20,7 +20,7 @@ EMPTY_FIELD_MSG = 'This field cannot be blank'
 
 
 def anonymize_user(paper: Paper):
-    if paper.shared_with == 'anonymous':
+    if paper.shared_with == 'anonymous' or not paper.user:
         return ''
     else:
         return paper.user.username
