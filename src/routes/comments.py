@@ -20,10 +20,10 @@ EMPTY_FIELD_MSG = 'This field cannot be blank'
 
 
 def anonymize_user(comment: Comment):
-    if comment.shared_with == 'anonymous':
+    if comment.shared_with == 'anonymous' or not comment.user:
         return ''
     else:
-        return comment.user.username if comment.user else ''
+        return comment.user.username
 
 
 def can_edit(paper: Paper):

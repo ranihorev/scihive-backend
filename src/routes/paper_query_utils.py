@@ -29,7 +29,13 @@ def abs_to_pdf(url):
 
 
 def get_paper_or_none(paper_id: str):
-    return Paper.query.filter(Paper.id == paper_id).first()
+    paper = Paper.query.filter(Paper.id == paper_id).first()
+
+    # If we don't find the paper by its ID we fallback to search by the original (arXiv) ID
+    if not paper:
+        paper = Paper.query.filter(Paper.original_id == paper_id).first()
+
+    return paper
 
 
 def get_paper_with_pdf(paper_id):
