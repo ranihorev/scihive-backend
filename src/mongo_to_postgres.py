@@ -227,8 +227,8 @@ def create_paper(doc):
         paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'],
                       is_private=False, publication_date=publication_date, last_update_date=last_update_date, original_id=original_id)
 
-        if 'twtr_score' in doc:
-            paper.twitter_score = doc['twtr_score']
+        if 'twtr_sum' in doc:
+            paper.twitter_score = doc['twtr_sum']
 
         # Handling tagsha 
         tag_names = get_tags(doc)
