@@ -9,7 +9,6 @@ python-dateutil
 flask
 flask_limiter
 tornado
-pymongo
 
 fa2l
 requests
@@ -45,5 +44,6 @@ autopep8
 pep8
 pylint-flask
 pylint-flask-sqlalchemy
+sqlalchemy-easy-profile
 # graphene_sqlalchemy==2.2.2
 # Flask-GraphQL==2.0.1

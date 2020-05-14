@@ -72,7 +72,8 @@ papers_fields = {
     'groups': fields.Raw(attribute='collection_ids', default=[]),
     'twitter_score': fields.Integer,
     'num_stars': fields.Integer,
-    'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True)
+    'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True),
+    'comments_count': fields.Integer
 }
 
 papers_list_fields = {
@@ -167,7 +168,6 @@ class Papers(Resource):
             query = query.filter(Paper.authors.any(name=author))
 
         query = sort_query(query, args)
-
         paginated_result = query.paginate(page=page_num, per_page=10)
         papers = paginated_result.items
         if user:

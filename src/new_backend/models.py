@@ -73,19 +73,23 @@ class Paper(db.Model):
     original_id = db.Column(db.String, nullable=True, index=True)
     last_update_date = db.Column(db.DateTime(timezone=True), nullable=False)
     is_private = db.Column(db.Boolean, nullable=True)
-    authors = db.relationship("Author", back_populates="papers", secondary=paper_author_table)
+    authors = db.relationship("Author", back_populates="papers", secondary=paper_author_table, lazy='joined')
     tags = db.relationship("Tag", back_populates="papers", secondary=paper_tag_table)
     collections = db.relationship("Collection", back_populates="papers", secondary=paper_collection_table)
     search_vector = db.Column(TSVectorType('title', 'abstract'))
-    comments = db.relationship("Comment")
+    comments = db.relationship("Comment", lazy='joined')
     tweets = db.relationship("Tweet")
     twitter_score = db.Column(db.Integer, default=0)
     num_stars = db.Column(db.Integer, default=0)
     references = db.Column(db.JSON)
-    paper_with_code = db.relationship("PaperWithCode", uselist=False)
+    paper_with_code = db.relationship("PaperWithCode", uselist=False, lazy='joined')
 
     def __repr__(self):
         return f"{self.id} - {self.title}"
+
+    @hybrid_property
+    def comments_count(self):
+        return len(self.comments)
 
 
 class ArxivPaper(db.Model):

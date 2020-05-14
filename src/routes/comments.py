@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 EMPTY_FIELD_MSG = 'This field cannot be blank'
 
 
-def anonymize_user(paper: Paper):
-    if paper.shared_with == 'anonymous':
+def anonymize_user(comment: Comment):
+    if comment.shared_with == 'anonymous':
         return ''
     else:
-        return paper.user.username
+        return comment.user.username if comment.user else ''
 
 
 def can_edit(paper: Paper):
