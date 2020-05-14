@@ -26,11 +26,11 @@ def anonymize_user(comment: Comment):
         return comment.user.username
 
 
-def can_edit(paper: Paper):
+def can_edit(comment: Comment):
     current_user = get_jwt_identity()
     if not current_user:
         return False
-    return paper.user.email == current_user
+    return comment.user and comment.user.email == current_user
 
 
 visibility_fields = {
