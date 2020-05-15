@@ -75,7 +75,8 @@ class Paper(db.Model):
     is_private = db.Column(db.Boolean, nullable=True)
     authors = db.relationship("Author", back_populates="papers", secondary=paper_author_table, lazy='joined')
     tags = db.relationship("Tag", back_populates="papers", secondary=paper_tag_table)
-    collections = db.relationship("Collection", back_populates="papers", secondary=paper_collection_table)
+    collections = db.relationship("Collection", back_populates="papers",
+                                  secondary=paper_collection_table)
     search_vector = db.Column(TSVectorType('title', 'abstract'))
     comments = db.relationship("Comment", lazy='joined')
     tweets = db.relationship("Tweet")
@@ -152,7 +153,7 @@ class Comment(db.Model):
     shared_with = db.Column(ChoiceType(TYPES), nullable=False)
     collection_id = db.Column(db.ForeignKey('collection.id'), nullable=True)
     collection = db.relationship("Collection")
-    replies = db.relationship("Reply")
+    replies = db.relationship("Reply", lazy='joined')
 
 
 class Reply(db.Model):

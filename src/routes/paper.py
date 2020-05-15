@@ -28,7 +28,7 @@ paper_fields = {
     'time_published': fields.DateTime(attribute='publication_date', dt_format='rfc822'),
     'abstract': fields.String,
     'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True),
-    'groups': fields.Nested({'id': fields.Integer, 'name': fields.String}, default=[]),
+    'groups': fields.List(fields.String(attribute='id'), attribute='groups'),
     'is_editable': fields.Boolean(attribute='is_private', default=False)
 }
 
@@ -40,9 +40,9 @@ class ItemState(Enum):
 
 
 def add_groups_to_paper(paper: Paper):
-    user = get_user()
-    if user:
-        paper.groups = Collection.query.filter(Collection.users.any(
+    if get_jwt_identity():
+        user = get_user()
+        paper.groups = db.session.query(Collection.id).filter(Collection.users.any(
             id=user.id), Collection.papers.any(id=paper.id)).all()
 
 
