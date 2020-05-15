@@ -5,8 +5,8 @@ from flask import Blueprint
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from flask_restful import (Api, Resource, abort, fields, inputs, marshal_with,
                            reqparse)
-
-from src.new_backend.models import Collection, Paper, db, user_collection_table
+from typing import List
+from src.new_backend.models import Collection, Paper, db, user_collection_table, User
 
 from .user_utils import get_user_by_email
 
@@ -28,8 +28,12 @@ group_fields = {
 }
 
 
-def get_user_groups(user):
-    return Collection.query.filter(Collection.users.any(id=user.id)).all()
+def get_user_groups(user: User) -> List[Collection]:
+    return Collection.query.filter(Collection.users.any(email=user.id)).all()
+
+
+def get_user_groups_by_email(email: str) -> List[Collection]:
+    return Collection.query.filter(Collection.users.any(email=email)).all()
 
 
 class Groups(Resource):
@@ -37,8 +41,8 @@ class Groups(Resource):
 
     @marshal_with(group_fields)
     def get(self):
-        user = get_user_by_email()
-        return get_user_groups(user)
+        email = get_jwt_identity()
+        return get_user_groups_by_email(email)
 
     @marshal_with(group_fields)
     def post(self):

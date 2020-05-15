@@ -37,7 +37,7 @@ paper_collection_table = db.Table('paper_collection', db.metadata,
                                   db.Column('paper_id', db.Integer, db.ForeignKey('paper.id')),
                                   db.Column('collection_id', db.Integer, db.ForeignKey('collection.id')),
                                   db.Column('date_added', db.DateTime(timezone=True),
-                                            nullable=False, default=datetime.now)
+                                            nullable=False, default=datetime.now, index=True)
                                   )
 
 user_collection_table = db.Table('user_collection', db.metadata,
@@ -68,7 +68,7 @@ class Paper(db.Model):
     link = db.Column(db.String, nullable=True)
     original_pdf = db.Column(db.String, nullable=True)
     local_pdf = db.Column(db.String, nullable=True)
-    publication_date = db.Column(db.DateTime(timezone=True), nullable=False)
+    publication_date = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
     abstract = db.Column(db.String, nullable=True)
     original_id = db.Column(db.String, nullable=True, index=True)
     last_update_date = db.Column(db.DateTime(timezone=True), nullable=False)
@@ -80,8 +80,8 @@ class Paper(db.Model):
     search_vector = db.Column(TSVectorType('title', 'abstract'))
     comments = db.relationship("Comment", lazy='joined')
     tweets = db.relationship("Tweet")
-    twitter_score = db.Column(db.Integer, default=0)
-    num_stars = db.Column(db.Integer, default=0)
+    twitter_score = db.Column(db.Integer, default=0, index=True)
+    num_stars = db.Column(db.Integer, default=0, index=True)
     references = db.Column(db.JSON)
     paper_with_code = db.relationship("PaperWithCode", uselist=False, lazy='joined')
 
