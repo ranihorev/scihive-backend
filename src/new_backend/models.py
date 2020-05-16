@@ -5,7 +5,6 @@ from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy_searchable import make_searchable
 from sqlalchemy_utils import TSVectorType
-from sqlalchemy_utils import ChoiceType
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy_continuum import make_versioned
 from sqlalchemy.dialects.postgresql import ARRAY
@@ -132,13 +131,6 @@ class Collection(db.Model):
 
 
 class Comment(db.Model):
-    TYPES = [
-        (u'private', u'private'),
-        (u'anonymous', u'anonymous'),
-        (u'public', u'public'),
-        (u'collection', u'group'),
-    ]
-
     __tablename__ = 'comment'
     id = db.Column(db.Integer, primary_key=True)
     highlighted_text = db.Column(db.String, nullable=True)
@@ -150,7 +142,7 @@ class Comment(db.Model):
     user_id = db.Column(db.ForeignKey('user.id'), nullable=True)
     user = db.relationship("User")
     position = db.Column(db.JSON)
-    shared_with = db.Column(ChoiceType(TYPES), nullable=False)
+    shared_with = db.Column(db.String(16), nullable=False)
     collection_id = db.Column(db.ForeignKey('collection.id'), nullable=True)
     collection = db.relationship("Collection")
     replies = db.relationship("Reply", lazy='joined')
