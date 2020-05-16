@@ -248,6 +248,7 @@ def parse_arguments():
     return args
 
 
+@catch_exceptions(logger=logger)
 def run():
     # Parse input arguments
     args = parse_arguments()

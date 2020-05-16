@@ -15,7 +15,6 @@ import pytz
 import tweepy
 from dotenv import load_dotenv
 from sqlalchemy import func
-from src.logger import logger_config
 from ..models import Paper, Tweet, db
 from .utils import catch_exceptions
 
@@ -173,9 +172,8 @@ def process_tweets(api, tweets_raw_data):
     return papers_to_update
 
 
-# @catch_exceptions(logger=logger)
+@catch_exceptions(logger=logger)
 def main_twitter_fetcher():
-    logger_config(info_filename='twitter_daemon.log')
     api = get_api_connector()
     tweets = fetch_tweets(api)
     papers_to_update = process_tweets(api, tweets)
