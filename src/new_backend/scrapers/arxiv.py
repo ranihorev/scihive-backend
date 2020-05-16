@@ -75,19 +75,17 @@ def get_tags(paper_data):
 
 
 def add_tags(tags, paper, source='arXiv'):
+    tags = [t for t in tags if re.match('[A-Za-z\\-]+\\.[A-Za-z\\-]+', t)]
+    existing = db.session.query(Tag).filter(Tag.name.in_(tags)).all()
     for tag_name in tags:
-        # For the time being we ignore non-arxiv tags.
-        # ArXiv tags are always of the form archive.subject (https://arxiv.org/help/arxiv_identifier)
-        if not re.match('[A-Za-z\\-]+\\.[A-Za-z\\-]+', tag_name):
-            continue
-
-        tag = db.session.query(Tag).filter(Tag.name == tag_name).first()
-
-        if not tag:
+        tag = next((t for t in existing if t.name == tag_name), None)
+        if tag is None:
             tag = Tag(name=tag_name, source=source)
             db.session.add(tag)
 
-        tag.papers.append(paper)
+        paper.tags.append(tag)
+    if tags:
+        db.session.commit()
 
 
 def handle_entry(e, download_to_s3=False):
@@ -161,11 +159,10 @@ def handle_entry(e, download_to_s3=False):
     else:
         skipped = 1
 
+    db.session.commit()
     # Getting the tags for the papers
     tags = get_tags(paper_data)
     add_tags(tags, paper)
-
-    db.session.commit()
 
     return paper_data, added, skipped
 
@@ -238,7 +235,7 @@ def parse_arguments():
                         help='query used for arxiv API. See http://arxiv.org/help/api/user-manual#detailed_examples')
     parser.add_argument('--start-index', type=int, default=0, help='0 = most recent API result')
     parser.add_argument('--max-index', type=int, default=3000, help='upper bound on the paper index we will fetch')
-    parser.add_argument('--results-per-iteration', type=int, default=200, help='passed to arxiv API')
+    parser.add_argument('--results-per-iteration', type=int, default=100, help='passed to arxiv API')
     parser.add_argument('--wait-time', type=float, default=5.0,
                         help='wait time allows being gentle on the arxiv API (in seconds)')
     parser.add_argument('--break-on-no-added', type=int, default=1,

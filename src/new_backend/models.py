@@ -29,8 +29,8 @@ paper_author_table = db.Table('paper_author', db.metadata,
                               )
 
 paper_tag_table = db.Table('paper_tag', db.metadata,
-                           db.Column('paper_id', db.Integer, db.ForeignKey('paper.id')),
-                           db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'))
+                           db.Column('paper_id', db.Integer, db.ForeignKey('paper.id'), index=True),
+                           db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'), index=True)
                            )
 
 paper_collection_table = db.Table('paper_collection', db.metadata,
