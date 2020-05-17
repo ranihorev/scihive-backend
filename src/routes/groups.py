@@ -29,7 +29,7 @@ group_fields = {
 
 
 def get_user_groups(user: User) -> List[Collection]:
-    return Collection.query.filter(Collection.users.any(email=user.id)).all()
+    return Collection.query.filter(Collection.users.any(email=user.email)).all()
 
 
 def get_user_groups_by_email(email: str) -> List[Collection]:
