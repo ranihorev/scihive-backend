@@ -10,7 +10,7 @@ from sqlalchemy import or_
 from sqlalchemy_searchable import search
 
 from src.new_backend.models import (Author, Collection, Paper, db,
-                                    paper_collection_table)
+                                    paper_collection_table, user_collection_table)
 from src.routes.user_utils import get_user
 from src.utils import get_file_path
 from .paper_query_utils import paper_with_code_fields
@@ -93,13 +93,24 @@ SORT_DICT = {
 AGE_DICT = {'day': 1, '3days': 3, 'week': 7, 'month': 30, 'year': 365, 'all': -1}
 
 
-def sort_query(query, args):
+def sort_query(query, args, user=None):
     sort = args.get('sort', 'date')
     sort_by = SORT_DICT.get(sort)
+
     if sort_by is not None:
-        if sort == 'date_added':
-            query = query.join(paper_collection_table)
-        query = query.order_by(sort_by, Paper.id.asc())  # We sort be id as well to stabilize the order
+        if user != None and sort == 'date_added':
+            # Get IDs of all collections the user is part of
+            user_collections = db.session.query(user_collection_table.c.collection_id).filter(user_collection_table.c.user_id == user.id).all()
+
+            # Join papers with paper collections and filtering only on the collections relevant to the user - trying to do it w/o a join
+            query = query.join(paper_collection_table).filter(paper_collection_table.c.collection_id.in_(user_collections)).order_by(Paper.id.asc(), paper_collection_table.c.date_added.desc()).distinct(Paper.id).subquery()
+            
+            query = db.session.query(query).order_by(paper_collection_table.c.date_added.desc())
+
+            # query = query.order_by(sort_by, Paper.id.asc())
+        else:
+            query = query.order_by(sort_by, Paper.id.asc())  # We sort by id as well to stabilize the order
+
     return query
 
 
@@ -144,19 +155,23 @@ class Papers(Resource):
 
         user = get_user()
 
+        # Handle the search query
         query = db.session.query(Paper)
         if q:
             query = search(query, q, sort=True)
 
+        # Handle the date criterion
         if age != 'all':  # TODO: replace with integer
             dnow_utc = datetime.datetime.now()
             dminus = dnow_utc - datetime.timedelta(days=int(AGE_DICT[age]))
             query = query.filter(Paper.publication_date >= dminus)
 
+        # Handle the group filter
         group_id = args.get('group')
         if group_id:
             query = query.filter(Paper.collections.any(id=group_id))
 
+        # Handle the library filter
         is_library = args.get('library')
         if is_library and user:
             query = query.filter(Paper.collections.any(Collection.users.any(id=user.id)))
@@ -167,11 +182,14 @@ class Papers(Resource):
         if author:
             query = query.filter(Paper.authors.any(name=author))
 
-        query = sort_query(query, args)
+        query = sort_query(query, args, user)
         paginated_result = query.paginate(page=page_num, per_page=10)
         papers = paginated_result.items
         if user:
             papers = add_collections(paginated_result.items, user)
+
+        print(query.count())
+        print(paginated_result.total)
 
         return {"count": paginated_result.total, "papers": papers}
 
