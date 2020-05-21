@@ -9,6 +9,9 @@ static/thumbs/
 as.db
 secret_key.txt
 env/
+bin/
+lib/
+share/
 data
 *.DS_Store
 twitter.txt
@@ -16,6 +19,8 @@ twitter.txt
 reddit_keys.json
 node_modules
 venv/
+.Python
+pyvenv.cfg
 .idea/
 
 .env
