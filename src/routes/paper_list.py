@@ -14,6 +14,7 @@ from src.new_backend.models import (Author, Collection, Paper, db,
 from src.routes.user_utils import get_user
 from src.utils import get_file_path
 from .paper_query_utils import paper_with_code_fields
+from sqlalchemy.orm import joinedload, load_only
 
 app = Blueprint('paper_list', __name__)
 api = Api(app)
@@ -65,7 +66,6 @@ class Autocomplete(Resource):
 papers_fields = {
     'id': fields.String,
     'title': fields.String,
-    'saved_in_library': fields.Boolean,
     'authors': fields.Nested({'name': fields.String}),
     'time_published': fields.DateTime(dt_format='rfc822', attribute="publication_date"),
     'abstract': fields.String(attribute="abstract"),
@@ -100,14 +100,15 @@ def sort_query(query, args, user=None):
     if sort_by is not None:
         if user != None and sort == 'date_added':
             # Get IDs of all collections the user is part of
-            user_collections = db.session.query(user_collection_table.c.collection_id).filter(user_collection_table.c.user_id == user.id).all()
+            user_collections = db.session.query(user_collection_table.c.collection_id).filter(
+                user_collection_table.c.user_id == user.id).all()
 
             # Join papers with paper collections and filtering only on the collections relevant to the user - trying to do it w/o a join
-            query = query.join(paper_collection_table).filter(paper_collection_table.c.collection_id.in_(user_collections)).order_by(Paper.id.asc(), paper_collection_table.c.date_added.desc()).distinct(Paper.id).subquery()
-            
-            query = db.session.query(query).order_by(paper_collection_table.c.date_added.desc())
+            last_added = query.join(paper_collection_table).filter(paper_collection_table.c.collection_id.in_(user_collections)).order_by(
+                Paper.id.asc(), paper_collection_table.c.date_added.desc()).distinct(Paper.id).with_entities(Paper.id, paper_collection_table.c.date_added).subquery()
 
-            # query = query.order_by(sort_by, Paper.id.asc())
+            query = db.session.query(Paper).join(last_added, Paper.id ==
+                                                 last_added.c.id).order_by(last_added.c.date_added.desc())
         else:
             query = query.order_by(sort_by, Paper.id.asc())  # We sort by id as well to stabilize the order
 
@@ -182,14 +183,15 @@ class Papers(Resource):
         if author:
             query = query.filter(Paper.authors.any(name=author))
 
-        query = sort_query(query, args, user)
-        paginated_result = query.paginate(page=page_num, per_page=10)
-        papers = paginated_result.items
-        if user:
-            papers = add_collections(paginated_result.items, user)
+        PAPER_COLUMNS = [Paper.id, Paper.title, Paper.authors, Paper.publication_date, Paper.abstract,
+                         Paper.twitter_score, Paper.num_stars, Paper.paper_with_code, Paper.comments]
 
-        print(query.count())
-        print(paginated_result.total)
+        # query = sort_query(query, args, user)
+        query = query.options(load_only('id', 'publication_date', 'abstract', 'title', 'twitter_score', 'num_stars'))
+        paginated_result = query.paginate(page=page_num, per_page=10)
+        papers = [p for p in paginated_result.items]
+        if user:
+            papers = add_collections(papers, user)
 
         return {"count": paginated_result.total, "papers": papers}
 
