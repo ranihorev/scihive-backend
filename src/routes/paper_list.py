@@ -183,10 +183,7 @@ class Papers(Resource):
         if author:
             query = query.filter(Paper.authors.any(name=author))
 
-        PAPER_COLUMNS = [Paper.id, Paper.title, Paper.authors, Paper.publication_date, Paper.abstract,
-                         Paper.twitter_score, Paper.num_stars, Paper.paper_with_code, Paper.comments]
-
-        # query = sort_query(query, args, user)
+        query = sort_query(query, args, user)
         query = query.options(load_only('id', 'publication_date', 'abstract', 'title', 'twitter_score', 'num_stars'))
         paginated_result = query.paginate(page=page_num, per_page=10)
         papers = [p for p in paginated_result.items]
