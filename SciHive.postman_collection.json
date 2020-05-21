@@ -1,0 +1,435 @@
+{
+	"info": {
+		"_postman_id": "a33b93a9-e379-4fbe-a27d-80f271b8e0d6",
+		"name": "SciHive",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "NewComment - {{host}}/paper/{paper_id}/new_comment",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"content\": \"this is the highlighted text\",\n    \"comment\": \"This is my content\",\n    \"visibility\": {\n        \"type\": \"public\"\n    },\n    \"position\": {\n        \"boudingRect\": {\n            \"x1\": 50,\n            \"y1\": 50,\n            \"x2\": 100,\n            \"y2\": 150,\n            \"width\": 50,\n            \"height\": 100\n        },\n        \"rects\": [\n            {\n                \"x1\": 50,\n                \"y1\": 50,\n                \"x2\": 100,\n                \"y2\": 150,\n                \"width\": 50,\n                \"height\": 100\n            }\n        ],\n        \"pageNumber\": 1\n    }\n}"
+				},
+				"url": {
+					"raw": "{{host}}/paper/1/new_comment",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"paper",
+						"1",
+						"new_comment"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GeneralComment - {{host}}/paper/1234/new_comment",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"comment\": {\n        \"text\": \"This is my content\"\n    },\n    \"visibility\": {\n        \"type\": \"public\"\n    },\n    \"isGeneral\": true\n}"
+				},
+				"url": {
+					"raw": "{{host}}/paper/1234/new_comment",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"paper",
+						"1234",
+						"new_comment"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "All papers - {{host}}/papers/all",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{host}}/papers/all?age=all",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"papers",
+						"all"
+					],
+					"query": [
+						{
+							"key": "q",
+							"value": "Neural",
+							"disabled": true
+						},
+						{
+							"key": "author",
+							"value": "Simon Wiedemann",
+							"disabled": true
+						},
+						{
+							"key": "age",
+							"value": "all"
+						},
+						{
+							"key": "group_id",
+							"value": null,
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/papers/autocomplete",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{host}}/papers/autocomplete?q=1",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"papers",
+						"autocomplete"
+					],
+					"query": [
+						{
+							"key": "q",
+							"value": "Neural",
+							"disabled": true
+						},
+						{
+							"key": "author",
+							"value": "Simon Wiedemann",
+							"disabled": true
+						},
+						{
+							"key": "group_id",
+							"value": null,
+							"disabled": true
+						},
+						{
+							"key": "q",
+							"value": "1"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/user/login",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text",
+						"disabled": true
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"email\": \"ranihorev@gmail.com\",\n    \"password\": \"123456\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/user/login",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"user",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/user/register",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"email\": \"ranihorev@gmail.com\",\n    \"password\": \"123456\",\n    \"username\": \"rani\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/user/register",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"user",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/groups/new",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"name\": \"first_group\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/groups/new",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"groups",
+						"new"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/groups/group/6",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{host}}/groups/group/6",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"groups",
+						"group",
+						"6"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/groups/group/6",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{host}}/groups/group/6",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"groups",
+						"group",
+						"6"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/groups/group/<group_id>",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"paper_id\": 1,\n\t\"add\": 1\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/groups/group/1",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"groups",
+						"group",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/groups/group/6",
+			"request": {
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n\t\"name\": \"test test\",\n\t\"color\": \"#ffffff\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/groups/group/6",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"groups",
+						"group",
+						"6"
+					]
+				},
+				"description": "Edit group details"
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/groups/all",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{host}}/groups/all",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"groups",
+						"all"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/groups/all",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"id\": 6}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{host}}/groups/all",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"groups",
+						"all"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/paper/<paper_id>",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{host}}/paper/1",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"paper",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "{{host}}/paper/<paper_id>/comments",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{host}}/paper/1",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"paper",
+						"1"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"id": "5958d3a9-b14a-4589-8e09-00562681a28b",
+				"type": "text/javascript",
+				"exec": [
+					"pm.request.headers.add({",
+					"    key: 'Content-Type',",
+					"    value: 'application/json'",
+					"})"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"id": "00358a9c-9055-4963-ab0d-0dd755418a67",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"protocolProfileBehavior": {}
+}
