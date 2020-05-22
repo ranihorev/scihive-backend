@@ -28,24 +28,23 @@ class Autocomplete(Resource):
         query_parser.add_argument('q', type=str, required=True, location='args')
         args = query_parser.parse_args()
         q = args.get('q', '')
-
-        if len(q) < 1:
+        if len(q) < 2:
             return []
 
-        authors = Author.query.filter(Author.name.ilike(f'%{q}%')).limit(MAX_ITEMS).all()
+        authors = db.session.query(Author.name).filter(Author.name.ilike(f'%{q}%')).limit(MAX_ITEMS).all()
         authors = [{'name': a.name, 'type': 'author'} for a in authors]
 
         papers = []
         try:
             paper_id = int(q)
-            paper_by_id = Paper.query.filter(or_(Paper.id == q, Paper.original_id == q)
-                                             ).filter(Paper.is_private.isnot(True)).first()
+            paper_by_id = db.session.query(Paper.id, Paper.title).filter(or_(Paper.id == q, Paper.original_id == q)
+                                                                         ).filter(Paper.is_private.isnot(True)).first()
             if paper_by_id:
                 papers.append(paper_by_id)
         except ValueError:
             pass
 
-        papers = papers + search(Paper.query, q).filter(Paper.is_private.isnot(True)).all()
+        papers = papers + search(db.session.query(Paper.id, Paper.title), q).filter(Paper.is_private.isnot(True)).all()
         papers = [{'name': p.title, 'type': 'paper', 'id': p.id} for p in papers]
 
         papers_len = len(papers)
