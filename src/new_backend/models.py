@@ -63,7 +63,7 @@ class Paper(db.Model):
     }
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    title = db.Column(db.String, nullable=False)
+    title = db.Column(db.String, nullable=False, index=True)
     link = db.Column(db.String, nullable=True)
     original_pdf = db.Column(db.String, nullable=True)
     local_pdf = db.Column(db.String, nullable=True)
@@ -71,12 +71,12 @@ class Paper(db.Model):
     abstract = db.Column(db.String, nullable=True)
     original_id = db.Column(db.String, nullable=True, index=True)
     last_update_date = db.Column(db.DateTime(timezone=True), nullable=False)
-    is_private = db.Column(db.Boolean, nullable=True)
+    is_private = db.Column(db.Boolean, nullable=True, index=True)
     authors = db.relationship("Author", back_populates="papers", secondary=paper_author_table, lazy='joined')
     tags = db.relationship("Tag", back_populates="papers", secondary=paper_tag_table)
     collections = db.relationship("Collection", back_populates="papers",
                                   secondary=paper_collection_table)
-    search_vector = db.Column(TSVectorType('title', 'abstract'))
+    search_vector = db.Column(TSVectorType('title', 'abstract', weights={'title': 'A', 'abstract': 'C'}))
     comments = db.relationship("Comment", lazy='joined')
     tweets = db.relationship("Tweet")
     twitter_score = db.Column(db.Integer, default=0, index=True)

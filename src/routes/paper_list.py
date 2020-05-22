@@ -34,17 +34,20 @@ class Autocomplete(Resource):
         authors = db.session.query(Author.name).filter(Author.name.ilike(f'%{q}%')).limit(MAX_ITEMS).all()
         authors = [{'name': a.name, 'type': 'author'} for a in authors]
 
+        columns = [Paper.id, Paper.title]
         papers = []
         try:
             paper_id = int(q)
-            paper_by_id = db.session.query(Paper.id, Paper.title).filter(or_(Paper.id == q, Paper.original_id == q)
-                                                                         ).filter(Paper.is_private.isnot(True)).first()
+            paper_by_id = db.session.query(*columns).filter(or_(Paper.id == q, Paper.original_id == q)
+                                                            ).filter(Paper.is_private.isnot(True)).first()
             if paper_by_id:
                 papers.append(paper_by_id)
         except ValueError:
             pass
 
-        papers = papers + search(db.session.query(Paper.id, Paper.title), q).filter(Paper.is_private.isnot(True)).all()
+        papers += db.session.query(*columns).filter(Paper.title.ilike(
+            f'%{q}%'), Paper.is_private.isnot(True)).limit(MAX_ITEMS).all()
+
         papers = [{'name': p.title, 'type': 'paper', 'id': p.id} for p in papers]
 
         papers_len = len(papers)
