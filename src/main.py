@@ -82,12 +82,6 @@ app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
 
 
-is_main_process = not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true"
-if os.environ.get('RUN_BACKGROUND_TASKS') and is_main_process:
-    tasks = threading.Thread(target=run_scheduled_tasks, daemon=True)
-    tasks.start()
-
-
 @app.cli.command("fetch-arxiv")
 def fetch_arxiv():
     arxiv.run()
@@ -101,6 +95,11 @@ def fetch_papers_with_code():
 @app.cli.command("fetch-twitter")
 def fetch_twitter():
     twitter.main_twitter_fetcher()
+
+
+@app.cli.command("run-background-tasks")
+def background_tasks():
+    run_scheduled_tasks()
 
 
 @app.route('/test')
