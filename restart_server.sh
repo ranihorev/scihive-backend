@@ -14,8 +14,8 @@ else
     echo "Spacy model was found"
 fi
 
-pids=$(pgrep python)
-kill -9 $pids
-
+pkill python
 python app.py &
+
+pkill flask
 flask run-background-tasks &
