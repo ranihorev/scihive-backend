@@ -63,7 +63,7 @@ class Paper(db.Model):
     }
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    title = db.Column(db.String, nullable=False)  # , index=True
+    title = db.Column(db.String, nullable=False, index=True)
     link = db.Column(db.String, nullable=True)
     original_pdf = db.Column(db.String, nullable=True)
     local_pdf = db.Column(db.String, nullable=True)
@@ -76,7 +76,7 @@ class Paper(db.Model):
     tags = db.relationship("Tag", back_populates="papers", secondary=paper_tag_table)
     collections = db.relationship("Collection", back_populates="papers",
                                   secondary=paper_collection_table)
-    # search_vector = db.Column(TSVectorType('title', 'abstract', weights={'title': 'A', 'abstract': 'C'}))
+    search_vector = db.Column(TSVectorType('title', 'abstract', weights={'title': 'A', 'abstract': 'C'}))
     comments = db.relationship("Comment", lazy='joined')
     tweets = db.relationship("Tweet")
     twitter_score = db.Column(db.Integer, default=0, index=True)
