@@ -109,7 +109,7 @@ class Tag(db.Model):
 class Author(db.Model):
     __tablename__ = 'author'
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    name = db.Column(db.String(80), nullable=False, index=True)
+    name = db.Column(db.String(200), nullable=False, index=True)
     first_name = db.Column(db.String(80), nullable=True)
     last_name = db.Column(db.String(80), nullable=True)
     organization = db.Column(ARRAY(db.String), nullable=True)

@@ -1,4 +1,4 @@
-from .new_backend.models import Collection, Comment, Reply, Paper, db, Author, Tag, User, Tweet
+from .new_backend.models import Collection, Comment, Reply, Paper, db, Author, Tag, User, Tweet, paper_author_table, user_collection_table, paper_collection_table
 import bson
 import re
 from sqlalchemy.orm.exc import NoResultFound
@@ -11,7 +11,7 @@ old_group_id_map = {}
 base_dir = 'src/new_backend/mongo_data'
 
 
-def create_comment(doc):
+def create_comment(doc, papers_map, users_by_email, existing_collections):
     """
     Creates a comment in Postgres based on the Mongo comment doc
     """
@@ -21,7 +21,7 @@ def create_comment(doc):
 
     # Skip highlights that don't include text
     if 'content' not in doc:
-        return None
+        return None, []
 
     if 'type' in doc['visibility']:
         visibility = doc['visibility']['type']
@@ -34,14 +34,13 @@ def create_comment(doc):
     # Adding the shared with property (visibility in the previous Mongo model)
 
     if visibility == 'group':
-        collection = db.session.query(Collection).filter(Collection.old_id == doc['visibility']['id']).first()
-        # TODO: should create group if it doesn't exist
+        collection = existing_collections.get(doc['visibility']['id'])
 
         if collection:
             comment.collection = collection
 
     # Adding the paper
-    comment.paper = db.session.query(Paper).filter(Paper.original_id == str(doc['pid'])).first()
+    comment.paper = papers_map.get(str(doc['pid']))
 
     # if not paper:
     #     paper_doc = get_paper_doc(str(doc['pid']))
@@ -54,16 +53,12 @@ def create_comment(doc):
     user = None
 
     if email:
-        user = db.session.query(User).filter(User.email == email).first()
-
-    if user:
+        user = users_by_email.get(email)
         comment.user = user
-
-    db.session.add(comment)
-    db.session.commit()
 
     # Adding the replies if they exist
     # [{'text': 'asdf', 'created_at': datetime.datetime(2019, 11, 8, 5, 47, 27, 107000), 'id': 'c96b6a13-faac-4376-b3da-63245e0acb1d', 'user': {'email': 'yaron.hadad@gmail.com', 'username': 'Yaron'}}]
+    replies = []
     if 'replies' in doc:
         replies_doc = doc['replies']
 
@@ -71,22 +66,43 @@ def create_comment(doc):
             reply = Reply(text=reply_doc['text'], creation_date=reply_doc['created_at'], parent=comment)
 
             if 'email' in reply_doc['user']:
-                reply.user = db.session.query(User).filter(User.email == reply_doc['user']['email']).first()
+                reply.user = users_by_email.get(reply_doc['user']['email'])
 
-            db.session.add(reply)
-            db.session.commit()
+            replies.append(reply)
 
-    return comment
+    return comment, replies
 
 
-def convert_comments(file_name='comments.bson'):
+def convert_comments(papers_map, file_name='comments.bson'):
     file_name = f"{base_dir}/{file_name}"
     global old_group_id_map
     print('\n\nConverting comments')
 
+    existing_collections = {c.old_id: c for c in db.session.query(Collection).all()}
+    users_by_email = {u.email: u for u in User.query.all()}
+
+    all_comments = []
+    all_replies = []
     with open(file_name, 'rb') as f:
         for doc in bson.decode_all(f.read()):
-            comment = create_comment(doc)
+            comment, replies = create_comment(doc, papers_map, users_by_email, existing_collections)
+            if comment:
+                all_comments.append(comment)
+            all_replies += replies
+
+    db.session.bulk_save_objects(all_comments)
+    db.session.commit()
+    db.session.bulk_save_objects(all_replies)
+    db.session.commit()
+
+
+def doc_to_author_name(doc):
+    author_name = doc['_id']
+    if type(author_name) == type({}):
+        author_name = author_name['name']
+
+    author_name = author_name[:199]
+    return author_name
 
 
 def convert_authors(papers_map, file_name=f'authors.bson'):
@@ -97,41 +113,51 @@ def convert_authors(papers_map, file_name=f'authors.bson'):
     count = 0
     docs = bson.decode_all(bson_file.read())
     total_authors = len(docs)
-    name_to_author = {}
+    names = set()
     authors = []
 
+    # Create authors
     for doc in docs:
 
         # Doc example: {'_id': 'A . M. Barrett', 'papers': ['1905.10835']}
-        author_name = doc['_id']
+        author_name = doc_to_author_name(doc)
 
-        if type(author_name) == type({}):
-            author_name = author_name['name']
-
-        author = name_to_author.get(author_name)
-        if not author:
-            author = Author(name=author_name[:79])
-            name_to_author[author_name] = author
-
-        for paper_id in doc['papers']:
-            paper = papers_map.get(paper_id)
-            if paper:
-                author.papers.append(paper)
-            else:
-                print(f'paper id not found {paper_id}')
-
-        authors.append(author)
+        if author_name not in names:
+            authors.append(dict(name=author_name))
 
         if count % 2000 == 0:
             print(f'{count}/{total_authors} completed')
-            db.session.bulk_save_objects(authors)
-            db.session.commit()
+            db.engine.execute(Author.__table__.insert(), authors)
             authors = []
 
         count += 1
 
-    db.session.bulk_save_objects(authors)
-    db.session.commit()
+    db.engine.execute(Author.__table__.insert(), authors)
+
+    # Connect to papers
+    all_authors = {a.name: a for a in Author.query.all()}
+
+    author_paper_map = []
+    count = 0
+    for doc in docs:
+        author_name = doc_to_author_name(doc)
+        author_id = all_authors.get(author_name).id
+
+        for paper_id in doc['papers']:
+            paper = papers_map.get(paper_id)  # paper_id is the old id
+            if paper:
+                author_paper_map.append(dict(author_id=author_id, paper_id=paper.id))
+            else:
+                print(f'paper id not found {paper_id}')
+
+        if count % 2000 == 0:
+            print(f'{count}/{total_authors} completed')
+            db.engine.execute(paper_author_table.insert(), author_paper_map)
+            author_paper_map = []
+
+        count += 1
+
+    db.engine.execute(paper_author_table.insert(), author_paper_map)
 
 
 def get_pdf_link(paper_data):
@@ -338,31 +364,6 @@ def convert_papers(file_name=f'papers.bson'):
         db.session.commit()
 
 
-def create_user(doc, collections):
-    """
-    Creates a user in Postgres based on a Mongo doc for a user
-    """
-
-    objects = []
-    # doc = {'_id': ObjectId('5cb76867debc51623e186966'), 'email': 'ranihorev@gmail.com', 'password': 'pbkdf2:sha256:150000$YiHVt53M$743234a52a0e62056f079e8343e71056c728fce95fb8ed46246149a7e6438e1f', 'username': 'ranihorev', 'library': ['1904.08920'], 'groups': [ObjectId('5ccc55cfdebc5136066e913d'), ObjectId('5d9c007fdebc513900073ddf')], 'isAdmin': True, 'library_id': '7e6cf503-721f-4b8a-8447-130088720018'}
-    user = User(email=doc['email'], password=doc['password'], username=doc['username'], old_id=str(doc['_id']))
-    objects.append(user)
-
-    # Creating the library for the user
-    if 'library_id' in doc:
-        collection = collections.get(doc['library_id'])
-
-        if not collection:
-            collection = Collection(name='Saved', creation_date=datetime.datetime.utcnow(),
-                                    created_by=user, old_id=doc['library_id'])
-            objects.append(collection)
-
-        if not user in collection.users:
-            collection.users.append(user)
-
-    return objects
-
-
 def convert_users(file_name='users.bson'):
     file_name = f"{base_dir}/{file_name}"
     print("\n\nConverting users")
@@ -371,70 +372,40 @@ def convert_users(file_name='users.bson'):
     # {'_id': ObjectId('5cb76867debc51623e186966'), 'email': 'ranihorev@gmail.com', 'password': 'pbkdf2:sha256:150000$YiHVt53M$743234a52a0e62056f079e8343e71056c728fce95fb8ed46246149a7e6438e1f', 'username': 'ranihorev', 'library': ['1904.08920'], 'groups': [ObjectId('5ccc55cfdebc5136066e913d'), ObjectId('5d9c007fdebc513900073ddf')], 'isAdmin': True, 'library_id': '7e6cf503-721f-4b8a-8447-130088720018'}
     collections = {c.old_id: c for c in db.session.query(Collection).all()}
     with open(file_name, 'rb') as f:
+        docs = bson.decode_all(f.read())
         i = 0
-        new_data = []
-        for doc in bson.decode_all(f.read()):
-            if i % 500 == 0:
-                db.session.bulk_save_objects(new_data)
-                db.session.commit()
-                new_data = []
+        users = []
+        for doc in docs:
+            # doc = {'_id': ObjectId('5cb76867debc51623e186966'), 'email': 'ranihorev@gmail.com', 'password': 'pbkdf2:sha256:150000$YiHVt53M$743234a52a0e62056f079e8343e71056c728fce95fb8ed46246149a7e6438e1f', 'username': 'ranihorev', 'library': ['1904.08920'], 'groups': [ObjectId('5ccc55cfdebc5136066e913d'), ObjectId('5d9c007fdebc513900073ddf')], 'isAdmin': True, 'library_id': '7e6cf503-721f-4b8a-8447-130088720018'}
+            old_id = str(doc['_id'])
+            user = User(email=doc['email'], password=doc['password'], username=doc['username'], old_id=old_id)
+            users.append(user)
 
-            new_data += create_user(doc, collections)
-            i += 1
-
-        db.session.bulk_save_objects(new_data)
+        print('Saving users')
+        db.session.bulk_save_objects(users)
         db.session.commit()
 
+        old_id_to_user = {u.old_id: u for u in User.query.all()}
 
-def create_group(doc, users, existing_users, existing_collections):
-    """
-    Creates a collection based on a mongo doc of a group
-    """
+        new_collections = []
+        for doc in docs:
+            # Creating the library for the user
+            if 'library_id' in doc:
+                old_user_id = str(doc['_id'])
+                collection = collections.get(doc['library_id'])
+                user = old_id_to_user.get(old_user_id)
 
-    # {'_id': ObjectId('5cd5e175debc517430f2f957'), 'name': 'Ecology', 'created_at': datetime.datetime(2019, 5, 10, 20, 39, 17, 142000), 'created_by': ObjectId('5cbcccafdebc511d170ab359'), 'users': [ObjectId('5cbcccafdebc511d170ab359')], 'papers': ['1005.3980', '1007.4914', '1010.6251', '0911.5556', '1503.01150', '1906.09144', '1709.01861'], 'color': 'YELLOW'}
+                if not collection:
+                    collection = Collection(name='Saved', creation_date=datetime.datetime.utcnow(),
+                                            created_by_id=user.id, old_id=doc['library_id'])
+                    new_collections.append(collection)
 
-    color = doc.get('color', None)
+                if not user in collection.users:
+                    collection.users.append(user)
 
-    created_by = str(doc['created_by'])
-    created_by_user = existing_users.get(created_by)
-
-    if not created_by_user:
-        doc = users.get(created_by)
-        created_by_user = create_user(doc, existing_collections)
-
-    collection = existing_collections.get(str(doc['_id']))
-
-    if not collection:
-        collection = Collection(name=doc['name'], color=color, creation_date=doc['created_at'], old_id=str(
-            doc['_id']), created_by=created_by_user)
-
-    if not collection.users:
-        for user_id in doc['users']:
-            user = existing_users.get(str(user_id))
-
-            if not user:
-                user_doc = users.get(user_id)
-                user = create_user(user_doc)
-
-            if user not in collection.users:
-                collection.users.append(user)
-
-    # if not collection.papers:
-    #     if 'papers' in doc:
-    #         for paper_id in doc['papers']:
-    #             paper = db.session.query(Paper).filter(Paper.original_id == str(paper_id)).first()
-
-    #             if not paper:
-    #                 paper_doc = get_paper_doc(paper_id)
-    #                 paper = create_paper(paper_doc)
-
-    #             if paper not in collection.papers:
-    #                 collection.papers.append(paper)
-
-    db.session.add(collection)
-    db.session.commit()
-
-    return collection
+        print('Saving user collections')
+        db.session.bulk_save_objects(new_collections)
+        db.session.commit()
 
 
 def convert_groups(file_name=f'groups.bson'):
@@ -443,39 +414,80 @@ def convert_groups(file_name=f'groups.bson'):
 
     # Ex
     # {'_id': ObjectId('5cd5e175debc517430f2f957'), 'name': 'Ecology', 'created_at': datetime.datetime(2019, 5, 10, 20, 39, 17, 142000), 'created_by': ObjectId('5cbcccafdebc511d170ab359'), 'users': [ObjectId('5cbcccafdebc511d170ab359')], 'papers': ['1005.3980', '1007.4914', '1010.6251', '0911.5556', '1503.01150', '1906.09144', '1709.01861'], 'color': 'YELLOW'}
-    users = create_user_map()
+    old_users = create_user_map()
     existing_users = {u.old_id: u for u in db.session.query(User).all()}
     existing_collections = {c.old_id: c for c in db.session.query(Collection).all()}
 
     with open(file_name, 'rb') as f:
-        for doc in bson.decode_all(f.read()):
-            collection = create_group(doc, users, existing_users, existing_collections)
+        i = 0
+        new_collections = []
+        docs = bson.decode_all(f.read())
+        for doc in docs:
+            color = doc.get('color', None)
+            created_by = str(doc['created_by'])
+            created_by_user = existing_users.get(created_by)
+            if not created_by_user:
+                print(f'creator is missing - {created_by}')
+
+            collection = existing_collections.get(str(doc['_id']))
+
+            if not collection:
+                old_id = str(doc['_id'])
+                collection = Collection(name=doc['name'], color=color, creation_date=doc['created_at'],
+                                        old_id=old_id, created_by_id=created_by_user.id)
+                new_collections.append(collection)
+
+        print('Committing collections')
+        db.session.bulk_save_objects(new_collections)
+        db.session.commit()
+
+        existing_collections = {c.old_id: c for c in db.session.query(Collection).all()}
+        user_collection_list = []
+        for doc in docs:
+            for user_id in doc['users']:
+                user = existing_users.get(str(user_id))
+
+                if not user:
+                    print(f'user {user_id} is missing')
+                    continue
+
+                if user not in collection.users:
+                    user_collection_list.append(dict(user_id=user.id, collection_id=collection.id))
+
+        print('Committing users to collections')
+        db.engine.execute(user_collection_table.insert(), user_collection_list)
 
 
-def convert_group_papers(file_name=f'group_papers.bson'):
+def convert_group_papers(papers_map, file_name=f'group_papers.bson'):
     # Ex
     # {'_id': ObjectId('5dcaf30914029c532302025d'), 'group_id': '   ', 'paper_id': '1904.09970', 'date': datetime.datetime(2019, 11, 12, 17, 59, 37, 829000), 'is_library': True, 'user': '5cbcccafdebc511d170ab359'}
     file_name = f"{base_dir}/{file_name}"
     count = 0
 
+    existing_collections = {c.old_id: c for c in db.session.query(Collection).all()}
+    existing_users = {u.old_id: u for u in db.session.query(User).all()}
+
     with open(file_name, 'rb') as f:
         docs = bson.decode_all(f.read())
         total_group_papers = len(docs)
 
+        new_collection_papers = []
         for doc in docs:
-            collection = db.session.query(Collection).filter(Collection.old_id == str(doc['group_id'])).first()
-            user = db.session.query(User).filter(User.old_id == str(doc['user'])).first()
+            collection = existing_collections.get(doc['group_id'])
+            user = existing_users.get(str(doc['user']))
 
             if user and not collection:
+                print('Adding new collection - this should not happen')
                 collection = Collection(name='Saved', creation_date=datetime.datetime.utcnow(),
                                         created_by=user, old_id=str(doc['group_id']))
                 db.session.add(collection)
                 db.session.commit()
 
-            paper = Paper.query.filter(Paper.original_id == str(doc['paper_id'])).first()
+            paper = papers_map.get(str(doc['paper_id']))
 
-            if collection and user and paper:
-                collection.papers.append(paper)
+            if collection and paper:
+                new_collection_papers.append(dict(paper_id=paper.id, collection_id=collection.id,
+                                                  date_added=doc.get('date', datetime.datetime.utcnow())))
             else:
                 print("Error mapping group paper")
                 print(doc)
@@ -484,7 +496,7 @@ def convert_group_papers(file_name=f'group_papers.bson'):
             if count % 100 == 0:
                 print(f'Parsed {count}/{total_group_papers} group papers')
 
-            db.session.commit()
+        db.engine.execute(paper_collection_table.insert(), new_collection_papers)
 
 
 def create_tweet(doc, papers_map):
@@ -496,7 +508,8 @@ def create_tweet(doc, papers_map):
     tweet_id = str(doc['_id'])
 
     paper = None
-    for id in doc['pids']:
+    original_paper_ids = doc['pids']
+    for id in original_paper_ids:
         paper = papers_map.get(str(id))
         if paper:
             break
@@ -548,9 +561,9 @@ def migrate(data_dir=None):
     convert_authors(papers_map)  # ~2 hours
     convert_users()
     convert_groups()
-    convert_comments()
+    convert_group_papers(papers_map)  # 1 min
+    convert_comments(papers_map)
     convert_tweets(papers_map)  # 35 mins
-    convert_group_papers()  # 1 min
 
     # Not converting for now
     # convert_acronyms()
