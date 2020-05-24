@@ -89,7 +89,7 @@ def convert_comments(file_name='comments.bson'):
             comment = create_comment(doc)
 
 
-def convert_authors(file_name=f'authors.bson'):
+def convert_authors(papers_map, file_name=f'authors.bson'):
     file_name = f"{base_dir}/{file_name}"
     print('\n\nConverting authors')
     bson_file = open(file_name, 'rb')
@@ -97,6 +97,8 @@ def convert_authors(file_name=f'authors.bson'):
     count = 0
     docs = bson.decode_all(bson_file.read())
     total_authors = len(docs)
+    name_to_author = {}
+    authors = []
 
     for doc in docs:
 
@@ -106,23 +108,30 @@ def convert_authors(file_name=f'authors.bson'):
         if type(author_name) == type({}):
             author_name = author_name['name']
 
-        author = db.session.query(Author).filter(Author.name == author_name).first()
-
+        author = name_to_author.get(author_name)
         if not author:
             author = Author(name=author_name[:79])
-            db.session.add(author)
-            db.session.commit()
+            name_to_author[author_name] = author
 
-        papers = db.session.query(Paper).filter(Paper.original_id.in_(doc['papers'])).all()
-        for paper in papers:
-            author.papers.append(paper)
+        for paper_id in doc['papers']:
+            paper = papers_map.get(paper_id)
+            if paper:
+                author.papers.append(paper)
+            else:
+                print(f'paper id not found {paper_id}')
 
-        db.session.commit()
+        authors.append(author)
 
-        if count % 1000 == 0:
+        if count % 2000 == 0:
             print(f'{count}/{total_authors} completed')
+            db.session.bulk_save_objects(authors)
+            db.session.commit()
+            authors = []
 
         count += 1
+
+    db.session.bulk_save_objects(authors)
+    db.session.commit()
 
 
 def get_pdf_link(paper_data):
@@ -202,18 +211,17 @@ def convert_tags(file_name='papers.bson'):
     db.session.commit()
 
 
-def create_paper(doc):
+def create_paper(doc, all_tags):
     """
     Adds the paper from the Mongo doc into Postgres
     """
     pdf_link = get_pdf_link(doc)
 
-    paper = None
     original_id = str(doc['_id'])
 
     # 'md5': 'a62ef6230541e7db562998b2495eaa76', 'time_published': datetime.datetime(2015, 1, 15, 5, 0),
     # 'uploaded_by': {'email': 'jmramirezo@unal.edu.co', 'username': 'jmramirezo'}, 'created_at': datetime.datetime(2020, 1, 15, 16, 24, 0, 442000), 'is_private': True, 'link': 'https://arxiv.lyrn.ai/papers/a62ef6230541e7db562998b2495eaa76.pdf', 'total_bookmarks': 3, 'history': [{'time_published': datetime.datetime(2020, 1, 15, 16, 23, 52), 'stored_at': datetime.datetime(2020, 1, 20, 18, 7, 8, 745000), 'changed_by': 'jmramirezo@unal.edu.co'}
-    paper = db.session.query(Paper.id).filter(Paper.original_id == original_id).scalar()
+    # paper = db.session.query(Paper.id).filter(Paper.original_id == original_id).scalar()
     publication_date = doc.get('published')
     last_update_date = doc.get('updated')
 
@@ -223,22 +231,21 @@ def create_paper(doc):
     if not last_update_date:
         last_update_date = doc.get('created_at')
 
-    if paper is None:
-        paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'],
-                      is_private=False, publication_date=publication_date, last_update_date=last_update_date, original_id=original_id)
+    paper = Paper(title=doc['title'], link=doc['link'], original_pdf=pdf_link, abstract=doc['summary'],
+                  is_private=False, publication_date=publication_date, last_update_date=last_update_date, original_id=original_id)
 
-        if 'twtr_sum' in doc:
-            paper.twitter_score = doc['twtr_sum']
+    if 'twtr_sum' in doc:
+        paper.twitter_score = doc['twtr_sum']
 
-        # Handling tagsha 
-        tag_names = get_tags(doc)
+    # Handling tagsha
+    tag_names = get_tags(doc)
 
-        existing_tags = Tag.query.filter(Tag.name.in_(tag_names)).all()
-        for tag in existing_tags:
-            paper.tags.append(tag)
+    for tag in tag_names:
+        tag_obj = all_tags.get(tag)
+        if tag_obj:
+            paper.tags.append(tag_obj)
 
-        db.session.add(paper)
-        db.session.commit()
+    return paper
 
 
 def create_user_map(file_name='users.bson'):
@@ -306,60 +313,54 @@ def convert_papers(file_name=f'papers.bson'):
     print("\n\nConverting papers")
     current_count = 0
 
+    all_tags = {tag.name: tag for tag in db.session.query(Tag).all()}
+
     with open(file_name, 'rb') as f:
         docs = bson.decode_all(f.read())
         papers_count = len(docs)
 
+        papers = []
         for doc in docs:
             # print(doc)
             if current_count % 1000 == 0:
                 print(f'{current_count}/{papers_count} compeleted')
 
-            create_paper(doc)
+            if current_count % 5000 == 0:
+                print('commiting')
+                db.session.bulk_save_objects(papers)
+                db.session.commit()
+                papers = []
+
+            papers.append(create_paper(doc, all_tags))
             current_count += 1
 
+        db.session.bulk_save_objects(papers)
+        db.session.commit()
 
-def create_user(doc):
+
+def create_user(doc, collections):
     """
     Creates a user in Postgres based on a Mongo doc for a user
     """
-    # doc = {'_id': ObjectId('5cb76867debc51623e186966'), 'email': 'ranihorev@gmail.com', 'password': 'pbkdf2:sha256:150000$YiHVt53M$743234a52a0e62056f079e8343e71056c728fce95fb8ed46246149a7e6438e1f', 'username': 'ranihorev', 'library': ['1904.08920'], 'groups': [ObjectId('5ccc55cfdebc5136066e913d'), ObjectId('5d9c007fdebc513900073ddf')], 'isAdmin': True, 'library_id': '7e6cf503-721f-4b8a-8447-130088720018'}
-    user = db.session.query(User).filter(User.old_id == str(doc['_id'])).first()
 
-    if not user:
-        user = User(email=doc['email'], password=doc['password'], username=doc['username'], old_id=str(doc['_id']))
-        db.session.add(user)
-        db.session.commit()
+    objects = []
+    # doc = {'_id': ObjectId('5cb76867debc51623e186966'), 'email': 'ranihorev@gmail.com', 'password': 'pbkdf2:sha256:150000$YiHVt53M$743234a52a0e62056f079e8343e71056c728fce95fb8ed46246149a7e6438e1f', 'username': 'ranihorev', 'library': ['1904.08920'], 'groups': [ObjectId('5ccc55cfdebc5136066e913d'), ObjectId('5d9c007fdebc513900073ddf')], 'isAdmin': True, 'library_id': '7e6cf503-721f-4b8a-8447-130088720018'}
+    user = User(email=doc['email'], password=doc['password'], username=doc['username'], old_id=str(doc['_id']))
+    objects.append(user)
 
     # Creating the library for the user
     if 'library_id' in doc:
-        collection = db.session.query(Collection).filter(Collection.old_id == doc['library_id']).first()
+        collection = collections.get(doc['library_id'])
 
         if not collection:
             collection = Collection(name='Saved', creation_date=datetime.datetime.utcnow(),
                                     created_by=user, old_id=doc['library_id'])
-            db.session.add(collection)
-            db.session.commit()
+            objects.append(collection)
 
         if not user in collection.users:
             collection.users.append(user)
 
-        # Add library papers TODO: change to library_id object
-        # if 'library' in doc:
-        #     for paper_id in doc['library']:
-        #         paper = db.session.query(Paper).filter(Paper.original_id == paper_id).first()
-
-        #         if not paper:
-        #             doc = get_paper_doc(paper_id)
-        #             paper = create_paper(doc)
-
-        #         if paper and not paper in collection.papers:
-        #             collection.papers.append(paper)
-
-    # TODO: groups
-
-    db.session.commit()
-    return user
+    return objects
 
 
 def convert_users(file_name='users.bson'):
@@ -368,12 +369,24 @@ def convert_users(file_name='users.bson'):
 
     # Ex
     # {'_id': ObjectId('5cb76867debc51623e186966'), 'email': 'ranihorev@gmail.com', 'password': 'pbkdf2:sha256:150000$YiHVt53M$743234a52a0e62056f079e8343e71056c728fce95fb8ed46246149a7e6438e1f', 'username': 'ranihorev', 'library': ['1904.08920'], 'groups': [ObjectId('5ccc55cfdebc5136066e913d'), ObjectId('5d9c007fdebc513900073ddf')], 'isAdmin': True, 'library_id': '7e6cf503-721f-4b8a-8447-130088720018'}
+    collections = {c.old_id: c for c in db.session.query(Collection).all()}
     with open(file_name, 'rb') as f:
+        i = 0
+        new_data = []
         for doc in bson.decode_all(f.read()):
-            create_user(doc)
+            if i % 500 == 0:
+                db.session.bulk_save_objects(new_data)
+                db.session.commit()
+                new_data = []
+
+            new_data += create_user(doc, collections)
+            i += 1
+
+        db.session.bulk_save_objects(new_data)
+        db.session.commit()
 
 
-def create_group(doc, users):
+def create_group(doc, users, existing_users, existing_collections):
     """
     Creates a collection based on a mongo doc of a group
     """
@@ -383,13 +396,13 @@ def create_group(doc, users):
     color = doc.get('color', None)
 
     created_by = str(doc['created_by'])
-    created_by_user = db.session.query(User).filter(User.old_id == created_by).first()
+    created_by_user = existing_users.get(created_by)
 
     if not created_by_user:
         doc = users.get(created_by)
-        created_by_user = create_user(doc)
+        created_by_user = create_user(doc, existing_collections)
 
-    collection = db.session.query(Collection).filter(Collection.old_id == str(doc['_id'])).first()
+    collection = existing_collections.get(str(doc['_id']))
 
     if not collection:
         collection = Collection(name=doc['name'], color=color, creation_date=doc['created_at'], old_id=str(
@@ -397,7 +410,7 @@ def create_group(doc, users):
 
     if not collection.users:
         for user_id in doc['users']:
-            user = db.session.query(User).filter(User.old_id == str(user_id)).first()
+            user = existing_users.get(str(user_id))
 
             if not user:
                 user_doc = users.get(user_id)
@@ -431,10 +444,12 @@ def convert_groups(file_name=f'groups.bson'):
     # Ex
     # {'_id': ObjectId('5cd5e175debc517430f2f957'), 'name': 'Ecology', 'created_at': datetime.datetime(2019, 5, 10, 20, 39, 17, 142000), 'created_by': ObjectId('5cbcccafdebc511d170ab359'), 'users': [ObjectId('5cbcccafdebc511d170ab359')], 'papers': ['1005.3980', '1007.4914', '1010.6251', '0911.5556', '1503.01150', '1906.09144', '1709.01861'], 'color': 'YELLOW'}
     users = create_user_map()
+    existing_users = {u.old_id: u for u in db.session.query(User).all()}
+    existing_collections = {c.old_id: c for c in db.session.query(Collection).all()}
 
     with open(file_name, 'rb') as f:
         for doc in bson.decode_all(f.read()):
-            collection = create_group(doc, users)
+            collection = create_group(doc, users, existing_users, existing_collections)
 
 
 def convert_group_papers(file_name=f'group_papers.bson'):
@@ -472,7 +487,7 @@ def convert_group_papers(file_name=f'group_papers.bson'):
             db.session.commit()
 
 
-def create_tweet(doc):
+def create_tweet(doc, papers_map):
     """
     Creates a Tweet object in Postgres based on a mongo db doc
     """
@@ -480,31 +495,23 @@ def create_tweet(doc):
 
     tweet_id = str(doc['_id'])
 
-    if db.session.query(Tweet.id).filter(Tweet.id == tweet_id).scalar() is not None:
-        return
-
-    original_paper_ids = [str(id) for id in doc['pids']]
-    paper = db.session.query(Paper.id).filter(Paper.original_id.in_(original_paper_ids)).first()
+    paper = None
+    for id in doc['pids']:
+        paper = papers_map.get(str(id))
+        if paper:
+            break
 
     if not paper:
         print(f'All papers are missing - {original_paper_ids}')
-        return
+        return None
 
     tweet = Tweet(id=tweet_id, insertion_date=doc['inserted_at_date'], creation_date=doc['created_at_date'], lang=doc['lang'], text=doc['text'], retweets=doc['retweets'], likes=doc['likes'], replies=doc.get(
         'replies'), user_screen_name=doc['user_screen_name'], user_name=doc.get('user_name'), user_followers_count=doc['user_followers_count'], user_following_count=doc['user_following_count'], paper_id=paper.id)
 
-    # tweet.paper = db.session.query(Paper.id).filter(Paper.original_id == paper_id).first()
-
-    # if not paper:
-    #     paper_doc = get_paper_doc(paper_id)
-    #     paper = create_paper(paper_doc)
-
-    # tweet.paper = paper # Not sure I can do this, maybe need an add
-    db.session.add(tweet)
-    db.session.commit()
+    return tweet
 
 
-def convert_tweets(file_name=f'tweets.bson'):
+def convert_tweets(papers_map, file_name=f'tweets.bson'):
     file_name = f"{base_dir}/{file_name}"
     print("\n\nConverting tweets")
     # Ex
@@ -513,12 +520,21 @@ def convert_tweets(file_name=f'tweets.bson'):
         count = 0
         docs = bson.decode_all(f.read())
         total_tweets = len(docs)
+        tweets = []
         for doc in docs:
             count += 1
-            if count % 1000 == 0:
+            if count % 3000 == 0:
                 print(f'{count}/{total_tweets} tweets parsed')
+                db.session.bulk_save_objects(tweets)
+                db.session.commit()
+                tweets = []
 
-            create_tweet(doc)
+            tweet = create_tweet(doc, papers_map)
+            if tweet:
+                tweets.append(tweet)
+
+        db.session.bulk_save_objects(tweets)
+        db.session.commit()
 
 
 def migrate(data_dir=None):
@@ -528,11 +544,12 @@ def migrate(data_dir=None):
 
     convert_tags()  # ~1 min
     convert_papers()  # ~45 mins
-    convert_authors()  # ~2 hours
+    papers_map = {p.original_id: p for p in db.session.query(Paper).all()}
+    convert_authors(papers_map)  # ~2 hours
     convert_users()
     convert_groups()
     convert_comments()
-    convert_tweets()  # 35 mins
+    convert_tweets(papers_map)  # 35 mins
     convert_group_papers()  # 1 min
 
     # Not converting for now
