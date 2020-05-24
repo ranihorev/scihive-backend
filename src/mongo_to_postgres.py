@@ -423,19 +423,21 @@ def convert_groups(file_name=f'groups.bson'):
         new_collections = []
         docs = bson.decode_all(f.read())
         for doc in docs:
+            collection = existing_collections.get(str(doc['_id']))
+            if collection:
+                continue
+
             color = doc.get('color', None)
             created_by = str(doc['created_by'])
             created_by_user = existing_users.get(created_by)
+
             if not created_by_user:
                 print(f'creator is missing - {created_by}')
 
-            collection = existing_collections.get(str(doc['_id']))
-
-            if not collection:
-                old_id = str(doc['_id'])
-                collection = Collection(name=doc['name'], color=color, creation_date=doc['created_at'],
-                                        old_id=old_id, created_by_id=created_by_user.id)
-                new_collections.append(collection)
+            old_id = str(doc['_id'])
+            collection = Collection(name=doc['name'], color=color, creation_date=doc['created_at'],
+                                    old_id=old_id, created_by_id=created_by_user.id)
+            new_collections.append(collection)
 
         print('Committing collections')
         db.session.bulk_save_objects(new_collections)
@@ -445,6 +447,7 @@ def convert_groups(file_name=f'groups.bson'):
         user_collection_list = []
         for doc in docs:
             for user_id in doc['users']:
+                collection = existing_collections.get(str(doc['_id']))
                 user = existing_users.get(str(user_id))
 
                 if not user:
@@ -477,9 +480,10 @@ def convert_group_papers(papers_map, file_name=f'group_papers.bson'):
             user = existing_users.get(str(doc['user']))
 
             if user and not collection:
-                print('Adding new collection - this should not happen')
+                old_id = str(doc['group_id'])
+                print(f'Adding new collection - this should not happen - {old_id}')
                 collection = Collection(name='Saved', creation_date=datetime.datetime.utcnow(),
-                                        created_by=user, old_id=str(doc['group_id']))
+                                        created_by=user, old_id=old_id)
                 db.session.add(collection)
                 db.session.commit()
 
