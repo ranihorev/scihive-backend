@@ -18,7 +18,7 @@ def run_scheduled_tasks():
 
     logger.info('Start background tasks')
     schedule.every(int(os.environ.get('TWITTER_FREQ_HOURS', 3.15))).hours.do(run_threaded, main_twitter_fetcher)
-    schedule.every(int(os.environ.get('PAPERS_WITH_CODE_FREQ_HOURS', 6.2))).hours.do(run_threaded, run_paperswithcode)
+    # schedule.every(int(os.environ.get('PAPERS_WITH_CODE_FREQ_HOURS', 6.2))).hours.do(run_threaded, run_paperswithcode)
     schedule.every(int(os.environ.get('ARXIV_FREQ_HOURS', 4.2))).hours.do(run_threaded, run_arxiv)
 
     while True:
