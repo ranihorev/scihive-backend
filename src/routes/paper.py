@@ -10,7 +10,6 @@ from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 from src.new_backend.models import Author, Collection, Paper, db
 from src.routes.s3_utils import key_to_url
 
-from .acronym_extractor import extract_acronyms
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
 from .paper_query_utils import get_paper_with_pdf, paper_with_code_fields
 from .user_utils import get_user
