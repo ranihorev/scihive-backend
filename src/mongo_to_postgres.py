@@ -1,4 +1,4 @@
-from .new_backend.models import Collection, Comment, Reply, Paper, db, Author, Tag, User, Tweet, paper_author_table, user_collection_table, paper_collection_table
+from .new_backend.models import Collection, Comment, Reply, Paper, db, Author, Tag, User, Tweet, paper_author_table, user_collection_table, paper_collection_table, paper_tag_table
 import bson
 import re
 from sqlalchemy.orm.exc import NoResultFound
@@ -29,7 +29,7 @@ def create_comment(doc, papers_map, users_by_email, existing_collections):
         visibility = doc['visibility']
 
     comment = Comment(text=doc['comment'].get('text'), highlighted_text=doc['content'].get(
-        'text'), position=doc['position'], shared_with=visibility, creation_date=doc['created_at'])
+        'text'), position=doc['position'], shared_with=visibility, creation_date=doc['created_at'], paper_id=papers_map.get(str(doc['pid'])).id)
 
     # Adding the shared with property (visibility in the previous Mongo model)
 
@@ -37,10 +37,7 @@ def create_comment(doc, papers_map, users_by_email, existing_collections):
         collection = existing_collections.get(doc['visibility']['id'])
 
         if collection:
-            comment.collection = collection
-
-    # Adding the paper
-    comment.paper = papers_map.get(str(doc['pid']))
+            comment.collection_id = collection.id
 
     # if not paper:
     #     paper_doc = get_paper_doc(str(doc['pid']))
@@ -54,7 +51,7 @@ def create_comment(doc, papers_map, users_by_email, existing_collections):
 
     if email:
         user = users_by_email.get(email)
-        comment.user = user
+        comment.user_id = user.id
 
     # Adding the replies if they exist
     # [{'text': 'asdf', 'created_at': datetime.datetime(2019, 11, 8, 5, 47, 27, 107000), 'id': 'c96b6a13-faac-4376-b3da-63245e0acb1d', 'user': {'email': 'yaron.hadad@gmail.com', 'username': 'Yaron'}}]
@@ -168,27 +165,6 @@ def get_pdf_link(paper_data):
     return paper_data.get('link')
 
 
-def add_tags(tags, paper, source='arXiv'):
-    print("\n\nConverting tags")
-
-    for tag_name in tags:
-        # For the time being we ignore non-arxiv tags.
-        # ArXiv tags are always of the form archive.subject (https://arxiv.org/help/arxiv_identifier)
-        if not re.match('[A-Za-z\\-]+\\.[A-Za-z\\-]+', tag_name):
-            continue
-
-        tag = db.session.query(Tag).filter(Tag.name == tag_name).first()
-
-        if not tag:
-            tag = Tag(name=tag_name, source=source)
-            db.session.add(tag)
-            db.session.commit()
-
-        tag.papers.append(paper)
-
-# Returns the tags in a given paper_data (the tags are CS, CS.ML, gr, etc), always in lower-case
-
-
 def get_tags(paper_data):
     tags = []
 
@@ -237,7 +213,7 @@ def convert_tags(file_name='papers.bson'):
     db.session.commit()
 
 
-def create_paper(doc, all_tags):
+def create_paper(doc):
     """
     Adds the paper from the Mongo doc into Postgres
     """
@@ -262,14 +238,6 @@ def create_paper(doc, all_tags):
 
     if 'twtr_sum' in doc:
         paper.twitter_score = doc['twtr_sum']
-
-    # Handling tagsha
-    tag_names = get_tags(doc)
-
-    for tag in tag_names:
-        tag_obj = all_tags.get(tag)
-        if tag_obj:
-            paper.tags.append(tag_obj)
 
     return paper
 
@@ -339,8 +307,6 @@ def convert_papers(file_name=f'papers.bson'):
     print("\n\nConverting papers")
     current_count = 0
 
-    all_tags = {tag.name: tag for tag in db.session.query(Tag).all()}
-
     with open(file_name, 'rb') as f:
         docs = bson.decode_all(f.read())
         papers_count = len(docs)
@@ -351,13 +317,13 @@ def convert_papers(file_name=f'papers.bson'):
             if current_count % 1000 == 0:
                 print(f'{current_count}/{papers_count} compeleted')
 
-            if current_count % 5000 == 0:
+            if current_count % 4000 == 0:
                 print('commiting')
                 db.session.bulk_save_objects(papers)
                 db.session.commit()
                 papers = []
 
-            papers.append(create_paper(doc, all_tags))
+            papers.append(create_paper(doc))
             current_count += 1
 
         db.session.bulk_save_objects(papers)
@@ -400,12 +366,16 @@ def convert_users(file_name='users.bson'):
                                             created_by_id=user.id, old_id=doc['library_id'])
                     new_collections.append(collection)
 
-                if not user in collection.users:
-                    collection.users.append(user)
-
         print('Saving user collections')
         db.session.bulk_save_objects(new_collections)
         db.session.commit()
+
+        print('Adding user to their library')
+        user_collection_list = []
+        for c in db.session.query(Collection).all():
+            user_collection_list.append(dict(user_id=c.created_by_id, collection_id=c.id))
+
+        db.engine.execute(user_collection_table.insert(), user_collection_list)
 
 
 def convert_groups(file_name=f'groups.bson'):
@@ -446,9 +416,11 @@ def convert_groups(file_name=f'groups.bson'):
         existing_collections = {c.old_id: c for c in db.session.query(Collection).all()}
         user_collection_list = []
         for doc in docs:
-            for user_id in doc['users']:
-                collection = existing_collections.get(str(doc['_id']))
-                user = existing_users.get(str(user_id))
+            old_user_ids = [str(u) for u in doc['users']]
+            collection = existing_collections.get(str(doc['_id']))
+
+            for user_id in old_user_ids:
+                user = existing_users.get(user_id)
 
                 if not user:
                     print(f'user {user_id} is missing')
@@ -554,14 +526,41 @@ def convert_tweets(papers_map, file_name=f'tweets.bson'):
         db.session.commit()
 
 
+def add_tags(papers_map, file_name=f'papers.bson'):
+    file_name = f"{base_dir}/{file_name}"
+    print("\n\nAdding tags")
+    current_count = 0
+    all_tags = {tag.name: tag for tag in db.session.query(Tag).all()}
+
+    with open(file_name, 'rb') as f:
+        docs = bson.decode_all(f.read())
+        papers = []
+        i = 0
+        paper_tags = []
+        for doc in docs:
+            original_id = str(doc['_id'])
+            tag_names = get_tags(doc)
+            paper = papers_map.get(original_id)
+            if not paper:
+                print(f'Paper is missing - {original_id}')
+                continue
+
+            for tag in tag_names:
+                tag_obj = all_tags.get(tag)
+                if tag_obj:
+                    paper_tags.append(dict(paper_id=paper.id, tag_id=tag.id))
+
+        db.engine.execute(paper_tag_table.insert(), paper_tags)
+
+
 def migrate(data_dir=None):
     global base_dir
     if data_dir:
         base_dir = data_dir
 
-    convert_tags()  # ~1 min
     convert_papers()  # ~45 mins
     papers_map = {p.original_id: p for p in db.session.query(Paper).all()}
+    add_tags(papers_map)  # ~1 min
     convert_authors(papers_map)  # ~2 hours
     convert_users()
     convert_groups()
