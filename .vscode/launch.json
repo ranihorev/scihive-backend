@@ -63,6 +63,18 @@
         "FLASK_DEBUG": "0"
       },
       "args": ["migrate-db", "--path", "../backup"]
+    },
+    {
+      "name": "Fix stars",
+      "type": "python",
+      "request": "launch",
+      "module": "flask",
+      "env": {
+        "FLASK_APP": "app.py",
+        "FLASK_ENV": "development",
+        "FLASK_DEBUG": "0"
+      },
+      "args": ["fix-stars-count"]
     }
   ]
 }

@@ -4,8 +4,8 @@ import click
 
 from src import app
 # create the DB:
-from .new_backend.models import db
-
+from .new_backend.models import db, Paper, paper_collection_table
+from sqlalchemy import func
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_jwt_extended.exceptions import NoAuthorizationError
@@ -56,6 +56,8 @@ if SENTRY_DSN:
     )
 
 app.config['ENV'] = env
+
+# TODO: fix this:
 cors = CORS(app, supports_credentials=True, origins=['*'])
 
 if os.path.isfile('secret_key.txt'):
@@ -111,3 +113,15 @@ def hello_world():
 @click.option('--path', help='folder path')
 def migrate_db(path):
     migrate(path)
+
+
+@app.cli.command("fix-stars-count")
+def fix_stars_count():
+    total_per_paper = db.session.query(paper_collection_table.c.paper_id, func.count(
+        paper_collection_table.c.collection_id)).group_by(paper_collection_table.c.paper_id).all()
+    with_stars = [p for p in total_per_paper if p[1] > 0]
+    id_to_stars = {p[0]: p[1] for p in with_stars}
+    papers = Paper.query.filter(Paper.id.in_(list(id_to_stars.keys()))).all()
+    for p in papers:
+        p.num_stars = id_to_stars[p.id]
+    db.session.commit()
