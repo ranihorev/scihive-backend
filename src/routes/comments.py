@@ -118,7 +118,7 @@ class NewCommentResource(Resource):
 
         collection_id = None
         if visibility.get('type') == 'group':
-            collection_id = Collection.query.get_or_404(visibility.get('id'))
+            collection_id = Collection.query.get_or_404(visibility.get('id')).id
 
         paper = Paper.query.get_or_404(paper_id)
 
