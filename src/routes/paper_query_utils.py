@@ -4,7 +4,7 @@ import os
 from typing import List
 
 from flask_jwt_extended import get_jwt_identity
-
+from sqlalchemy import or_
 from .s3_utils import arxiv_to_s3
 from flask_restful import reqparse, fields, abort
 from src.new_backend.models import Paper, db
@@ -29,12 +29,19 @@ def abs_to_pdf(url):
 
 
 def get_paper_or_none(paper_id: str):
-    paper = Paper.query.filter(Paper.id == paper_id).first()
+    query = [Paper.original_id == paper_id]
+    try:
+        query.append(Paper.id == int(paper_id))
+    except:
+        pass
+    paper = Paper.query.filter(or_(*query)).first()
+    return paper
 
-    # If we don't find the paper by its ID we fallback to search by the original (arXiv) ID
+
+def get_paper_or_404(paper_id: str):
+    paper = get_paper_or_none(paper_id)
     if not paper:
-        paper = Paper.query.filter(Paper.original_id == paper_id).first()
-
+        abort(404, message='Paper not found')
     return paper
 
 
@@ -43,9 +50,7 @@ def get_paper_with_pdf(paper_id):
     if not paper:
         # Fetch from arxiv
         fetch_entry(paper_id)
-        paper = get_paper_or_none(paper_id)
-        if not paper:
-            abort(404, message='Paper not found')
+        paper = get_paper_or_404(paper_id)
 
     if not paper.local_pdf:
         # TODO: expand this method to any source

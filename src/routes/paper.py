@@ -13,6 +13,7 @@ from src.routes.s3_utils import key_to_url
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
 from .paper_query_utils import get_paper_with_pdf, paper_with_code_fields
 from .user_utils import get_user
+from src.routes.paper_query_utils import get_paper_or_404
 
 app = Blueprint('paper', __name__)
 api = Api(app)
@@ -100,7 +101,7 @@ class PaperReferencesResource(Resource):
     def get(self, paper_id):
         query_parser = reqparse.RequestParser()
         query_parser.add_argument('force', type=str, required=False)
-        paper = Paper.query.get_or_404(paper_id)
+        paper = get_paper_or_404(paper_id)
 
         # Rani: how to address private papers?
         if paper.is_private:
