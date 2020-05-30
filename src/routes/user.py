@@ -10,6 +10,7 @@ from flask_jwt_extended import (create_access_token, jwt_required, jwt_refresh_t
 
 from ..new_backend.models import User, db, RevokedToken
 from .user_utils import generate_hash, verify_hash, get_user_by_email
+from .notifications.index import deserialize_token
 
 app = Blueprint('user', __name__)
 api = Api(app)
@@ -107,8 +108,22 @@ class ValidateUser(Resource):
         return {'message': 'success'}
 
 
+class Unsubscribe(Resource):
+    def get(self, token):
+        try:
+            email, paper_id = deserialize_token(token)
+            user_id = find_by_email(email, {"_id": 1})
+            if not user_id:
+                abort(404, message='user does not exist')
+            db_users.update_one(user_id, {'$addToSet': {'mutedPapers': paper_id}})
+            return {'message': 'success'}
+        except Exception as e:
+            abort(404, message='invalid token')
+
+
 api.add_resource(UserRegistration, '/register')
 api.add_resource(UserLogin, '/login')
 api.add_resource(UserLogoutAccess, '/logout/access')
 api.add_resource(TokenRefresh, '/token/refresh')
 api.add_resource(ValidateUser, '/validate')
+api.add_resource(Unsubscribe, '/unsubscribe')
