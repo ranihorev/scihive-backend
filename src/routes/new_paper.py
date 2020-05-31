@@ -96,6 +96,9 @@ class NewPaper(Resource):
 
     @marshal_with({'id': fields.String})
     def post(self):
+        user = get_user()
+        if not user:
+            abort(403, message='Not authorized')
         parser = reqparse.RequestParser()
         parser.add_argument('file', type=werkzeug.datastructures.FileStorage, location='files')
         parser.add_argument('link', type=str)
@@ -124,7 +127,7 @@ class NewPaper(Resource):
         # Create paper
         pdf_link = key_to_url(filename_md5, with_prefix=True) + '.pdf'
         paper = Paper(title=metadata['title'], original_pdf=pdf_link, local_pdf=pdf_link, publication_date=metadata['date'],
-                      abstract=metadata['abstract'], last_update_date=datetime.now(), is_private=True, original_id=filename_md5)
+                      abstract=metadata['abstract'], last_update_date=datetime.now(), is_private=True, original_id=filename_md5, uploaded_by_id=user.id)
         db.session.add(paper)
 
         # Create authors

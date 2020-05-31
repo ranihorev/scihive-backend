@@ -7,7 +7,7 @@ import requests
 from typing import Optional
 from itsdangerous import URLSafeTimedSerializer
 from src.routes.user_utils import get_user_by_email
-from src.new_backend.models import Comment, unsubscribe_table, db, User
+from src.new_backend.models import Comment, unsubscribe_table, db, User, Paper
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,10 @@ def new_reply_notification(email: str, name: str, paper_id: str, paper_title: st
 
 
 # users is a list of {email, name} dicts
-def new_comment_notification(user_id: Optional[int], paper_id: str, paper_title: str, comment_id: int):
+def new_comment_notification(user_id: Optional[int], paper_id: int, comment_id: int):
+    paper = Paper.query.get(paper_id)
+    paper_id = paper.id
+    paper_title = paper.title
     unsubscribed_users = db.session.query(unsubscribe_table.c.user_id).filter(
         unsubscribe_table.c.paper_id == paper_id).all()
 
@@ -57,10 +60,13 @@ def new_comment_notification(user_id: Optional[int], paper_id: str, paper_title:
     send_to_users = base_q.filter(Comment.paper_id == paper_id, Comment.user_id.notin_(
         ignore_users), Comment.user_id != None).all()
 
+    if paper.uploaded_by and paper.uploaded_by.id not in ignore_users:
+        send_to_users.append(paper.uploaded_by)
+
     for u in send_to_users:
         variables = {
             "first_name": u.username,
-            "text": f"A new comment was posted on a paper you are following - {paper_title}.<br/><br/>Click below to view:",
+            "text": f"A new comment was posted on a paper you are following - {paper_title}",
             "link": urljoin(FRONTEND_BASE_URL, f'/paper/{paper_id}#highlight-{comment_id}'),
             "mute_link": urljoin(BASE_UNSUBSCRIBE_LINK, create_unsubscribe_token(u.email, paper_id))
         }

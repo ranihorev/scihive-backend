@@ -97,7 +97,7 @@ class NewCommentResource(Resource):
     def notify_if_needed(self, user_id: Optional[int], paper: Paper, comment: Comment):
         try:
             # TODO: Filter unsubscribes
-            threading.Thread(target=new_comment_notification, args=(user_id, paper.id, paper.title, comment.id)).start()
+            threading.Thread(target=new_comment_notification, args=(user_id, paper.id, comment.id)).start()
         except Exception as e:
             logger.error(f'Failed to notify on a new comment - {e}')
 

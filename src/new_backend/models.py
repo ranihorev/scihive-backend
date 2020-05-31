@@ -82,6 +82,8 @@ class Paper(db.Model):
     original_id = db.Column(db.String, nullable=True, index=True)
     last_update_date = db.Column(db.DateTime(timezone=True), nullable=False)
     is_private = db.Column(db.Boolean, nullable=True, index=True)
+    uploaded_by_id = db.Column(db.ForeignKey('user.id'), nullable=True)
+    uploaded_by = db.relationship("User", foreign_keys=[uploaded_by_id])
     authors = db.relationship("Author", back_populates="papers", secondary=paper_author_table, lazy='joined')
     tags = db.relationship("Tag", back_populates="papers", secondary=paper_tag_table)
     collections = db.relationship("Collection", back_populates="papers",
