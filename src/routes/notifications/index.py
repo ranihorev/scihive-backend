@@ -4,9 +4,10 @@ import os
 from typing import Dict, List
 from urllib.parse import urljoin
 import requests
+from typing import Optional
 from itsdangerous import URLSafeTimedSerializer
 from src.routes.user_utils import get_user_by_email
-from src.new_backend.models import Comment, unsubscribe_table, db
+from src.new_backend.models import Comment, unsubscribe_table, db, User
 
 logger = logging.getLogger(__name__)
 
@@ -26,14 +27,11 @@ def deserialize_token(token):
     return serializer.loads(token)
 
 
-def has_user_unsubscribed(user_email, paper_id):
-    user = get_user_by_email(user_email)
-    return paper_id in user.get('mutedPapers', [])
-
-
 def new_reply_notification(email: str, name: str, paper_id: str, paper_title: str):
-    if has_user_unsubscribed(email, paper_id):
-        return
+    # TODO: update this function
+    return
+    # if has_user_unsubscribed(email, paper_id):
+    #     return
     variables = {
         "first_name": name,
         "text": f"You have got a new reply to your comment on '{paper_title}'",
@@ -46,17 +44,23 @@ def new_reply_notification(email: str, name: str, paper_id: str, paper_title: st
 
 
 # users is a list of {email, name} dicts
-def new_comment_notification(user_id: int, paper_id: str, paper_title: str, comment_id: int):
+def new_comment_notification(user_id: Optional[int], paper_id: str, paper_title: str, comment_id: int):
     unsubscribed_users = db.session.query(unsubscribe_table.c.user_id).filter(
         unsubscribe_table.c.paper_id == paper_id).all()
-    unsubscribed_users = [u.user_id for u in unsubscribed_users]
-    send_to_users = db.session.query(Comment.user).distinct(Comment.user_id).filter(
-        Comment.paper_id == paper_id, Comment.user_id.notin_(unsubscribed_users + [user_id]), Comment.user_id != None).all()
+
+    ignore_users = [u.user_id for u in unsubscribed_users]
+    if user_id is not None:
+        ignore_users.append(user_id)
+
+    base_q = db.session.query(Comment.user_id.label('id'), User.email,
+                              User.username).join(Comment.user).distinct(Comment.user_id)
+    send_to_users = base_q.filter(Comment.paper_id == paper_id, Comment.user_id.notin_(
+        ignore_users), Comment.user_id != None).all()
 
     for u in send_to_users:
         variables = {
             "first_name": u.username,
-            "text": f"A new comment was posted on a paper you are following - {paper_title}. Click below to view:",
+            "text": f"A new comment was posted on a paper you are following - {paper_title}.<br/><br/>Click below to view:",
             "link": urljoin(FRONTEND_BASE_URL, f'/paper/{paper_id}#highlight-{comment_id}'),
             "mute_link": urljoin(BASE_UNSUBSCRIBE_LINK, create_unsubscribe_token(u.email, paper_id))
         }

@@ -62,6 +62,9 @@ class User(db.Model):
     old_id = db.Column(db.String(80), index=True)
     unsubscribed_papers = db.relationship("Paper", back_populates="unsubscribed_users", secondary=unsubscribe_table)
 
+    def __repr__(self):
+        return self.username
+
 
 class Paper(db.Model):
     __tablename__ = 'paper'
@@ -148,7 +151,7 @@ class Comment(db.Model):
     paper = db.relationship("Paper")
     creation_date = db.Column(db.DateTime(timezone=True), nullable=False)
     user_id = db.Column(db.ForeignKey('user.id'), nullable=True)
-    user = db.relationship("User")
+    user = db.relationship("User", lazy='joined')
     position = db.Column(db.JSON)
     shared_with = db.Column(db.String(16), nullable=False)
     collection_id = db.Column(db.ForeignKey('collection.id'), nullable=True)
