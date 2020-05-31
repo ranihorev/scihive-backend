@@ -6,11 +6,13 @@ from flask_jwt_extended import get_jwt_identity, jwt_optional, jwt_required
 from flask_restful import (Api, Resource, abort, fields, inputs, marshal_with,
                            reqparse)
 from sqlalchemy import or_
-
-from src.new_backend.models import Collection, Comment, Paper, Reply, db
+from typing import Optional
+from src.new_backend.models import Collection, Comment, Paper, Reply, db, User
 
 from .paper_query_utils import PUBLIC_TYPES
 from .user_utils import get_user
+from src.routes.notifications.index import new_comment_notification
+import threading
 
 app = Blueprint('comments', __name__)
 api = Api(app)
@@ -92,6 +94,13 @@ class CommentsResource(Resource):
 class NewCommentResource(Resource):
     method_decorators = [jwt_optional]
 
+    def notify_if_needed(self, user_id: Optional[int], paper: Paper, comment: Comment):
+        try:
+            # TODO: Filter unsubscribes
+            threading.Thread(target=new_comment_notification, args=(user_id, paper.id, comment.id)).start()
+        except Exception as e:
+            logger.error(f'Failed to notify on a new comment - {e}')
+
     @marshal_with(comment_fields, envelope='comment')
     def post(self, paper_id):
         new_comment_parser = reqparse.RequestParser()
@@ -122,16 +131,15 @@ class NewCommentResource(Resource):
 
         paper = Paper.query.get_or_404(paper_id)
 
-        try:
-            user_id = get_user().id
-        except Exception:
-            user_id = None
+        user = get_user()
+        user_id = user.id if user else None
 
         comment = Comment(highlighted_text=data['highlighted_text'], text=data['text'], paper_id=paper.id, is_general=is_general, shared_with=visibility['type'],
                           creation_date=datetime.utcnow(), user_id=user_id, position=data['position'], collection_id=collection_id)
 
         db.session.add(comment)
         db.session.commit()
+        self.notify_if_needed(user_id, paper, comment)
         return comment
 
 

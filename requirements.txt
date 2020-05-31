@@ -27,7 +27,6 @@ python-dotenv
 tweepy
 
 TexSoup
-# spacy
 
 sentry-sdk[flask]==0.8.0
 pypandoc==1.4
@@ -45,5 +44,4 @@ pep8
 pylint-flask
 pylint-flask-sqlalchemy
 sqlalchemy-easy-profile
-# graphene_sqlalchemy==2.2.2
-# Flask-GraphQL==2.0.1
+itsdangerous==1.1.0
