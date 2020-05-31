@@ -45,6 +45,12 @@ user_collection_table = db.Table('user_collection', db.metadata,
                                  )
 
 
+unsubscribe_table = db.Table('unsubscribe', db.metadata,
+                             db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+                             db.Column('paper_id', db.Integer, db.ForeignKey('paper.id')),
+                             )
+
+
 class User(db.Model):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
@@ -54,12 +60,13 @@ class User(db.Model):
     collections = db.relationship("Collection", back_populates="users", secondary=user_collection_table)
     comments = db.relationship("Comment")
     old_id = db.Column(db.String(80), index=True)
+    unsubscribed_papers = db.relationship("Paper", back_populates="unsubscribed_users", secondary=unsubscribe_table)
 
 
 class Paper(db.Model):
     __tablename__ = 'paper'
     __versioned__ = {
-        'exclude': ['authors', 'tags', 'collections', 'comments', 'tweets']
+        'exclude': ['authors', 'tags', 'collections', 'comments', 'tweets', 'unsubscribed_users']
     }
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -83,6 +90,7 @@ class Paper(db.Model):
     num_stars = db.Column(db.Integer, default=0, index=True)
     references = db.Column(db.JSON)
     paper_with_code = db.relationship("PaperWithCode", uselist=False, lazy='joined')
+    unsubscribed_users = db.relationship("User", back_populates="unsubscribed_papers", secondary=unsubscribe_table)
 
     def __repr__(self):
         return f"{self.id} - {self.title}"

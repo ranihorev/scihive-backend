@@ -4,13 +4,14 @@ import string
 from flask import Blueprint, jsonify
 import logging
 
-from flask_restful import Resource, reqparse, Api
+from flask_restful import Api, Resource, abort, reqparse, marshal_with, fields
 from flask_jwt_extended import (create_access_token, jwt_required, jwt_refresh_token_required,
                                 get_jwt_identity, get_raw_jwt, set_access_cookies, unset_access_cookies)
 
 from ..new_backend.models import User, db, RevokedToken
 from .user_utils import generate_hash, verify_hash, get_user_by_email
 from .notifications.index import deserialize_token
+from src.new_backend.models import Paper
 
 app = Blueprint('user', __name__)
 api = Api(app)
@@ -109,16 +110,20 @@ class ValidateUser(Resource):
 
 
 class Unsubscribe(Resource):
-    def get(self, token):
+
+    @marshal_with({'title': fields.String})
+    def post(self, token):
         try:
             email, paper_id = deserialize_token(token)
-            user_id = find_by_email(email, {"_id": 1})
-            if not user_id:
-                abort(404, message='user does not exist')
-            db_users.update_one(user_id, {'$addToSet': {'mutedPapers': paper_id}})
-            return {'message': 'success'}
+            user = get_user_by_email(email)
+            # Verify paper exists
+            paper = Paper.query.get_or_404(paper_id)
         except Exception as e:
             abort(404, message='invalid token')
+
+        user.unsubscribed_papers.append(paper)
+        db.session.commit()
+        return paper
 
 
 api.add_resource(UserRegistration, '/register')
@@ -126,4 +131,17 @@ api.add_resource(UserLogin, '/login')
 api.add_resource(UserLogoutAccess, '/logout/access')
 api.add_resource(TokenRefresh, '/token/refresh')
 api.add_resource(ValidateUser, '/validate')
-api.add_resource(Unsubscribe, '/unsubscribe')
+api.add_resource(Unsubscribe, '/unsubscribe/<token>')
+
+
+# # new reply
+
+#  try:
+#             comment_user_email = comment.get('user').get('email')
+#             current_user_email = get_jwt_identity()
+#             if comment_user_email and comment_user_email != current_user_email:
+#                 paper = get_paper_by_id(paper_id, {"title": 1})
+#                 threading.Thread(target=new_reply_notification, args=(
+#                     comment_user_email, comment['user']['username'], paper_id, paper['title'])).start()
+#         except Exception as e:
+#             logger.error(f'Failed to notify on a new reply - {e}')
