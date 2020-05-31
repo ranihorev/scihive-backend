@@ -84,8 +84,12 @@ def get_age_decay(age):
 
 def summarize_tweets(papers_to_update):
     papers_to_update = list(set(papers_to_update))
-    papers_tweets = Paper.query(Paper.id, func.sum(Paper.tweets.likes + 2 * Paper.tweets.retweets +
-                                                   4 * Paper.tweets.replies)).filter(Paper.id.in_(papers_to_update)).group_by(Paper.id)
+    papers_tweets = a = db.session.query(Paper).join(Tweet).with_entities(Paper, func.sum(Tweet.likes + 2 * Tweet.retweets +
+                                                                                          4 * Tweet.replies)).filter(Paper.id.in_(papers_to_update)).group_by(Paper.id).all()
+    for paper, score in papers_tweets:
+        paper.twitter_score = score
+
+    db.session.commit()
 
 
 def fetch_twitter_users(api, usernames):
@@ -110,7 +114,7 @@ def fetch_tweets(api):
 
     if os.path.isfile(USERS_FILENAME):
         usernames = json.load(open(USERS_FILENAME, 'r'))
-        results += fetch_twitter_users(api, usernames)
+        # results += fetch_twitter_users(api, usernames)
     else:
         logger.warning('Users file is missing')
     return results
@@ -166,7 +170,7 @@ def process_tweets(api, tweets_raw_data):
         tweet = create_tweet(r, paper, dnow_utc, num_replies)
 
         unique_tweet_ids.add(r.id_str)
-        logger.info(f'Found tweet for {paper.id} with {tweet["likes"]} likes')
+        logger.info(f'Found tweet for {paper.id} with {tweet.likes} likes')
 
     logger.info(f'processed {len(tweets_raw_data)} new tweets')
     return papers_to_update
