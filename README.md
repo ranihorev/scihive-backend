@@ -15,8 +15,7 @@ Read, collaborate and talk about scientific papers.
 
 ## Production
 - Repeat steps 2-5
-- Set `RUN_BACKGROUND_TASKS=1` 
-- Run `python app.py`
+- Run `sh restart_server.sh`
 
 ###Changelog
 
