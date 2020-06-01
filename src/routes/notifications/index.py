@@ -60,7 +60,8 @@ def new_comment_notification(user_id: Optional[int], paper_id: int, comment_id: 
     send_to_users = base_q.filter(Comment.paper_id == paper_id, Comment.user_id.notin_(
         ignore_users), Comment.user_id != None).all()
 
-    if paper.uploaded_by and paper.uploaded_by.id not in ignore_users:
+    # notify the user who uploaded if that user hasn't unsubscribed and not already on the list
+    if paper.uploaded_by and (paper.uploaded_by.id not in ignore_users) and (paper.uploaded_by not in send_to_users):
         send_to_users.append(paper.uploaded_by)
 
     logger.info(f'Sending notification on comment {comment_id} to {len(send_to_users)} users')
