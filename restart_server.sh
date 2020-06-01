@@ -15,7 +15,9 @@ pip install -r requirements.txt
 # fi
 
 pkill python
-python app.py &
-
 pkill flask
+
+flask db upgrade
+
+python app.py &
 flask run-background-tasks &

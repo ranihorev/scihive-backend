@@ -63,6 +63,7 @@ def new_comment_notification(user_id: Optional[int], paper_id: int, comment_id: 
     if paper.uploaded_by and paper.uploaded_by.id not in ignore_users:
         send_to_users.append(paper.uploaded_by)
 
+    logger.info(f'Sending notification on comment {comment_id} to {len(send_to_users)} users')
     for u in send_to_users:
         variables = {
             "first_name": u.username,
