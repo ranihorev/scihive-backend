@@ -16,6 +16,8 @@ flask-caching
 
 schedule
 
+bson
+
 boto3
 Flask-RESTful
 Flask-JWT-Extended
