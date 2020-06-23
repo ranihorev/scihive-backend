@@ -29,7 +29,8 @@ paper_fields = {
     'abstract': fields.String,
     'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True),
     'groups': fields.List(fields.String(attribute='id'), attribute='groups'),
-    'is_editable': fields.Boolean(attribute='is_private', default=False)
+    'is_editable': fields.Boolean(attribute='is_private', default=False),
+    'arxiv_id': fields.String(attribute='original_id', default=''),
 }
 
 
