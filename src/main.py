@@ -14,6 +14,7 @@ from flask_limiter.util import get_remote_address
 from flask_caching import Cache
 from .routes.paper import app as paper_routes
 from .routes.comments import app as comments_routes
+from .routes.replies import app as replies_routes
 from .routes.paper_list import app as paper_list_routes
 from .routes.user import app as user_routes
 from .routes.groups import app as groups_routes
@@ -77,6 +78,7 @@ cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
 app.register_blueprint(paper_list_routes, url_prefix='/papers')
 app.register_blueprint(paper_routes, url_prefix='/paper')
+app.register_blueprint(replies_routes, url_prefix='/reply')
 app.register_blueprint(comments_routes, url_prefix='/paper')
 app.register_blueprint(user_routes, url_prefix='/user')
 app.register_blueprint(groups_routes, url_prefix='/groups')
@@ -107,7 +109,6 @@ def background_tasks():
 @app.route('/test')
 def hello_world():
     return 'Hello, World!'
-
 
 @app.cli.command("migrate-db")
 @click.option('--path', help='folder path')
