@@ -10,6 +10,7 @@ flask
 flask_limiter
 tornado
 
+bson
 fa2l
 requests
 flask-caching
@@ -21,7 +22,6 @@ Flask-RESTful
 Flask-JWT-Extended
 flask-cors
 libsass
-
 python-dotenv
 
 tweepy
