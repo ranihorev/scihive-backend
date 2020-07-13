@@ -18,6 +18,7 @@ flask-caching
 schedule
 
 boto3
+boto3-type-annotations
 Flask-RESTful
 Flask-JWT-Extended
 flask-cors
