@@ -2,19 +2,34 @@ import abc
 import hashlib
 import logging
 import os
+import pathlib
 import shutil
 
-from typing import Tuple
+from typing import Tuple, Optional
 from typing.io import IO
 
 import boto3
 from urllib import request
 
-from boto3_type_annotations.s3 import client as S3Client
+from boto3_type_annotations.s3.client import Client as S3Client
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 load_dotenv()
+
+LOCAL_FILES_DIRECTORY = os.environ.get('LOCAL_FILES_DIRECTORY') or '/tmp/scihive-papers'
+EXTERNAL_BASE_ADDRESS = os.environ.get('EXTERNAL_BASE_ADDRESS') or 'http://localhost:5000'
+
+s3_key = os.environ.get('S3_KEY')
+s3_secret = os.environ.get('S3_SECRET')
+s3_bucket = os.environ.get('S3_BUCKET_NAME')
+
+s3_available = s3_key and s3_secret and s3_bucket
+s3_client: Optional[S3Client] = boto3.client(
+    's3',
+    aws_access_key_id=s3_key,
+    aws_secret_access_key=s3_secret
+) if s3_available else None
 
 
 class FileAccessProvider(metaclass=abc.ABCMeta):
@@ -58,14 +73,17 @@ class S3FileAccessProvider(FileAccessProvider):
 
 class LocalFileAccessProvider(FileAccessProvider):
 
-    def __init__(self, base_path: str) -> None:
+    def __init__(self, base_path: str, external_base_address: str) -> None:
         self._base_path = base_path
+        self._external_base_address = external_base_address
+        # make sure the directory exists
+        pathlib.Path(base_path).mkdir(parents=True, exist_ok=True)
 
     def exists(self, path: str) -> bool:
         return os.path.isfile(f'{self._base_path}/{path}')
 
     def get_link_to_file(self, path: str) -> str:
-        return f'https://{self._s3_bucket}/{self._prefix}/{path}'
+        return f'{self._external_base_address}/paper/files/{path}'
 
     def save_file(self, filename: str, content: IO) -> None:
         with open(f'{self._base_path}/{filename}', 'wb') as output:
@@ -102,17 +120,8 @@ class FileUploader:
 
 
 def get_uploader():
-    s3_key = os.environ.get('S3_KEY')
-    s3_secret = os.environ.get('S3_SECRET')
-    s3_bucket = os.environ.get('S3_BUCKET_NAME')
-
     file_access_provider: FileAccessProvider
-    if s3_key and s3_secret and s3_bucket:
-        s3_client: S3Client = boto3.client(
-            's3',
-            aws_access_key_id=s3_key,
-            aws_secret_access_key=s3_secret,
-        )
+    if s3_available:
         file_access_provider = S3FileAccessProvider(
             s3_client=s3_client,
             s3_bucket=s3_bucket,
@@ -120,6 +129,6 @@ def get_uploader():
         )
     else:
         logger.warning('S3 Bucket name is missing, using local file system instead')
-        file_access_provider = LocalFileAccessProvider('/tmp')
+        file_access_provider = LocalFileAccessProvider(LOCAL_FILES_DIRECTORY, EXTERNAL_BASE_ADDRESS)
 
     return FileUploader(file_access_provider=file_access_provider)

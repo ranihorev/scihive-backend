@@ -3,6 +3,7 @@ import os
 from flask import Flask
 from dotenv import load_dotenv
 # This is required to patch marshal
+# noinspection PyUnresolvedReferences
 from flask_sqlalchemy import SQLAlchemy
 from easy_profile import EasyProfileMiddleware
 
