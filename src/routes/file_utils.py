@@ -65,7 +65,7 @@ class S3FileAccessProvider(FileAccessProvider):
         return False
 
     def get_link_to_file(self, path: str) -> str:
-        return f'https://{self._s3_bucket}/{self._prefix}/{path}'
+        return f'https://{self._s3_bucket}.s3.amazonaws.com/{self._prefix}/{path}'
 
     def save_file(self, filename: str, content: IO) -> None:
         self._s3_client.upload_fileobj(content, self._s3_bucket, f'{self._prefix}/{filename}')
@@ -128,7 +128,7 @@ def get_uploader():
             prefix='papers'
         )
     else:
-        logger.warning('S3 Bucket name is missing, using local file system instead')
+        logger.warning('S3 info is missing missing, using local file system instead')
         file_access_provider = LocalFileAccessProvider(LOCAL_FILES_DIRECTORY, EXTERNAL_BASE_ADDRESS)
 
     return FileUploader(file_access_provider=file_access_provider)
