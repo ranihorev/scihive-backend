@@ -4,6 +4,7 @@ import logging
 import os
 import pathlib
 import shutil
+from io import BytesIO
 
 from typing import Tuple, Optional
 from typing.io import IO
@@ -109,8 +110,7 @@ class FileUploader:
         filename = f'{file_hash}.pdf'
         pdf_link = self._file_access_provider.get_link_to_file(filename)
         if not self._file_access_provider.exists(filename):
-            file_stream.seek(0)
-            self._file_access_provider.save_file(filename, file_stream)
+            self._file_access_provider.save_file(filename, BytesIO(content))
 
         return content, file_hash, pdf_link
 

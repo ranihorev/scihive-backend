@@ -106,13 +106,13 @@ class NewPaper(Resource):
             abort(401, messsage='Missing content')
 
         # Let's stream directly from the link instead of buffering the file
-        file_stream = requests.get(data.link, Stream=True).raw if data.link else data.file.stream
+        file_stream = requests.get(data.link, stream=True).raw if data.link else data.file.stream
 
         # Upload the file
         file_content, file_hash, pdf_link = get_uploader().upload_from_file(file_stream)
 
         # get paper meta data
-        metadata = cache.get(file_hash, expire_time=True)
+        metadata, _ = cache.get(file_hash, expire_time=True)
         if not metadata:
             success, metadata = extract_paper_metadata(file_content)
             if success:
