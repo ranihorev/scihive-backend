@@ -9,7 +9,7 @@ from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
 from src.new_backend.models import Author, Collection, Paper, db
 
-from .file_utils import LOCAL_FILES_DIRECTORY
+from .file_utils import LOCAL_FILES_DIRECTORY, s3_available
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
 from .paper_query_utils import get_paper_with_pdf, paper_with_code_fields
 from .user_utils import get_user
@@ -208,7 +208,8 @@ api.add_resource(PaperResource, "/<paper_id>")
 api.add_resource(PaperReferencesResource, "/<paper_id>/references")
 api.add_resource(EditPaperResource, "/<paper_id>/edit")
 
-
-@app.route('/files/<path:path>')
-def serve_local_files(path):
-    return send_from_directory(LOCAL_FILES_DIRECTORY, path)
+# We only want this endpoint if we're using local filesystem to store PDFs
+if not s3_available:
+    @app.route('/files/<path:path>')
+    def serve_local_files(path):
+        return send_from_directory(LOCAL_FILES_DIRECTORY, path)
