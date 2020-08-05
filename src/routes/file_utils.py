@@ -19,17 +19,17 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 LOCAL_FILES_DIRECTORY = os.environ.get('LOCAL_FILES_DIRECTORY') or '/tmp/scihive-papers'
-EXTERNAL_BASE_ADDRESS = os.environ.get('EXTERNAL_BASE_ADDRESS') or 'http://localhost:5000'
+EXTERNAL_BASE_URL = os.environ.get('EXTERNAL_BASE_URL') or 'http://localhost:5000'
 
-s3_key = os.environ.get('S3_KEY')
-s3_secret = os.environ.get('S3_SECRET')
-s3_bucket = os.environ.get('S3_BUCKET_NAME')
+S3_KEY = os.environ.get('S3_KEY')
+S3_SECRET = os.environ.get('S3_SECRET')
+S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
 
-s3_available = s3_key and s3_secret and s3_bucket
-s3_client: Optional[S3Client] = boto3.client(
+s3_available = S3_KEY and S3_SECRET and S3_BUCKET_NAME
+s3_client_instance: Optional[S3Client] = boto3.client(
     's3',
-    aws_access_key_id=s3_key,
-    aws_secret_access_key=s3_secret
+    aws_access_key_id=S3_KEY,
+    aws_secret_access_key=S3_SECRET
 ) if s3_available else None
 
 
@@ -49,9 +49,10 @@ class FileAccessProvider(metaclass=abc.ABCMeta):
 
 class S3FileAccessProvider(FileAccessProvider):
 
-    def __init__(self, s3_client: S3Client, s3_bucket: str, prefix: str) -> None:
+    def __init__(self, s3_client: S3Client, s3_bucket: str, external_base_url: str, prefix: str) -> None:
         self._s3_client = s3_client
         self._s3_bucket = s3_bucket
+        self._external_base_url = external_base_url
         self._prefix = prefix
 
     def exists(self, path: str) -> bool:
@@ -66,7 +67,7 @@ class S3FileAccessProvider(FileAccessProvider):
         return False
 
     def get_link_to_file(self, path: str) -> str:
-        return f'https://{self._s3_bucket}.s3.amazonaws.com/{self._prefix}/{path}'
+        return f'{self._external_base_url}/{self._prefix}/{path}'
 
     def save_file(self, filename: str, content: IO) -> None:
         self._s3_client.upload_fileobj(content, self._s3_bucket, f'{self._prefix}/{filename}')
@@ -74,9 +75,9 @@ class S3FileAccessProvider(FileAccessProvider):
 
 class LocalFileAccessProvider(FileAccessProvider):
 
-    def __init__(self, base_path: str, external_base_address: str) -> None:
+    def __init__(self, base_path: str, external_base_url: str) -> None:
         self._base_path = base_path
-        self._external_base_address = external_base_address
+        self._external_base_url = external_base_url
         # make sure the directory exists
         pathlib.Path(base_path).mkdir(parents=True, exist_ok=True)
 
@@ -84,7 +85,7 @@ class LocalFileAccessProvider(FileAccessProvider):
         return os.path.isfile(f'{self._base_path}/{path}')
 
     def get_link_to_file(self, path: str) -> str:
-        return f'{self._external_base_address}/paper/files/{path}'
+        return f'{self._external_base_url}/paper/files/{path}'
 
     def save_file(self, filename: str, content: IO) -> None:
         with open(f'{self._base_path}/{filename}', 'wb') as output:
@@ -123,12 +124,16 @@ def get_uploader():
     file_access_provider: FileAccessProvider
     if s3_available:
         file_access_provider = S3FileAccessProvider(
-            s3_client=s3_client,
-            s3_bucket=s3_bucket,
+            s3_client=s3_client_instance,
+            s3_bucket=S3_BUCKET_NAME,
+            external_base_url=EXTERNAL_BASE_URL,
             prefix='papers'
         )
     else:
         logger.warning('S3 info is missing missing, using local file system instead')
-        file_access_provider = LocalFileAccessProvider(LOCAL_FILES_DIRECTORY, EXTERNAL_BASE_ADDRESS)
+        file_access_provider = LocalFileAccessProvider(
+            base_path=LOCAL_FILES_DIRECTORY,
+            external_base_url=EXTERNAL_BASE_URL
+        )
 
     return FileUploader(file_access_provider=file_access_provider)
