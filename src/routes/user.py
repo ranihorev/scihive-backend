@@ -1,3 +1,4 @@
+import os
 import random
 import string
 
@@ -7,6 +8,9 @@ import logging
 from flask_restful import Api, Resource, abort, reqparse, marshal_with, fields
 from flask_jwt_extended import (create_access_token, jwt_required, jwt_refresh_token_required,
                                 get_jwt_identity, get_raw_jwt, set_access_cookies, unset_access_cookies)
+
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
 from ..new_backend.models import User, db, RevokedToken
 from .user_utils import generate_hash, verify_hash, get_user_by_email
@@ -120,12 +124,30 @@ class Unsubscribe(Resource):
             paper = Paper.query.get_or_404(paper_id)
         except Exception as e:
             abort(404, message='invalid token')
+            return
 
         user.unsubscribed_papers.append(paper)
         db.session.commit()
         return paper
 
 
+class NewLogin(Resource):
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('token', help='This field cannot be blank', required=True, location='json')
+        data = parser.parse_args()
+        try:
+            info = id_token.verify_oauth2_token(data['token'], requests.Request(), os.environ.get('GOOGLE_CLIENT_ID'))
+            access_token = create_access_token(
+                identity={'email': info['email'], 'source': 'google', 'first_name': info['given_name'], 'last_name': info['family_name']})
+            resp = jsonify({'message': 'User was created/merged'})
+            set_access_cookies(resp, access_token)
+            return resp
+        except ValueError as e:
+            print(e)
+
+
+api.add_resource(NewLogin, '/login2')
 api.add_resource(UserRegistration, '/register')
 api.add_resource(UserLogin, '/login')
 api.add_resource(UserLogoutAccess, '/logout/access')

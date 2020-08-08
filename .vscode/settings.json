@@ -21,16 +21,7 @@
   "peacock.color": "#2a061f",
   "python.linting.pylintEnabled": true,
   "python.linting.enabled": true,
-  "python.jediEnabled": false,
   "python.formatting.provider": "autopep8",
-  "python.linting.pylintArgs": [
-    "--load-plugins",
-    "pylint-flask"
-  ],
-  "cSpell.words": [
-    "arxiv",
-    "ilike",
-    "pytz",
-    "tzinfo"
-  ]
+  "python.linting.pylintArgs": ["--load-plugins", "pylint-flask"],
+  "cSpell.words": ["arxiv", "ilike", "pytz", "tzinfo"]
 }

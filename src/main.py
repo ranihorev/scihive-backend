@@ -1,13 +1,14 @@
 import logging
 import os
 import click
+import copy
 
 from src import app
 # create the DB:
 from .new_backend.models import db, Paper, paper_collection_table
 from sqlalchemy import func
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager
+from flask_jwt_extended import JWTManager, get_jwt_identity
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -27,6 +28,7 @@ from src.new_backend.scrapers import twitter
 import threading
 from .run_background_tasks import run_scheduled_tasks
 from .mongo_to_postgres import migrate
+from flask import Blueprint, jsonify
 
 
 env = os.environ.get('ENV', 'development')
@@ -75,6 +77,20 @@ limiter = Limiter(app, key_func=get_remote_address, default_limits=[
     "5000 per hour", "200 per minute"])
 cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
+
+def register_collab_blueprint(bp: Blueprint, url_prefix: str):
+    bp = copy.copy(paper_routes)
+    bp.name = 'collab_' + bp.name
+
+    @bp.before_request
+    def test():
+        user = get_jwt_identity()
+        if not user:
+            return jsonify({'msg': 'Unauthorized access'}), 403
+
+    app.register_blueprint(bp, url_prefix=url_prefix)
+
+
 app.register_blueprint(paper_list_routes, url_prefix='/papers')
 app.register_blueprint(paper_routes, url_prefix='/paper')
 app.register_blueprint(comments_routes, url_prefix='/paper')
@@ -82,6 +98,8 @@ app.register_blueprint(user_routes, url_prefix='/user')
 app.register_blueprint(groups_routes, url_prefix='/groups')
 app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
+
+register_collab_blueprint(paper_routes, url_prefix='/paper2')
 
 
 @app.cli.command("fetch-arxiv")
