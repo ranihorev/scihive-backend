@@ -1,12 +1,8 @@
-import datetime
 import logging
-import os
-from typing import List
 
-from flask_jwt_extended import get_jwt_identity
 from sqlalchemy import or_
-from .s3_utils import arxiv_to_s3
-from flask_restful import reqparse, fields, abort
+from .file_utils import get_uploader
+from flask_restful import fields, abort
 from src.new_backend.models import Paper, db
 from src.new_backend.scrapers.arxiv import fetch_entry
 
@@ -54,9 +50,7 @@ def get_paper_with_pdf(paper_id):
 
     if not paper.local_pdf:
         # TODO: expand this method to any source
-        if not os.environ.get('S3_BUCKET_NAME'):
-            logger.error('S3 Bucket name is missing')
-        paper.local_pdf = arxiv_to_s3(paper.original_pdf)
+        paper.local_pdf = get_uploader().upload_from_arxiv(paper.original_pdf)
         db.session.commit()
 
     return paper
