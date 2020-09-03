@@ -3,13 +3,16 @@ import os
 import click
 import copy
 
+from flask_jwt_extended.view_decorators import jwt_optional
+from werkzeug.exceptions import HTTPException
+
 from src import app
 # create the DB:
 from .new_backend.models import db, Paper, paper_collection_table
 from sqlalchemy import func
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager, get_jwt_identity
-from flask_jwt_extended.exceptions import NoAuthorizationError
+from flask_jwt_extended import JWTManager, verify_jwt_in_request
+from flask_jwt_extended.exceptions import InvalidHeaderError, NoAuthorizationError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_caching import Cache
@@ -78,17 +81,30 @@ limiter = Limiter(app, key_func=get_remote_address, default_limits=[
 cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
 
-def register_collab_blueprint(bp: Blueprint, url_prefix: str):
-    bp = copy.copy(paper_routes)
-    bp.name = 'collab_' + bp.name
+@app.errorhandler(HTTPException)
+def main_error_handler(error):
+    message = ''
+    try:
+        message = error.data.get('message')
+    except Exception:
+        pass
+    response = jsonify(message)
+    response.status_code = getattr(error, 'code', 500)
+    return response
 
-    @bp.before_request
-    def test():
-        user = get_jwt_identity()
-        if not user:
+
+def register_collab_blueprint(bp: Blueprint, url_prefix: str):
+    new_bp = copy.copy(bp)
+    new_bp.name = 'collab_' + new_bp.name
+
+    @new_bp.before_request
+    def enforce_login():
+        try:
+            verify_jwt_in_request()
+        except (NoAuthorizationError, InvalidHeaderError):
             return jsonify({'msg': 'Unauthorized access'}), 403
 
-    app.register_blueprint(bp, url_prefix=url_prefix)
+    app.register_blueprint(new_bp, url_prefix=url_prefix)
 
 
 app.register_blueprint(paper_list_routes, url_prefix='/papers')
@@ -99,7 +115,8 @@ app.register_blueprint(groups_routes, url_prefix='/groups')
 app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
 
-register_collab_blueprint(paper_routes, url_prefix='/paper2')
+register_collab_blueprint(paper_routes, url_prefix='/collab/paper')
+register_collab_blueprint(comments_routes, url_prefix='/collab/paper')
 
 
 @app.cli.command("fetch-arxiv")

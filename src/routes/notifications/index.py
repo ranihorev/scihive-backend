@@ -43,6 +43,20 @@ def new_reply_notification(email: str, name: str, paper_id: str, paper_title: st
                subject="You have got a new reply to your comment")
 
 
+def new_invite_notification(user_id: int, paper_id: int, invited_by_name: str, message: str):
+    paper: Paper = Paper.query.get(paper_id)
+    user: User = User.query.get(user_id)
+
+    variables = {
+        "first_name": user.first_name or user.username,
+        "text": message,
+        "link": urljoin(FRONTEND_BASE_URL, f'/collab/paper/{paper_id}'),
+    }
+    subject = f"{invited_by_name} invited you to collaborate on {paper.title}"
+    send_email(address=user.email, name=user.first_name or user.username,
+               variables=variables, template="paper_invite", subject=subject)
+
+
 # users is a list of {email, name} dicts
 def new_comment_notification(user_id: Optional[int], paper_id: int, comment_id: int):
     paper = Paper.query.get(paper_id)

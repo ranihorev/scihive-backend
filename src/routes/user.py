@@ -13,7 +13,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 
 from ..new_backend.models import User, db, RevokedToken
-from .user_utils import generate_hash, verify_hash, get_user_by_email
+from .user_utils import generate_hash, get_jwt_email, verify_hash, get_user_by_email
 from .notifications.index import deserialize_token
 from src.new_backend.models import Paper
 
@@ -70,6 +70,8 @@ class UserLogin(Resource):
 
         if not current_user:
             return {'message': 'User {} doesn\'t exist'.format(data['email'])}, 401
+        elif current_user.pending:
+            return {'message': 'User is pending. Please log in via Google'}, 403
 
         if verify_hash(data['password'], current_user.password):
             access_token = create_access_token(identity=data['email'])
@@ -108,9 +110,9 @@ class TokenRefresh(Resource):
 
 
 class ValidateUser(Resource):
-    @jwt_required
     def get(self):
-        return {'message': 'success'}
+        current_user = get_jwt_email()
+        return {'status': bool(current_user)}
 
 
 class Unsubscribe(Resource):
@@ -131,23 +133,43 @@ class Unsubscribe(Resource):
         return paper
 
 
-class NewLogin(Resource):
+class GoogleLogin(Resource):
     def post(self):
         parser = reqparse.RequestParser()
         parser.add_argument('token', help='This field cannot be blank', required=True, location='json')
         data = parser.parse_args()
         try:
             info = id_token.verify_oauth2_token(data['token'], requests.Request(), os.environ.get('GOOGLE_CLIENT_ID'))
-            access_token = create_access_token(
-                identity={'email': info['email'], 'source': 'google', 'first_name': info['given_name'], 'last_name': info['family_name']})
-            resp = jsonify({'message': 'User was created/merged'})
-            set_access_cookies(resp, access_token)
-            return resp
         except ValueError as e:
             print(e)
+            abort(403, message='invalid token')
+
+        # create user if not missing
+        user = User.query.filter_by(email=info['email']).first()
+        first_name: str = info['given_name']
+        last_name: str = info['family_name']
+        if not user:
+            username = first_name + ' ' + last_name
+            username.replace(' ', '_')
+            new_user = User(username=username,
+                            email=info['email'], password='', first_name=first_name, last_name=last_name, provider='Google')
+            db.session.add(new_user)
+            db.session.commit()
+        elif not user.provider:
+            user.first_name = first_name
+            user.last_name = last_name
+            user.provider = 'Google'
+            user.pending = False
+            db.session.commit()
+
+        access_token = create_access_token(
+            identity={'email': info['email'], 'provider': 'Google', 'first_name': first_name, 'last_name': last_name})
+        resp = jsonify({'message': 'User was created/merged'})
+        set_access_cookies(resp, access_token)
+        return resp
 
 
-api.add_resource(NewLogin, '/login2')
+api.add_resource(GoogleLogin, '/google_login')
 api.add_resource(UserRegistration, '/register')
 api.add_resource(UserLogin, '/login')
 api.add_resource(UserLogoutAccess, '/logout/access')

@@ -10,7 +10,7 @@ from typing import Optional
 from src.new_backend.models import Collection, Comment, Paper, Reply, db, User
 
 from .paper_query_utils import PUBLIC_TYPES
-from .user_utils import get_user
+from .user_utils import get_jwt_email, get_user_optional
 from src.routes.notifications.index import new_comment_notification
 import threading
 
@@ -21,15 +21,15 @@ logger = logging.getLogger(__name__)
 EMPTY_FIELD_MSG = 'This field cannot be blank'
 
 
-def anonymize_user(comment: Comment):
+def anonymize_user(comment: Comment, field: str):
     if comment.shared_with == 'anonymous' or not comment.user:
         return ''
     else:
-        return comment.user.username
+        return getattr(comment.user, field)
 
 
 def can_edit(comment: Comment):
-    current_user = get_jwt_identity()
+    current_user = get_jwt_email()
     if not current_user:
         return False
     return comment.user and comment.user.email == current_user
@@ -43,6 +43,8 @@ visibility_fields = {
 replies_fields = {
     'id': fields.String,
     'user': fields.String(attribute='user.username'),
+    'first_name': fields.String(attribute='user.first_name'),
+    'last_name': fields.String(attribute='user.last_name'),
     'text': fields.String,
     'createdAt': fields.DateTime(dt_format='rfc822', attribute='creation_date'),
 }
@@ -52,7 +54,9 @@ comment_fields = {
     'text': fields.String(attribute='text'),
     'highlighted_text': fields.String(attribute='highlighted_text'),
     'position': fields.Raw,
-    'username': fields.String(attribute=lambda x: anonymize_user(x)),
+    'username': fields.String(attribute=lambda x: anonymize_user(x, 'username')),
+    'first_name': fields.String(attribute=lambda x: anonymize_user(x, 'first_name')),
+    'last_name': fields.String(attribute=lambda x: anonymize_user(x, 'last_name')),
     'canEdit': fields.String(attribute=lambda x: can_edit(x)),
     'createdAt': fields.DateTime(dt_format='rfc822', attribute='creation_date'),
     'replies': fields.List(fields.Nested(replies_fields)),
@@ -79,7 +83,7 @@ class CommentsResource(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('group', required=False, location='args')
         group_id = parser.parse_args().get('group')
-        user = get_user()
+        user = get_user_optional()
         query = Comment.query.filter(Comment.paper_id == paper_id)
         if group_id:
             query = query.filter(Comment.collection_id == group_id)
@@ -131,7 +135,7 @@ class NewCommentResource(Resource):
 
         paper = Paper.query.get_or_404(paper_id)
 
-        user = get_user()
+        user = get_user_optional()
         user_id = user.id if user else None
 
         comment = Comment(highlighted_text=data['highlighted_text'], text=data['text'], paper_id=paper.id, is_general=is_general, shared_with=visibility['type'],
@@ -148,7 +152,7 @@ class CommentResource(Resource):
 
     def _get_comment(self, comment_id):
         comment = Comment.query.get_or_404(comment_id)
-        current_user = get_jwt_identity()
+        current_user = get_jwt_email()
 
         if comment.user.email != current_user:
             abort(403, message='unauthorized to delete comment')
@@ -187,7 +191,7 @@ class ReplyResource(Resource):
         new_reply_parser.add_argument('text', help='This field cannot be blank',
                                       type=str, location='json', required=True)
         data = new_reply_parser.parse_args()
-        user = get_user()
+        user = get_user_optional()
 
         reply = Reply(parent_id=comment.id, text=data['text'], user_id=user.id if user else None)
         db.session.add(reply)

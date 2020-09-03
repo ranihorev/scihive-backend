@@ -11,7 +11,7 @@ from sqlalchemy_searchable import search
 
 from src.new_backend.models import (Author, Collection, Paper, db,
                                     paper_collection_table, user_collection_table)
-from src.routes.user_utils import get_user
+from src.routes.user_utils import get_user_optional
 from src.utils import get_file_path
 from .paper_query_utils import paper_with_code_fields
 from sqlalchemy.orm import joinedload, load_only
@@ -156,7 +156,7 @@ class Papers(Resource):
         author = args.get('author', '')
         age = args.get('age', 'all')
 
-        user = get_user()
+        user = get_user_optional()
 
         # Handle the search query
         query = db.session.query(Paper)

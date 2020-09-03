@@ -57,10 +57,14 @@ class User(db.Model):
     email = db.Column(db.String(80), nullable=False, index=True)
     username = db.Column(db.String(50), nullable=False)
     password = db.Column(db.String(100), nullable=False)
+    provider = db.Column(db.String(50), nullable=True)
+    first_name = db.Column(db.String(100), nullable=True)
+    last_name = db.Column(db.String(100), nullable=True)
     collections = db.relationship("Collection", back_populates="users", secondary=user_collection_table)
     comments = db.relationship("Comment")
     old_id = db.Column(db.String(80), index=True)
     unsubscribed_papers = db.relationship("Paper", back_populates="unsubscribed_users", secondary=unsubscribe_table)
+    pending = db.Column(db.Boolean, default=False)
 
     def __repr__(self):
         return self.username
@@ -141,6 +145,15 @@ class Collection(db.Model):
     created_by = db.relationship("User")
     is_uploads = db.Column(db.Boolean, nullable=True)
     old_id = db.Column(db.String(80), index=True)
+
+
+class Permission(db.Model):
+    __tablename__ = 'permission'
+    paper_id = db.Column(db.ForeignKey('paper.id', ondelete="CASCADE"), primary_key=True)
+    paper = db.relationship("Paper")
+    user_id = db.Column(db.ForeignKey('user.id', ondelete="CASCADE"), primary_key=True)
+    user: User = db.relationship("User")
+    creation_date = db.Column(db.DateTime(timezone=True), nullable=False, default=datetime.now)
 
 
 class Comment(db.Model):

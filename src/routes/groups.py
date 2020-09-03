@@ -2,13 +2,13 @@ import logging
 from datetime import datetime
 
 from flask import Blueprint
-from flask_jwt_extended import get_jwt_identity, jwt_required
+from flask_jwt_extended import jwt_required
 from flask_restful import (Api, Resource, abort, fields, inputs, marshal_with,
                            reqparse)
 from typing import List
-from src.new_backend.models import Collection, Paper, db, user_collection_table, User
+from src.new_backend.models import Collection, Paper, db, User
 
-from .user_utils import get_user_by_email
+from .user_utils import get_jwt_email, get_user_by_email
 
 app = Blueprint('groups', __name__)
 api = Api(app)
@@ -41,7 +41,7 @@ class Groups(Resource):
 
     @marshal_with(group_fields)
     def get(self):
-        email = get_jwt_identity()
+        email = get_jwt_email()
         return get_user_groups_by_email(email)
 
     @marshal_with(group_fields)
@@ -62,12 +62,11 @@ class NewGroup(Resource):
 
     @marshal_with({'groups': fields.List(fields.Nested(group_fields)), 'new_id': fields.String})
     def post(self):
-        current_user = get_jwt_identity()
         parser = reqparse.RequestParser()
         parser.add_argument('name', help='This field cannot be blank', required=True)
         parser.add_argument('color', required=False, type=str)
         data = parser.parse_args()
-        user = get_user_by_email(current_user)
+        user = get_user_by_email(get_jwt_email())
         collection = Collection(creation_date=datetime.utcnow(), name=data.get('name'),
                                 color=data.get('color'), created_by_id=user.id)
         collection.users.append(user)

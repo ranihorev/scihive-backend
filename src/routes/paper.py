@@ -1,18 +1,24 @@
 import logging
 from datetime import datetime
 from enum import Enum
+import threading
+from typing import List, Optional
+
+from cerberus import Validator
+from sqlalchemy.sql.functions import user
+from src.routes.notifications.index import new_invite_notification, send_email
 
 import pytz
 from flask import Blueprint
 from flask_jwt_extended import get_jwt_identity, jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
-from src.new_backend.models import Author, Collection, Paper, db
+from src.new_backend.models import Author, Collection, Paper, Permission, db, User
 from src.routes.s3_utils import key_to_url
 
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
 from .paper_query_utils import get_paper_with_pdf, paper_with_code_fields
-from .user_utils import get_user
+from .user_utils import get_jwt_email, get_user_optional, get_user_by_email
 from src.routes.paper_query_utils import get_paper_or_404
 
 app = Blueprint('paper', __name__)
@@ -33,6 +39,12 @@ paper_fields = {
     'arxiv_id': fields.String(attribute='original_id', default=''),
 }
 
+user_fields = {
+    'username': fields.String(),
+    'first_name': fields.String(),
+    'last_name': fields.String(),
+}
+
 
 class ItemState(Enum):
     existing = 1
@@ -42,7 +54,7 @@ class ItemState(Enum):
 
 def add_groups_to_paper(paper: Paper):
     if get_jwt_identity():
-        user = get_user()
+        user = get_user_optional()
         paper.groups = db.session.query(Collection.id).filter(Collection.users.any(
             id=user.id), Collection.papers.any(id=paper.id)).all()
 
@@ -53,6 +65,10 @@ class PaperResource(Resource):
     @marshal_with(paper_fields)
     def get(self, paper_id):
         paper = get_paper_with_pdf(paper_id)
+        if paper.is_private:
+            user = get_user_optional()
+            if not user or not (paper.uploaded_by == user or Permission.query.filter(Permission.user_id == user.id, Permission.paper_id == paper.id).exists()):
+                abort(403, message='Not authorized')
         add_groups_to_paper(paper)
         return paper
 
@@ -64,7 +80,7 @@ def get_visibility(comment):
 
 
 def add_metadata(comments):
-    current_user = get_jwt_identity()
+    current_user = get_jwt_email()
 
     def add_single_meta(comment):
         comment['canEdit'] = (current_user and current_user == comment['user'].get('email', -1))
@@ -114,39 +130,6 @@ class PaperReferencesResource(Resource):
         return references['data']
 
 
-# class PaperAcronymsResource(Resource):
-#     method_decorators = [jwt_optional]
-
-#     def _update_acronyms_counter(self, acronyms, inc_value=1):
-#         for short_form, long_form in acronyms.items():
-#             db_acronyms.update({'short_form': short_form}, {'$inc': {f'long_form.{long_form}': inc_value}}, True)
-
-#     def _enrich_matches(self, matches, short_forms):
-#         additional_matches = db_acronyms.find({"short_form": {"$in": short_forms}})
-#         for m in additional_matches:
-#             cur_short_form = m.get('short_form')
-#             if m.get('verified'):
-#                 matches[cur_short_form] = m.get('verified')
-#             elif cur_short_form in matches:
-#                 pass
-#             else:
-#                 long_forms = m.get('long_form')
-#                 if long_forms:
-#                     most_common = max(long_forms,
-#                                       key=(lambda key: long_forms[key] if isinstance(long_forms[key], int) else 0))
-#                     matches[cur_short_form] = most_common
-#         return matches
-
-#     def get(self, paper_id):
-#         new_acronyms, old_acronyms, state = get_paper_item(paper_id, 'acronyms', extract_acronyms)
-#         if state == ItemState.new:
-#             self._update_acronyms_counter(new_acronyms["matches"])
-#         elif state == ItemState.updated:
-#             self._update_acronyms_counter(old_acronyms["matches"], -1)
-#             self._update_acronyms_counter(new_acronyms["matches"], 1)
-#         matches = self._enrich_matches(new_acronyms['matches'], new_acronyms['short_forms'])
-#         return matches
-
 def validateAuthor(value):
     if not isinstance(value, dict):
         raise TypeError('Author must be an object')
@@ -160,7 +143,6 @@ class EditPaperResource(Resource):
 
     @marshal_with(paper_fields)
     def post(self, paper_id):
-        current_user = get_jwt_identity()
         parser = reqparse.RequestParser()
         parser.add_argument('title', type=str, required=True)
         parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.UTC), required=True,
@@ -201,8 +183,95 @@ class EditPaperResource(Resource):
         return paper
 
 
-# api.add_resource(PaperAcronymsResource, "/<paper_id>/acronyms")
-# Done (untested)
+email_regex = '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+schema = {'name': {'type': 'string'}, 'email': {'type': 'string', 'regex': email_regex, 'required': True}}
+
+
+def validateUsersList(value):
+    user_validator = Validator()
+    valid = user_validator.validate(value, schema)
+    if not valid:
+        raise ValueError(user_validator.errors)
+    return value
+
+
+class PaperInvite(Resource):
+    method_decorators = [jwt_required]
+
+    def _validate_request_by_creator(paper: Paper):
+        current_user: User = get_user_optional()
+        if not paper.uploaded_by == current_user:
+            abort(403, message="Only the creator of the doc can update permissions")
+
+    def _validate_user_has_permission(paper: Paper):
+        current_user = get_user_by_email()
+        if paper.uploaded_by == user:
+            return True
+        if Permission.query.filter(Permission.paper_id == paper.id, Permission.user_id == User.id).exists():
+            return True
+        abort(403, message="User is not allowed to add permissions")
+
+    def _get_or_create_user(user_data):
+        user: Optional[user] = User.query.filter_by(email=user_data['email']).first()
+        if not user:
+            name_parts = user_data['name'].rsplit(',', 1)
+            first_name = name_parts[0]
+            last_name = name_parts[1] if len(name_parts) >= 2 else ''
+            username = user_data['name'].replace(' ', '')
+            user = User(first_name=first_name, last_name=last_name,
+                        username=username, email=user_data['email'], pending=True)
+            db.session.add(user)
+        return user
+
+    @marshal_with({"author": fields.Nested(user_fields)})
+    def get(self, paper_id):
+        paper: Paper = Paper.query.get_or_404(paper_id)
+        current_user: User = get_user_by_email()
+        permissions: List[Permission] = db.session.query(Permission.user).filter(Permission.paper_id == paper_id).all()
+        users = [p.user for p in permissions]
+        if current_user not in users and paper.uploaded_by != current_user:
+            abort(403, message="Only authorized users can view permissions")
+        return {"author": paper.uploaded_by, "users": users}
+
+    def post(self, paper_id):
+        # Check if paper exists
+        parser = reqparse.RequestParser()
+        parser.add_argument('users', type=validateUsersList, required=True, action='append', location='json')
+        parser.add_argument('message', type=str, required=True, location='json')
+        data = parser.parse_args()
+        current_user = get_user_by_email()
+        current_user_name = current_user.first_name or current_user.username
+        paper: Paper = get_paper_or_404(paper_id)
+        self._validate_user_has_permission(paper)
+
+        users: List[User] = []
+        for u in data['users']:
+            users.append(self._get_or_create_user(u))
+        db.session.commit()
+
+        for u in users:
+            if not Permission.query.filter(Permission.paper_id == paper_id, Permission.user_id == u.id).exists():
+                permissions = Permission(paper_id=paper_id, user_id=u.id)
+                db.session.add(permissions)
+                threading.Thread(target=new_invite_notification, args=(
+                    u.id, paper_id, data['message'], current_user_name))
+        db.session.commit()
+        return
+
+    def delete(self, paper_id):
+        parser = reqparse.RequestParser()
+        parser.add_argument('user', type=validateUsersList, required=True, location='json')
+        data = parser.parse_args()
+        paper: Paper = Paper.query.get_or_404(paper_id)
+        self._validate_request_by_creator(paper)
+        deleted_user = get_user_by_email(data.get('email'))
+
+        Permission.query.filter(Permission.user_id == deleted_user.id, Permission.paper_id == paper_id).delete()
+        return {"message": "success"}
+
+
+api.add_resource(PaperInvite, "/<paper_id>/invite")
+
 api.add_resource(PaperResource, "/<paper_id>")
 api.add_resource(PaperReferencesResource, "/<paper_id>/references")
 api.add_resource(EditPaperResource, "/<paper_id>/edit")

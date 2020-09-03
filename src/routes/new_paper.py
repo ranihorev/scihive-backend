@@ -10,13 +10,13 @@ cache = Cache('cache')
 import requests
 import werkzeug
 from flask import Blueprint
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required
 from flask_restful import Resource, Api, reqparse, marshal_with, fields, abort
 from typing import NamedTuple, List, Tuple
 
 from .s3_utils import upload_to_s3, key_to_url, calc_md5
 from src.new_backend.models import Author, Collection, Paper, db
-from src.routes.user_utils import get_user
+from src.routes.user_utils import get_user_optional
 from sqlalchemy.orm.exc import NoResultFound
 
 app = Blueprint('new_paper', __name__)
@@ -96,7 +96,7 @@ class NewPaper(Resource):
 
     @marshal_with({'id': fields.String})
     def post(self):
-        user = get_user()
+        user = get_user_optional()
         if not user:
             abort(403, message='Not authorized')
         parser = reqparse.RequestParser()
@@ -141,7 +141,7 @@ class NewPaper(Resource):
                 db.session.add(author)
             author.papers.append(paper)
 
-        user = get_user()
+        user = get_user_optional()
         # Check if user has a collection for uploads (and that they are still in that group)
         uploads_collection = Collection.query.filter(
             Collection.created_by_id == user.id, Collection.users.any(id=user.id), Collection.is_uploads == True).first()

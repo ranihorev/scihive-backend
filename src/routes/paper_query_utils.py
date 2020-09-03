@@ -3,7 +3,6 @@ import logging
 import os
 from typing import List
 
-from flask_jwt_extended import get_jwt_identity
 from sqlalchemy import or_
 from .s3_utils import arxiv_to_s3
 from flask_restful import reqparse, fields, abort
@@ -45,7 +44,7 @@ def get_paper_or_404(paper_id: str):
     return paper
 
 
-def get_paper_with_pdf(paper_id):
+def get_paper_with_pdf(paper_id) -> Paper:
     paper = get_paper_or_none(paper_id)
     if not paper:
         # Fetch from arxiv
