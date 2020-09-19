@@ -3,11 +3,13 @@ import logging
 import os
 from typing import List
 
+from flask_restful import abort, fields, reqparse
 from sqlalchemy import or_
-from .s3_utils import arxiv_to_s3
-from flask_restful import reqparse, fields, abort
-from src.new_backend.models import Paper, db
+
+from src.new_backend.models import Paper, Permission, User, db
 from src.new_backend.scrapers.arxiv import fetch_entry
+
+from .s3_utils import arxiv_to_s3
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,10 @@ paper_with_code_fields = {
     'stars': fields.Integer(attribute='stars'),
     'paperswithcode': fields.String(attribute='link')
 }
+
+
+def has_permissions_to_paper(paper: Paper, user: User) -> bool:
+    return Permission.query.filter(Permission.paper_id == paper.id, Permission.user_id == User.id).first()
 
 
 def abs_to_pdf(url):

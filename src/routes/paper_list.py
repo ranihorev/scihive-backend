@@ -12,9 +12,8 @@ from sqlalchemy_searchable import search
 from src.new_backend.models import (Author, Collection, Paper, db,
                                     paper_collection_table, user_collection_table)
 from src.routes.user_utils import get_user_optional
-from src.utils import get_file_path
 from .paper_query_utils import paper_with_code_fields
-from sqlalchemy.orm import joinedload, load_only
+from sqlalchemy.orm import load_only
 
 app = Blueprint('paper_list', __name__)
 api = Api(app)
@@ -27,7 +26,7 @@ class Autocomplete(Resource):
         query_parser = reqparse.RequestParser()
         query_parser.add_argument('q', type=str, required=True, location='args')
         args = query_parser.parse_args()
-        q = args.get('q', '')
+        q: str = args.get('q', '')
         if len(q) < 2:
             return []
 

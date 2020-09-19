@@ -56,7 +56,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(80), nullable=False, index=True)
     username = db.Column(db.String(50), nullable=False)
-    password = db.Column(db.String(100), nullable=False)
+    password = db.Column(db.String(100), nullable=True)
     provider = db.Column(db.String(50), nullable=True)
     first_name = db.Column(db.String(100), nullable=True)
     last_name = db.Column(db.String(100), nullable=True)
@@ -152,7 +152,7 @@ class Permission(db.Model):
     paper_id = db.Column(db.ForeignKey('paper.id', ondelete="CASCADE"), primary_key=True)
     paper = db.relationship("Paper")
     user_id = db.Column(db.ForeignKey('user.id', ondelete="CASCADE"), primary_key=True)
-    user: User = db.relationship("User")
+    user: User = db.relationship("User", lazy='joined')
     creation_date = db.Column(db.DateTime(timezone=True), nullable=False, default=datetime.now)
 
 

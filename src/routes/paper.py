@@ -17,7 +17,7 @@ from src.new_backend.models import Author, Collection, Paper, Permission, db, Us
 from src.routes.s3_utils import key_to_url
 
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
-from .paper_query_utils import get_paper_with_pdf, paper_with_code_fields
+from .paper_query_utils import get_paper_with_pdf, has_permissions_to_paper, paper_with_code_fields
 from .user_utils import get_jwt_email, get_user_optional, get_user_by_email
 from src.routes.paper_query_utils import get_paper_or_404
 
@@ -43,6 +43,7 @@ user_fields = {
     'username': fields.String(),
     'first_name': fields.String(),
     'last_name': fields.String(),
+    'email': fields.String(),
 }
 
 
@@ -67,8 +68,9 @@ class PaperResource(Resource):
         paper = get_paper_with_pdf(paper_id)
         if paper.is_private:
             user = get_user_optional()
-            if not user or not (paper.uploaded_by == user or Permission.query.filter(Permission.user_id == user.id, Permission.paper_id == paper.id).exists()):
-                abort(403, message='Not authorized')
+            if not user or not (paper.uploaded_by == user or has_permissions_to_paper(paper, user)):
+                abort(
+                    403, message=f'You do not have permissions to view this paper. Please contact the owner - {paper.uploaded_by.username}')
         add_groups_to_paper(paper)
         return paper
 
@@ -198,36 +200,38 @@ def validateUsersList(value):
 class PaperInvite(Resource):
     method_decorators = [jwt_required]
 
-    def _validate_request_by_creator(paper: Paper):
+    def _validate_request_by_creator(self, paper: Paper):
         current_user: User = get_user_optional()
         if not paper.uploaded_by == current_user:
             abort(403, message="Only the creator of the doc can update permissions")
 
-    def _validate_user_has_permission(paper: Paper):
+    def _validate_user_has_permission(self, paper: Paper):
         current_user = get_user_by_email()
-        if paper.uploaded_by == user:
+        if paper.uploaded_by == current_user:
             return True
-        if Permission.query.filter(Permission.paper_id == paper.id, Permission.user_id == User.id).exists():
+        if has_permissions_to_paper(paper, user):
             return True
         abort(403, message="User is not allowed to add permissions")
 
-    def _get_or_create_user(user_data):
-        user: Optional[user] = User.query.filter_by(email=user_data['email']).first()
+    def _get_or_create_user(self, user_data) -> User:
+        email: str = user_data['email']
+        user: Optional[user] = User.query.filter_by(email=email).first()
         if not user:
-            name_parts = user_data['name'].rsplit(',', 1)
+            name: str = user_data['name']
+            name_parts = name.rsplit(' ', 1)
             first_name = name_parts[0]
             last_name = name_parts[1] if len(name_parts) >= 2 else ''
-            username = user_data['name'].replace(' ', '')
-            user = User(first_name=first_name, last_name=last_name,
-                        username=username, email=user_data['email'], pending=True)
+            username = name.replace(' ', '') if name else email.split('@')[0]
+            user: User = User(first_name=first_name, last_name=last_name,
+                              username=username, email=email, pending=True)
             db.session.add(user)
         return user
 
-    @marshal_with({"author": fields.Nested(user_fields)})
+    @marshal_with({"author": fields.Nested(user_fields), "users": fields.Nested(user_fields)})
     def get(self, paper_id):
         paper: Paper = Paper.query.get_or_404(paper_id)
         current_user: User = get_user_by_email()
-        permissions: List[Permission] = db.session.query(Permission.user).filter(Permission.paper_id == paper_id).all()
+        permissions: List[Permission] = db.session.query(Permission).filter(Permission.paper_id == paper_id).all()
         users = [p.user for p in permissions]
         if current_user not in users and paper.uploaded_by != current_user:
             abort(403, message="Only authorized users can view permissions")
@@ -250,23 +254,25 @@ class PaperInvite(Resource):
         db.session.commit()
 
         for u in users:
-            if not Permission.query.filter(Permission.paper_id == paper_id, Permission.user_id == u.id).exists():
+            if not has_permissions_to_paper(paper, u):
                 permissions = Permission(paper_id=paper_id, user_id=u.id)
                 db.session.add(permissions)
+                # TODO: Switch to task queue later
                 threading.Thread(target=new_invite_notification, args=(
-                    u.id, paper_id, data['message'], current_user_name))
+                    u.id, paper_id, current_user_name, data['message'])).start()
         db.session.commit()
-        return
+        return {"message": "success"}
 
     def delete(self, paper_id):
         parser = reqparse.RequestParser()
-        parser.add_argument('user', type=validateUsersList, required=True, location='json')
+        parser.add_argument('email', type=str, required=True, location='json')
         data = parser.parse_args()
         paper: Paper = Paper.query.get_or_404(paper_id)
-        self._validate_request_by_creator(paper)
+        self._validate_user_has_permission(paper)
         deleted_user = get_user_by_email(data.get('email'))
 
         Permission.query.filter(Permission.user_id == deleted_user.id, Permission.paper_id == paper_id).delete()
+        db.session.commit()
         return {"message": "success"}
 
 
