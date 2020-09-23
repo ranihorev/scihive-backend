@@ -17,7 +17,7 @@ from src.new_backend.models import Author, Collection, Paper, Permission, db, Us
 from src.routes.s3_utils import key_to_url
 
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
-from .paper_query_utils import get_paper_with_pdf, has_permissions_to_paper, paper_with_code_fields
+from .paper_query_utils import add_groups_to_paper, get_paper_with_pdf, has_permissions_to_paper, paper_with_code_fields
 from .user_utils import get_jwt_email, get_user_optional, get_user_by_email
 from src.routes.paper_query_utils import get_paper_or_404
 
@@ -51,13 +51,6 @@ class ItemState(Enum):
     existing = 1
     updated = 2
     new = 3
-
-
-def add_groups_to_paper(paper: Paper):
-    if get_jwt_identity():
-        user = get_user_optional()
-        paper.groups = db.session.query(Collection.id).filter(Collection.users.any(
-            id=user.id), Collection.papers.any(id=paper.id)).all()
 
 
 class PaperResource(Resource):

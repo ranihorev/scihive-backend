@@ -1,19 +1,19 @@
 import datetime
-import json
 import logging
-import re
 
-from flask import Blueprint, jsonify
-from flask_jwt_extended import get_jwt_identity, jwt_optional
+from flask import Blueprint
+from flask_jwt_extended import jwt_optional
 from flask_restful import Api, Resource, fields, inputs, marshal_with, reqparse
 from sqlalchemy import or_
+from sqlalchemy.orm import load_only
 from sqlalchemy_searchable import search
 
 from src.new_backend.models import (Author, Collection, Paper, db,
-                                    paper_collection_table, user_collection_table)
+                                    paper_collection_table,
+                                    user_collection_table)
 from src.routes.user_utils import get_user_optional
-from .paper_query_utils import paper_with_code_fields
-from sqlalchemy.orm import load_only
+
+from .paper_query_utils import paper_list_item_fields
 
 app = Blueprint('paper_list', __name__)
 api = Api(app)
@@ -64,22 +64,10 @@ class Autocomplete(Resource):
         return papers + authors
 
 
-papers_fields = {
-    'id': fields.String,
-    'title': fields.String,
-    'authors': fields.Nested({'name': fields.String}),
-    'time_published': fields.DateTime(dt_format='rfc822', attribute="publication_date"),
-    'abstract': fields.String(attribute="abstract"),
-    'groups': fields.Raw(attribute='collection_ids', default=[]),
-    'twitter_score': fields.Integer,
-    'num_stars': fields.Integer,
-    'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True),
-    'comments_count': fields.Integer
-}
-
 papers_list_fields = {
-    'papers': fields.Nested(papers_fields),
+    'papers': fields.Nested(paper_list_item_fields),
     'count': fields.Integer,
+    'hasMore': fields.Boolean,
 }
 
 
@@ -132,6 +120,9 @@ def add_collections(papers, user):
     return papers
 
 
+NUM_PER_PAGE = 10
+
+
 class Papers(Resource):
     method_decorators = [jwt_optional]
 
@@ -150,7 +141,7 @@ class Papers(Resource):
         query_parser.add_argument('q', type=str, required=False, location='args')
         args = query_parser.parse_args()
 
-        page_num = args.get('page_num', 0)
+        page_num = args.get('page_num', 1)
         q = args.get('q', '')
         author = args.get('author', '')
         age = args.get('age', 'all')
@@ -186,12 +177,12 @@ class Papers(Resource):
 
         query = sort_query(query, args, user)
         query = query.options(load_only('id', 'publication_date', 'abstract', 'title', 'twitter_score', 'num_stars'))
-        paginated_result = query.paginate(page=page_num, per_page=10)
+        paginated_result = query.paginate(page=page_num, per_page=NUM_PER_PAGE)
         papers = [p for p in paginated_result.items]
         if user:
             papers = add_collections(papers, user)
 
-        return {"count": paginated_result.total, "papers": papers}
+        return {"count": paginated_result.total, "papers": papers, "hasMore": page_num * NUM_PER_PAGE < paginated_result.total}
 
 
 api.add_resource(Autocomplete, "/autocomplete")

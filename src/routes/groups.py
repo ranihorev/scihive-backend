@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+import threading
 
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
@@ -65,6 +66,7 @@ class NewGroup(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('name', help='This field cannot be blank', required=True)
         parser.add_argument('color', required=False, type=str)
+        parser.add_argument('paper_id', required=False, type=str)
         data = parser.parse_args()
         user = get_user_by_email(get_jwt_email())
         collection = Collection(creation_date=datetime.utcnow(), name=data.get('name'),
@@ -73,12 +75,24 @@ class NewGroup(Resource):
         db.session.add(collection)
         db.session.commit()
         all_collections = get_user_groups(user)
+        paper_id = data.get('paper_id')
+        if paper_id:
+            paper = Paper.query.get_or_404(paper_id)
+            collection.papers.append(paper)
+            db.session.commit()
         response = {'groups': all_collections, 'new_id': collection.id}
         return response
 
 
 extended_group_fields = dict(group_fields)
 extended_group_fields['num_papers'] = fields.Integer
+
+
+def update_num_stars(paper_id: int):
+    # TODO: optimize this:
+    paper = Paper.query.get(paper_id)
+    paper.num_stars = len(paper.collections)
+    db.session.commit()
 
 
 class Group(Resource):
@@ -127,7 +141,7 @@ class Group(Resource):
         data = parser.parse_args()
         user = get_user_by_email()
         paper = Paper.query.get_or_404(data.get('paper_id'))
-        group = Collection.query.get_or_404(group_id)
+        group: Collection = Collection.query.get_or_404(group_id)
         if (data.get('add')):
             group.papers.append(paper)
         else:
@@ -136,10 +150,12 @@ class Group(Resource):
             except ValueError:
                 pass
 
-        # TODO: optimize this:
-        paper.num_stars = len(paper.collections)
         db.session.commit()
-        return {'message': 'success'}
+        threading.Thread(target=update_num_stars, args=(paper.id,)).start()
+
+        paper_groups = Collection.query.filter(Collection.papers.any(
+            id=paper.id), Collection.users.any(id=user.id)).all()
+        return paper_groups
 
 
 api.add_resource(Groups, '/all')
