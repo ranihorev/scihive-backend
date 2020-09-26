@@ -208,8 +208,7 @@ class PaperInvite(Resource):
         if not paper.uploaded_by == current_user:
             abort(403, message="Only the creator of the doc can update permissions")
 
-    def _validate_user_has_permission(self, paper: Paper):
-        current_user = get_user_by_email()
+    def _validate_user_has_permission(self, current_user: User, paper: Paper):
         if paper.uploaded_by == current_user:
             return True
         if has_permissions_to_paper(paper, user):
@@ -262,7 +261,7 @@ class PaperInvite(Resource):
         current_user = get_user_by_email()
         current_user_name = current_user.first_name or current_user.username
         paper: Paper = get_paper_or_404(paper_id)
-        self._validate_user_has_permission(paper)
+        self._validate_user_has_permission(current_user, paper)
 
         users: List[User] = []
         for u in data['users']:
@@ -283,10 +282,15 @@ class PaperInvite(Resource):
         parser.add_argument('email', type=str, required=True, location='json')
         data = parser.parse_args()
         paper: Paper = Paper.query.get_or_404(paper_id)
-        self._validate_user_has_permission(paper)
+        current_user = get_user_by_email()
+        self._validate_user_has_permission(current_user, paper)
         deleted_user = get_user_by_email(data.get('email'))
 
         Permission.query.filter(Permission.user_id == deleted_user.id, Permission.paper_id == paper_id).delete()
+        shared_collection: Collection = Collection.query.filter(
+            Collection.created_by_id == deleted_user.id, Collection.is_shared == True).first()
+        if shared_collection:
+            shared_collection.papers.remove(paper)
         db.session.commit()
         return {"message": "success"}
 
