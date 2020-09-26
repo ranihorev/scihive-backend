@@ -106,8 +106,12 @@ class Group(Resource):
     @jwt_required
     @marshal_with(group_fields)
     def delete(self, group_id: str):
-        group = Collection.query.get_or_404(group_id)
+        group: Collection = Collection.query.get_or_404(group_id)
         user = get_user_by_email()
+        if group.created_by_id == user.id and (group.is_shared or group.is_uploads):
+            # Can not leave these collections
+            return get_user_groups(user)
+
         try:
             group.users.remove(user)
             db.session.commit()

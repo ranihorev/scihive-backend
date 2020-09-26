@@ -82,8 +82,9 @@ def get_paper_with_pdf(paper_id) -> Paper:
     return paper
 
 
-def add_groups_to_paper(paper: Paper):
+def get_paper_user_groups(paper: Paper) -> List[Collection]:
     if get_jwt_identity():
         user = get_user_optional()
-        paper.groups = db.session.query(Collection.id).filter(Collection.users.any(
+        return db.session.query(Collection.id).filter(Collection.users.any(
             id=user.id), Collection.papers.any(id=paper.id)).all()
+    return []

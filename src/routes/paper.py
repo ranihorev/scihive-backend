@@ -17,7 +17,7 @@ from src.new_backend.models import Author, Collection, Paper, Permission, db, Us
 from src.routes.s3_utils import key_to_url
 
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
-from .paper_query_utils import add_groups_to_paper, get_paper_with_pdf, has_permissions_to_paper, paper_with_code_fields
+from .paper_query_utils import get_paper_user_groups, get_paper_with_pdf, has_permissions_to_paper, paper_with_code_fields
 from .user_utils import get_jwt_email, get_user_optional, get_user_by_email
 from src.routes.paper_query_utils import get_paper_or_404
 
@@ -53,6 +53,16 @@ class ItemState(Enum):
     new = 3
 
 
+class PaperGroupsResource(Resource):
+    method_decorators = [jwt_required]
+
+    @marshal_with({'groups': fields.List(fields.String)})
+    def get(self, paper_id):
+        paper = Paper.query.get_or_404(paper_id)
+        groups = [g.id for g in get_paper_user_groups(paper)]
+        return {'groups': groups}
+
+
 class PaperResource(Resource):
     method_decorators = [jwt_optional]
 
@@ -64,7 +74,7 @@ class PaperResource(Resource):
             if not user or not (paper.uploaded_by == user or has_permissions_to_paper(paper, user)):
                 abort(
                     403, message=f'You do not have permissions to view this paper. Please contact the owner - {paper.uploaded_by.username}')
-        add_groups_to_paper(paper)
+        paper.groups = get_paper_user_groups(paper)
         return paper
 
 
@@ -174,7 +184,7 @@ class EditPaperResource(Resource):
                 db.session.add(new_author)
 
         db.session.commit()
-        add_groups_to_paper(paper)
+        paper.groups = get_paper_user_groups(paper)
         return paper
 
 
@@ -230,6 +240,19 @@ class PaperInvite(Resource):
             abort(403, message="Only authorized users can view permissions")
         return {"author": paper.uploaded_by, "users": users}
 
+    def _add_permissions_to_user(self, paper: Paper, user: User):
+        permissions = Permission(paper_id=paper.id, user_id=user.id)
+        db.session.add(permissions)
+        shared_collection = Collection.query.filter(
+            Collection.created_by_id == user.id, Collection.is_shared == True).first()
+        if not shared_collection:
+            shared_collection = Collection(creation_date=datetime.utcnow(), name="Shared",
+                                           created_by_id=user.id, is_shared=True)
+            shared_collection.users.append(user)
+            db.session.add(shared_collection)
+
+        shared_collection.papers.append(paper)
+
     def post(self, paper_id):
         # Check if paper exists
         parser = reqparse.RequestParser()
@@ -248,8 +271,7 @@ class PaperInvite(Resource):
 
         for u in users:
             if not has_permissions_to_paper(paper, u):
-                permissions = Permission(paper_id=paper_id, user_id=u.id)
-                db.session.add(permissions)
+                self._add_permissions_to_user(paper, u)
                 # TODO: Switch to task queue later
                 threading.Thread(target=new_invite_notification, args=(
                     u.id, paper_id, current_user_name, data['message'])).start()
@@ -272,5 +294,6 @@ class PaperInvite(Resource):
 api.add_resource(PaperInvite, "/<paper_id>/invite")
 
 api.add_resource(PaperResource, "/<paper_id>")
+api.add_resource(PaperGroupsResource, "/<paper_id>/groups")
 api.add_resource(PaperReferencesResource, "/<paper_id>/references")
 api.add_resource(EditPaperResource, "/<paper_id>/edit")

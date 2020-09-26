@@ -100,6 +100,7 @@ class Paper(db.Model):
     references = db.Column(db.JSON)
     paper_with_code = db.relationship("PaperWithCode", uselist=False, lazy='joined')
     unsubscribed_users = db.relationship("User", back_populates="unsubscribed_papers", secondary=unsubscribe_table)
+    permissions = db.relationship("Permission", lazy='joined')
 
     def __repr__(self):
         return f"{self.id} - {self.title}"
@@ -144,6 +145,7 @@ class Collection(db.Model):
     created_by_id = db.Column(db.ForeignKey('user.id'), nullable=False)
     created_by = db.relationship("User")
     is_uploads = db.Column(db.Boolean, nullable=True)
+    is_shared = db.Column(db.Boolean, nullable=True, default=False)
     old_id = db.Column(db.String(80), index=True)
 
 

@@ -8,7 +8,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import load_only
 from sqlalchemy_searchable import search
 
-from src.new_backend.models import (Author, Collection, Paper, db,
+from src.new_backend.models import (Author, Collection, Paper, Permission, db,
                                     paper_collection_table,
                                     user_collection_table)
 from src.routes.user_utils import get_user_optional
@@ -92,7 +92,6 @@ def sort_query(query, args, user=None):
             user_collections = db.session.query(user_collection_table.c.collection_id).filter(
                 user_collection_table.c.user_id == user.id).all()
 
-            # Join papers with paper collections and filtering only on the collections relevant to the user - trying to do it w/o a join
             last_added = query.join(paper_collection_table).filter(paper_collection_table.c.collection_id.in_(user_collections)).order_by(
                 Paper.id.asc(), paper_collection_table.c.date_added.desc()).distinct(Paper.id).with_entities(Paper.id, paper_collection_table.c.date_added).subquery()
 
