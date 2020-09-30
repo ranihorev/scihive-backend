@@ -76,7 +76,7 @@ def visibilityObj(obj):
 
 
 class CommentsResource(Resource):
-    method_decorators = [jwt_required]
+    method_decorators = [jwt_optional]
 
     @marshal_with(comment_fields, envelope='comments')
     def get(self, paper_id):
@@ -88,6 +88,7 @@ class CommentsResource(Resource):
         paper = Paper.query.get_or_404(paper_id)
         enforce_permissions_to_paper(paper, user)
         query = Comment.query.filter(Comment.paper_id == paper_id)
+        # TODO: simplify this:
         if group_id:
             query = query.filter(Comment.collection_id == group_id)
         else:
