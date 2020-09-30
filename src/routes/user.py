@@ -4,6 +4,7 @@ import string
 
 from flask import Blueprint, jsonify
 import logging
+from flask_jwt_extended.view_decorators import jwt_optional
 
 from flask_restful import Api, Resource, abort, reqparse, marshal_with, fields
 from flask_jwt_extended import (create_access_token, jwt_required, jwt_refresh_token_required,
@@ -37,30 +38,12 @@ def make_error(status_code, message):
 
 class UserRegistration(Resource):
     def post(self):
-        data = parser.parse_args()
+        abort(404, message='Password registration has been removed')
 
-        if db.session.query(User.email).filter_by(email=data['email']).scalar() is not None:
-            return {'message': 'User {} already exists'.format(data['email'])}
 
-        email = data['email']
-        password = generate_hash(data['password'])
-        username = data['username']
-        if not username:
-            username = 'Anon_' + ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
-
-        try:
-            new_user = User(username=username, email=email, password=password)
-            db.session.add(new_user)
-            db.session.commit()
-
-            access_token = create_access_token(identity=data['email'])
-            # refresh_token = create_refresh_token(identity=data['email'])
-            resp = jsonify({'message': 'User was created', 'username': username, 'email': email})
-            set_access_cookies(resp, access_token)
-            return resp
-
-        except Exception as e:
-            return {'message': 'Something went wrong'}, 500
+def get_user_profile(user: User):
+    return {'username': user.username, 'firstName': user.first_name,
+            'lastName': user.last_name, 'email': user.email, 'provider': user.provider}
 
 
 class UserLogin(Resource):
@@ -69,9 +52,11 @@ class UserLogin(Resource):
         current_user = get_user_by_email(data['email'])
 
         if not current_user:
-            return {'message': 'User {} doesn\'t exist'.format(data['email'])}, 401
+            abort(401, message='User {} doesn\'t exist'.format(data['email']))
         elif current_user.pending:
-            return {'message': 'User is pending. Please log in via Google'}, 403
+            abort(403, 'User is pending. Please log in via Google')
+        elif current_user.provider:
+            abort(403, 'Please log in via Google')
 
         if verify_hash(data['password'], current_user.password):
             access_token = create_access_token(identity=data['email'])
@@ -82,9 +67,9 @@ class UserLogin(Resource):
                             'email': current_user.email}
                            )
             set_access_cookies(resp, access_token)
-            return resp
+            return get_user_profile(current_user)
         else:
-            return {'message': 'Wrong credentials'}, 401
+            return abort(401, message="Wrong credentials")
 
 
 class UserLogoutAccess(Resource):
@@ -110,9 +95,14 @@ class TokenRefresh(Resource):
 
 
 class ValidateUser(Resource):
+
+    @jwt_optional
     def get(self):
         current_user = get_jwt_email()
-        return {'status': bool(current_user)}
+        if current_user:
+            user = get_user_by_email(current_user)
+            return get_user_profile(user)
+        return None
 
 
 class Unsubscribe(Resource):
@@ -144,15 +134,22 @@ class GoogleLogin(Resource):
             print(e)
             abort(403, message='invalid token')
 
+        email = info['email']
+
+        current_user_email = get_jwt_email()
+        if current_user_email and current_user_email != email:
+            # TODO: Allow linking non-matching email addresses
+            abort(403, message='Your Google email address does not match your existing user')
+
         # create user if not missing
-        user = User.query.filter_by(email=info['email']).first()
+        user = User.query.filter_by(email=email).first()
         first_name: str = info['given_name']
         last_name: str = info['family_name']
         if not user:
             username = first_name + ' ' + last_name
             username.replace(' ', '_')
             new_user = User(username=username,
-                            email=info['email'], password='', first_name=first_name, last_name=last_name, provider='Google')
+                            email=email, password='', first_name=first_name, last_name=last_name, provider='Google')
             db.session.add(new_user)
             db.session.commit()
         elif not user.provider:
@@ -163,7 +160,7 @@ class GoogleLogin(Resource):
             db.session.commit()
 
         access_token = create_access_token(
-            identity={'email': info['email'], 'provider': 'Google', 'first_name': first_name, 'last_name': last_name})
+            identity={'email': email, 'provider': 'Google', 'first_name': first_name, 'last_name': last_name})
         resp = jsonify({'message': 'User was created/merged'})
         set_access_cookies(resp, access_token)
         return resp
@@ -172,7 +169,7 @@ class GoogleLogin(Resource):
 api.add_resource(GoogleLogin, '/google_login')
 api.add_resource(UserRegistration, '/register')
 api.add_resource(UserLogin, '/login')
-api.add_resource(UserLogoutAccess, '/logout/access')
+api.add_resource(UserLogoutAccess, '/logout')
 api.add_resource(TokenRefresh, '/token/refresh')
 api.add_resource(ValidateUser, '/validate')
 api.add_resource(Unsubscribe, '/unsubscribe/<token>')

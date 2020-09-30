@@ -41,7 +41,15 @@ paper_list_item_fields = {
 
 
 def has_permissions_to_paper(paper: Paper, user: User) -> bool:
-    return Permission.query.filter(Permission.paper_id == paper.id, Permission.user_id == User.id).first()
+    return Permission.query.filter(Permission.paper_id == paper.id, Permission.user_id == user.id).first()
+
+
+def enforce_permissions_to_paper(paper: Paper, user: User) -> bool:
+    if not paper.is_private:
+        return True
+    if paper.uploaded_by_id != user.id and not has_permissions_to_paper(paper, user):
+        abort(403, message='Missing paper perimssions')
+    return True
 
 
 def abs_to_pdf(url):

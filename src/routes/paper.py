@@ -6,11 +6,11 @@ from typing import List, Optional
 
 from cerberus import Validator
 from sqlalchemy.sql.functions import user
-from src.routes.notifications.index import new_invite_notification, send_email
+from src.routes.notifications.index import new_invite_notification
 
 import pytz
 from flask import Blueprint
-from flask_jwt_extended import get_jwt_identity, jwt_optional, jwt_required
+from flask_jwt_extended import jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
 from src.new_backend.models import Author, Collection, Paper, Permission, db, User

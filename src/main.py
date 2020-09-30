@@ -115,8 +115,8 @@ app.register_blueprint(groups_routes, url_prefix='/groups')
 app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
 
-register_collab_blueprint(paper_routes, url_prefix='/collab/paper')
-register_collab_blueprint(comments_routes, url_prefix='/collab/paper')
+# register_collab_blueprint(paper_routes, url_prefix='/collab/paper')
+# register_collab_blueprint(comments_routes, url_prefix='/collab/paper')
 
 
 @app.cli.command("fetch-arxiv")

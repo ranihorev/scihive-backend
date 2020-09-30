@@ -9,8 +9,8 @@ from sqlalchemy import or_
 from typing import Optional
 from src.new_backend.models import Collection, Comment, Paper, Reply, db, User
 
-from .paper_query_utils import PUBLIC_TYPES
-from .user_utils import get_jwt_email, get_user_optional
+from .paper_query_utils import PUBLIC_TYPES, enforce_permissions_to_paper
+from .user_utils import get_jwt_email, get_user_by_email, get_user_optional
 from src.routes.notifications.index import new_comment_notification
 import threading
 
@@ -76,14 +76,17 @@ def visibilityObj(obj):
 
 
 class CommentsResource(Resource):
-    method_decorators = [jwt_optional]
+    method_decorators = [jwt_required]
 
     @marshal_with(comment_fields, envelope='comments')
     def get(self, paper_id):
+        # TODO: check permissions
         parser = reqparse.RequestParser()
         parser.add_argument('group', required=False, location='args')
         group_id = parser.parse_args().get('group')
-        user = get_user_optional()
+        user = get_user_by_email()
+        paper = Paper.query.get_or_404(paper_id)
+        enforce_permissions_to_paper(paper, user)
         query = Comment.query.filter(Comment.paper_id == paper_id)
         if group_id:
             query = query.filter(Comment.collection_id == group_id)
@@ -96,7 +99,7 @@ class CommentsResource(Resource):
 
 
 class NewCommentResource(Resource):
-    method_decorators = [jwt_optional]
+    method_decorators = [jwt_required]
 
     def notify_if_needed(self, user_id: Optional[int], paper: Paper, comment: Comment):
         try:
@@ -135,8 +138,9 @@ class NewCommentResource(Resource):
 
         paper = Paper.query.get_or_404(paper_id)
 
-        user = get_user_optional()
-        user_id = user.id if user else None
+        user = get_user_by_email()
+        user_id = user.id
+        enforce_permissions_to_paper(paper, user)
 
         comment = Comment(highlighted_text=data['highlighted_text'], text=data['text'], paper_id=paper.id, is_general=is_general, shared_with=visibility['type'],
                           creation_date=datetime.utcnow(), user_id=user_id, position=data['position'], collection_id=collection_id)
@@ -182,16 +186,18 @@ class CommentResource(Resource):
 
 
 class ReplyResource(Resource):
-    method_decorators = [jwt_optional]
+    method_decorators = [jwt_required]
 
     @marshal_with(comment_fields, envelope='comment')
     def post(self, comment_id):
-        comment = Comment.query.get_or_404(comment_id)
+        comment: Comment = Comment.query.get_or_404(comment_id)
         new_reply_parser = reqparse.RequestParser()
         new_reply_parser.add_argument('text', help='This field cannot be blank',
                                       type=str, location='json', required=True)
         data = new_reply_parser.parse_args()
-        user = get_user_optional()
+        user = get_user_by_email()
+
+        enforce_permissions_to_paper(comment.paper, user)
 
         reply = Reply(parent_id=comment.id, text=data['text'], user_id=user.id if user else None)
         db.session.add(reply)
