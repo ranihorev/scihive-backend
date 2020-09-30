@@ -235,7 +235,7 @@ class PaperInvite(Resource):
         current_user: User = get_user_by_email()
         permissions: List[Permission] = db.session.query(Permission).filter(Permission.paper_id == paper_id).all()
         users = [p.user for p in permissions]
-        if current_user not in users and paper.uploaded_by != current_user:
+        if paper.is_private and (current_user not in users and paper.uploaded_by != current_user):
             abort(403, message="Only authorized users can view permissions")
         return {"author": paper.uploaded_by, "users": users}
 
