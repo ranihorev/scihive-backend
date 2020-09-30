@@ -84,7 +84,7 @@ class CommentsResource(Resource):
         parser = reqparse.RequestParser()
         parser.add_argument('group', required=False, location='args')
         group_id = parser.parse_args().get('group')
-        user = get_user_by_email()
+        user = get_user_optional()
         paper = Paper.query.get_or_404(paper_id)
         enforce_permissions_to_paper(paper, user)
         query = Comment.query.filter(Comment.paper_id == paper_id)

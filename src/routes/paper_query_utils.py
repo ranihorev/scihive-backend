@@ -2,7 +2,7 @@ import datetime
 import logging
 import os
 from src.routes.user_utils import get_user_optional
-from typing import List
+from typing import List, Optional
 from flask_jwt_extended.utils import get_jwt_identity
 
 from flask_restful import abort, fields, reqparse
@@ -44,10 +44,10 @@ def has_permissions_to_paper(paper: Paper, user: User) -> bool:
     return Permission.query.filter(Permission.paper_id == paper.id, Permission.user_id == user.id).first()
 
 
-def enforce_permissions_to_paper(paper: Paper, user: User) -> bool:
+def enforce_permissions_to_paper(paper: Paper, user: Optional[User]) -> bool:
     if not paper.is_private:
         return True
-    if paper.uploaded_by_id != user.id and not has_permissions_to_paper(paper, user):
+    if not user or (paper.uploaded_by_id != user.id and not has_permissions_to_paper(paper, user)):
         abort(403, message='Missing paper perimssions')
     return True
 
