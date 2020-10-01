@@ -14,11 +14,6 @@ import urllib.request
 import feedparser
 from ..models import Paper, Author, ArxivPaper, Tag, db
 from .utils import catch_exceptions
-from src.logger import logger_config
-from src.routes.s3_utils import arxiv_to_s3
-import os
-import pytz
-from sqlalchemy.orm.exc import NoResultFound
 
 logger = logging.getLogger(__name__)
 BASE_URL = 'http://export.arxiv.org/api/query?'  # base api query url
@@ -88,7 +83,7 @@ def add_tags(tags, paper, source='arXiv'):
         db.session.commit()
 
 
-def handle_entry(e, download_to_s3=False):
+def handle_entry(e):
     paper_data = encode_feedparser_dict(e)
 
     # Count of added and skipper papers
@@ -115,11 +110,6 @@ def handle_entry(e, download_to_s3=False):
     if not paper:
         # Getting the PDF from the dictionary
         local_pdf = None
-        if download_to_s3:
-            if os.environ.get('S3_BUCKET_NAME'):
-                local_pdf = arxiv_to_s3(paper.original_pdf)
-            else:
-                logger.error('S3 bucket name is missing')
 
         paper = Paper(title=paper_data['title'], link=paper_data['link'], original_pdf=pdf_link, local_pdf=local_pdf, publication_date=paper_data['time_published'],
                       abstract=paper_data['summary'], original_id=paper_data['_rawid'], last_update_date=paper_data['time_updated'])
@@ -169,13 +159,13 @@ def handle_entry(e, download_to_s3=False):
 # Is this method redundant?
 
 
-def fetch_entry(paper_id, download_to_s3=False):
+def fetch_entry(paper_id):
     paper_id = paper_id.replace('_', '/')
     try:
         with urllib.request.urlopen(f'{BASE_URL}id_list={paper_id}') as url:
             response = url.read()
         parse = feedparser.parse(response)
-        paper, added, skipped = handle_entry(parse.entries[0], download_to_s3)
+        paper, added, skipped = handle_entry(parse.entries[0])
         return paper
     except Exception as e:
         logger.warning(f'Paper not found on arxiv - {paper_id}')

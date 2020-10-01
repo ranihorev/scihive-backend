@@ -9,13 +9,13 @@ from sqlalchemy.sql.functions import user
 from src.routes.notifications.index import new_invite_notification
 
 import pytz
-from flask import Blueprint
+from flask import Blueprint, send_from_directory
 from flask_jwt_extended import jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
-from src.new_backend.models import Author, Collection, Paper, Permission, db, User
-from src.routes.s3_utils import key_to_url
+from src.new_backend.models import Author, Collection, Paper, db, User, Permission
 
+from .file_utils import LOCAL_FILES_DIRECTORY, s3_available
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
 from .paper_query_utils import get_paper_user_groups, get_paper_with_pdf, has_permissions_to_paper, paper_with_code_fields
 from .user_utils import get_jwt_email, get_user_optional, get_user_by_email
@@ -24,7 +24,6 @@ from src.routes.paper_query_utils import get_paper_or_404
 app = Blueprint('paper', __name__)
 api = Api(app)
 logger = logging.getLogger(__name__)
-
 
 paper_fields = {
     'id': fields.String,
@@ -150,7 +149,9 @@ class EditPaperResource(Resource):
     def post(self, paper_id):
         parser = reqparse.RequestParser()
         parser.add_argument('title', type=str, required=True)
-        parser.add_argument('date', type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.UTC), required=True,
+        parser.add_argument('date',
+                            type=lambda x: datetime.strptime(x, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=pytz.UTC),
+                            required=True,
                             dest="publication_date")
         parser.add_argument('abstract', type=str, required=True)
         parser.add_argument('authors', type=validateAuthor, required=False, action="append")
@@ -301,3 +302,9 @@ api.add_resource(PaperResource, "/<paper_id>")
 api.add_resource(PaperGroupsResource, "/<paper_id>/groups")
 api.add_resource(PaperReferencesResource, "/<paper_id>/references")
 api.add_resource(EditPaperResource, "/<paper_id>/edit")
+
+# We only want this endpoint if we're using local filesystem to store PDFs
+if not s3_available:
+    @app.route('/files/<path:path>')
+    def serve_local_files(path):
+        return send_from_directory(LOCAL_FILES_DIRECTORY, path)

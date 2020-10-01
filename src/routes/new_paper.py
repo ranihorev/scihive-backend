@@ -1,4 +1,3 @@
-import io
 import logging
 import xml.etree.ElementTree as ET
 import re
@@ -12,9 +11,9 @@ import werkzeug
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
 from flask_restful import Resource, Api, reqparse, marshal_with, fields, abort
-from typing import NamedTuple, List, Tuple
+from typing import NamedTuple, List, Tuple, Any, Dict
 
-from .s3_utils import upload_to_s3, key_to_url, calc_md5
+from .file_utils import get_uploader
 from src.new_backend.models import Author, Collection, Paper, db
 from src.routes.user_utils import get_user_optional
 from sqlalchemy.orm.exc import NoResultFound
@@ -48,7 +47,7 @@ class AuthorMarshal(fields.Raw):
         return {'name': value.get_name()}
 
 
-def extract_paper_metadata(file_content) -> Tuple[str, List[AuthorObj], str]:
+def extract_paper_metadata(file_content) -> Tuple[bool, Dict[str, Any]]:
     try:
         grobid_res = requests.post('http://cloud.science-miner.com/grobid/api/processHeaderDocument',
                                    data={'consolidateHeader': 1}, files={'input': file_content})
@@ -106,28 +105,22 @@ class NewPaper(Resource):
         if not data.file and not data.link:
             abort(401, messsage='Missing content')
 
-        if data.link:
-            res = requests.get(data.link)
-            file_stream = io.BytesIO(res.content)
-        else:
-            file_stream = data.file.stream
+        # Let's stream directly from the link instead of buffering the file
+        file_stream = requests.get(data.link, stream=True).raw if data.link else data.file.stream
 
-        # Upload to s3
-        content = file_stream.read()
-        filename_md5 = calc_md5(content)
-        upload_to_s3(filename_md5, file_stream)
+        # Upload the file
+        file_content, file_hash, pdf_link = get_uploader().upload_from_file(file_stream)
 
         # get paper meta data
-        metadata, expire = cache.get(filename_md5, expire_time=True)
+        metadata, _ = cache.get(file_hash, expire_time=True)
         if not metadata:
-            success, metadata = extract_paper_metadata(content)
+            success, metadata = extract_paper_metadata(file_content)
             if success:
-                cache.set(filename_md5, metadata, expire=24 * 60 * 60)
+                cache.set(file_hash, metadata, expire=24 * 60 * 60)
 
         # Create paper
-        pdf_link = key_to_url(filename_md5, with_prefix=True) + '.pdf'
         paper = Paper(title=metadata['title'], original_pdf=pdf_link, local_pdf=pdf_link, publication_date=metadata['date'],
-                      abstract=metadata['abstract'], last_update_date=datetime.now(), is_private=True, original_id=filename_md5, uploaded_by_id=user.id)
+                      abstract=metadata['abstract'], last_update_date=datetime.now(), is_private=True, original_id=file_hash, uploaded_by_id=user.id)
         db.session.add(paper)
 
         # Create authors
