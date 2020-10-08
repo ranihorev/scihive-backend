@@ -5,6 +5,7 @@ so this file will be loaded first, and then new results will be added to it.
 """
 import logging
 import re
+from typing import Optional, Tuple
 
 import dateutil.parser
 import time
@@ -13,7 +14,7 @@ import argparse
 import urllib.request
 import feedparser
 from ..models import Paper, Author, ArxivPaper, Tag, db
-from .utils import catch_exceptions
+from .utils import catch_exceptions, parse_arxiv_url
 
 logger = logging.getLogger(__name__)
 BASE_URL = 'http://export.arxiv.org/api/query?'  # base api query url
@@ -37,15 +38,6 @@ def encode_feedparser_dict(d):
         return l
     else:
         return d
-
-
-def parse_arxiv_url(url):
-    """
-    examples is http://arxiv.org/abs/1512.08756v2
-    we want to extract the raw id and the version
-    """
-    match = re.search(r"/(?P<id>(\d{4}\.\d{4,5})|([a-zA-Z\-.]+/\d{6,10}))(v(?P<version>\d+))?$", url)
-    return match.group('id').replace('/', '_'), int(match.group('version') or 0)
 
 
 def get_pdf_link(paper_data):
@@ -83,7 +75,7 @@ def add_tags(tags, paper, source='arXiv'):
         db.session.commit()
 
 
-def handle_entry(e):
+def handle_entry(e) -> Tuple[Paper, bool, bool]:
     paper_data = encode_feedparser_dict(e)
 
     # Count of added and skipper papers
@@ -154,12 +146,12 @@ def handle_entry(e):
     tags = get_tags(paper_data)
     add_tags(tags, paper)
 
-    return paper_data, added, skipped
+    return paper, added, skipped
 
 # Is this method redundant?
 
 
-def fetch_entry(paper_id):
+def fetch_entry(paper_id) -> Optional[Paper]:
     paper_id = paper_id.replace('_', '/')
     try:
         with urllib.request.urlopen(f'{BASE_URL}id_list={paper_id}') as url:

@@ -53,7 +53,7 @@ def abs_to_pdf(url):
     return url.replace('abs', 'pdf').replace('http', 'https') + '.pdf'
 
 
-def get_paper_or_none(paper_id: str):
+def get_paper_or_none(paper_id: str) -> Optional[Paper]:
     query = [Paper.original_id == paper_id]
     try:
         query.append(Paper.id == int(paper_id))
@@ -74,8 +74,9 @@ def get_paper_with_pdf(paper_id) -> Paper:
     paper = get_paper_or_none(paper_id)
     if not paper:
         # Fetch from arxiv
-        fetch_entry(paper_id)
-        paper = get_paper_or_404(paper_id)
+        paper = fetch_entry(paper_id)
+        if not paper:
+            abort(404, message='Paper not found')
 
     if not paper.local_pdf:
         # TODO: expand this method to any source
