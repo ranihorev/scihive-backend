@@ -95,7 +95,7 @@ def extract_paper_metadata(file_content) -> Tuple[bool, Dict[str, Any]]:
 class NewPaper(Resource):
     method_decorators = [jwt_required]
 
-    def _handle_non_arxiv_paper(self, data):
+    def _handle_non_arxiv_paper(self, data, user: User):
         # Let's stream directly from the link instead of buffering the file
         if data.link:
             response = requests.get(data.link, stream=True)
@@ -163,7 +163,7 @@ class NewPaper(Resource):
         if data.link and 'arxiv.org' in urlparse(data.link).netloc:
             paper = self._handle_arxiv_paper(data.link, user)
         else:
-            paper = self._handle_non_arxiv_paper(data)
+            paper = self._handle_non_arxiv_paper(data, user)
 
         # Check if user has a collection for uploads (and that they are still in that group)
         uploads_collection = Collection.query.filter(
