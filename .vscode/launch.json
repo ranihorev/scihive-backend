@@ -10,7 +10,7 @@
       "request": "launch",
       "module": "flask",
       "env": {
-        "FLASK_APP": "app.py",
+        "FLASK_APP": "src/app.py",
         "FLASK_ENV": "development",
         "FLASK_DEBUG": "0"
       },
@@ -22,7 +22,7 @@
       "request": "launch",
       "module": "flask",
       "env": {
-        "FLASK_APP": "app.py",
+        "FLASK_APP": "src/app.py",
         "FLASK_ENV": "development",
         "FLASK_DEBUG": "1"
       },
@@ -34,7 +34,7 @@
       "request": "launch",
       "module": "flask",
       "env": {
-        "FLASK_APP": "app.py",
+        "FLASK_APP": "src/app.py",
         "FLASK_ENV": "development",
         "FLASK_DEBUG": "0"
       },
@@ -46,7 +46,7 @@
       "request": "launch",
       "module": "flask",
       "env": {
-        "FLASK_APP": "app.py",
+        "FLASK_APP": "src/app.py",
         "FLASK_ENV": "development",
         "FLASK_DEBUG": "0"
       },
@@ -58,7 +58,7 @@
       "request": "launch",
       "module": "flask",
       "env": {
-        "FLASK_APP": "app.py",
+        "FLASK_APP": "src/app.py",
         "FLASK_ENV": "development",
         "FLASK_DEBUG": "0"
       },
@@ -70,7 +70,7 @@
       "request": "launch",
       "module": "flask",
       "env": {
-        "FLASK_APP": "app.py",
+        "FLASK_APP": "src/app.py",
         "FLASK_ENV": "development",
         "FLASK_DEBUG": "0"
       },

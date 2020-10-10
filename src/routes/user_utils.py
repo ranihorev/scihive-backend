@@ -1,11 +1,10 @@
 import logging
 from typing import Optional
-import uuid
 from datetime import datetime
 from flask_jwt_extended import get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from src.new_backend.models import User, db
+from ..models import User, db
 from flask_restful import abort
 
 logger = logging.getLogger(__name__)

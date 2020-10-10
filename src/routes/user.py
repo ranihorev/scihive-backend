@@ -1,6 +1,4 @@
 import os
-import random
-import string
 
 from flask import Blueprint, jsonify
 import logging
@@ -13,10 +11,9 @@ from flask_jwt_extended import (create_access_token, jwt_required, jwt_refresh_t
 from google.oauth2 import id_token
 from google.auth.transport import requests
 
-from ..new_backend.models import User, db, RevokedToken
+from ..models import User, db, RevokedToken, Paper
 from .user_utils import generate_hash, get_jwt_email, verify_hash, get_user_by_email
 from .notifications.index import deserialize_token
-from src.new_backend.models import Paper
 
 app = Blueprint('user', __name__)
 api = Api(app)

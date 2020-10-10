@@ -1,5 +1,5 @@
 import logging
-from src.routes.user_utils import get_user_optional
+from .user_utils import get_user_optional
 from typing import List, Optional
 from flask_jwt_extended.utils import get_jwt_identity
 
@@ -7,8 +7,8 @@ from flask_restful import abort, fields
 from sqlalchemy import or_
 from .file_utils import get_uploader
 
-from src.new_backend.models import Collection, Paper, Permission, User, db
-from src.new_backend.scrapers.arxiv import fetch_entry
+from ..models import Collection, Paper, Permission, User, db
+from ..scrapers.arxiv import fetch_entry
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required
 from flask_restful import (Api, Resource, abort, fields, inputs, marshal_with,
                            reqparse)
 from typing import List
-from src.new_backend.models import Collection, Paper, db, User
+from ..models import Collection, Paper, db, User
 
 from .user_utils import get_jwt_email, get_user_by_email
 

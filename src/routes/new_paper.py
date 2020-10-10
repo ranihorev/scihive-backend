@@ -1,6 +1,6 @@
 import logging
-from src.new_backend.scrapers.arxiv import fetch_entry
-from src.new_backend.scrapers.utils import parse_arxiv_url
+from ..scrapers.arxiv import fetch_entry
+from ..scrapers.utils import parse_arxiv_url
 import xml.etree.ElementTree as ET
 import re
 from datetime import datetime
@@ -13,7 +13,7 @@ from flask_restful import Resource, Api, reqparse, marshal_with, fields, abort
 from typing import NamedTuple, List, Tuple, Any, Dict
 
 from .file_utils import get_uploader
-from src.new_backend.models import Author, Collection, Paper, db, User
+from ..models import Author, Collection, Paper, db, User
 from .user_utils import get_user_by_email
 from sqlalchemy.orm.exc import NoResultFound
 from urllib.parse import urlparse

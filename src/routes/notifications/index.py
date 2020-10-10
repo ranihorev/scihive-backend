@@ -6,8 +6,8 @@ from urllib.parse import urljoin
 import requests
 from typing import Optional
 from itsdangerous import URLSafeTimedSerializer
-from src.routes.user_utils import get_user_by_email
-from src.new_backend.models import Comment, unsubscribe_table, db, User, Paper
+from ..user_utils import get_user_by_email
+from ...models import Comment, unsubscribe_table, db, User, Paper
 
 logger = logging.getLogger(__name__)
 

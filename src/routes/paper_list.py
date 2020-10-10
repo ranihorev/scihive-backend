@@ -8,10 +8,10 @@ from sqlalchemy import or_
 from sqlalchemy.orm import load_only
 from sqlalchemy_searchable import search
 
-from src.new_backend.models import (Author, Collection, Paper, Permission, db,
-                                    paper_collection_table,
-                                    user_collection_table)
-from src.routes.user_utils import get_user_optional
+from ..models import (Author, Collection, Paper, Permission, db,
+                      paper_collection_table,
+                      user_collection_table)
+from .user_utils import get_user_optional
 
 from .paper_query_utils import paper_list_item_fields
 

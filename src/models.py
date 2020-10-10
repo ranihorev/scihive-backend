@@ -10,7 +10,7 @@ from sqlalchemy_continuum import make_versioned
 from sqlalchemy.dialects.postgresql import ARRAY
 
 from datetime import datetime
-from .. import app
+from . import app
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_URI')

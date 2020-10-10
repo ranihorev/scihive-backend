@@ -6,9 +6,9 @@ import copy
 from flask_jwt_extended.view_decorators import jwt_optional
 from werkzeug.exceptions import HTTPException
 
-from src import app
+from . import app
 # create the DB:
-from .new_backend.models import db, Paper, paper_collection_table
+from .models import db, Paper, paper_collection_table
 from sqlalchemy import func
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, verify_jwt_in_request
@@ -23,14 +23,12 @@ from .routes.user import app as user_routes
 from .routes.groups import app as groups_routes
 from .routes.admin import app as admin_routes
 from .routes.new_paper import app as new_paper_routes
-from .new_backend.scrapers import arxiv
-from .new_backend.scrapers import paperswithcode
+from .scrapers import arxiv
+from .scrapers import paperswithcode
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
-from src.new_backend.scrapers import twitter
-import threading
+from .scrapers import twitter
 from .run_background_tasks import run_scheduled_tasks
-from .mongo_to_postgres import migrate
 from flask import Blueprint, jsonify
 
 
@@ -142,12 +140,6 @@ def background_tasks():
 @app.route('/test')
 def hello_world():
     return 'Hello, World!'
-
-
-@app.cli.command("migrate-db")
-@click.option('--path', help='folder path')
-def migrate_db(path):
-    migrate(path)
 
 
 @app.cli.command("fix-stars-count")

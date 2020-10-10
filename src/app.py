@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-from src import app
+from . import app
 
 env = os.environ.get('ENV', 'development')
 

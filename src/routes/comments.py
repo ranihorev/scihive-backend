@@ -7,11 +7,11 @@ from flask_restful import (Api, Resource, abort, fields, inputs, marshal_with,
                            reqparse)
 from sqlalchemy import or_
 from typing import Optional
-from src.new_backend.models import Collection, Comment, Paper, Reply, db, User
+from ..models import Collection, Comment, Paper, Reply, db, User
 
 from .paper_query_utils import PUBLIC_TYPES, enforce_permissions_to_paper
 from .user_utils import get_jwt_email, get_user_by_email, get_user_optional
-from src.routes.notifications.index import new_comment_notification
+from .notifications.index import new_comment_notification
 import threading
 
 app = Blueprint('comments', __name__)

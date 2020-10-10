@@ -3,9 +3,9 @@ import threading
 import os
 import schedule
 import time
-from src.new_backend.scrapers.arxiv import run as run_arxiv
-from src.new_backend.scrapers.twitter import main_twitter_fetcher
-from src.new_backend.scrapers.paperswithcode import run as run_paperswithcode
+from .scrapers.arxiv import run as run_arxiv
+from .scrapers.twitter import main_twitter_fetcher
+from .scrapers.paperswithcode import run as run_paperswithcode
 
 
 def run_threaded(job_func):

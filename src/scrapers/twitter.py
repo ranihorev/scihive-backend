@@ -8,7 +8,6 @@ import logging
 import math
 import os
 import re
-from collections import defaultdict
 from time import sleep
 
 import pytz

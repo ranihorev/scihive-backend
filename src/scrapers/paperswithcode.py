@@ -2,12 +2,10 @@ import requests
 import csv
 from io import StringIO
 import logging
-from dotenv import load_dotenv
 import os
 
 from .utils import catch_exceptions
-from src.new_backend.models import Paper, PaperWithCode, db
-from src.logger import logger_config
+from ..models import Paper, PaperWithCode, db
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
