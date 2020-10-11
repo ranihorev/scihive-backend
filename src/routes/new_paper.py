@@ -133,6 +133,7 @@ class NewPaper(Resource):
                                 first_name=current_author.first_name, last_name=current_author.last_name, organization=current_author.org)
                 db.session.add(author)
             author.papers.append(paper)
+        return paper
 
     def _handle_arxiv_paper(self, link: str, user: User):
         try:
