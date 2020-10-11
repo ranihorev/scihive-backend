@@ -12,7 +12,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 
 from ..models import User, db, RevokedToken, Paper
-from .user_utils import generate_hash, get_jwt_email, verify_hash, get_user_by_email
+from .user_utils import generate_hash, get_jwt_email, get_user_optional, verify_hash, get_user_by_email
 from .notifications.index import deserialize_token
 
 app = Blueprint('user', __name__)
@@ -95,9 +95,8 @@ class ValidateUser(Resource):
 
     @jwt_optional
     def get(self):
-        current_user = get_jwt_email()
-        if current_user:
-            user = get_user_by_email(current_user)
+        user = get_user_optional()
+        if user:
             return get_user_profile(user)
         return None
 
