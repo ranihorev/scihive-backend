@@ -3,21 +3,21 @@ from datetime import datetime
 from enum import Enum
 import threading
 from typing import List, Optional
-
 from cerberus import Validator
 from sqlalchemy.sql.functions import user
-from .notifications.index import new_invite_notification
-
 import pytz
 from flask import Blueprint, send_from_directory
 from flask_jwt_extended import jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
+from secrets import token_urlsafe
 
 from ..models import Author, Collection, Paper, db, User, Permission
 
+from .notifications.index import new_invite_notification
+from .permissions_utils import PermissionType, add_permissions_to_user, has_permissions_to_paper, get_paper_permission_type, is_paper_creator
 from .file_utils import LOCAL_FILES_DIRECTORY, s3_available
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
-from .paper_query_utils import get_paper_user_groups, get_paper_with_pdf, has_permissions_to_paper, paper_with_code_fields
+from .paper_query_utils import get_paper_user_groups, get_paper_with_pdf, paper_with_code_fields
 from .user_utils import get_jwt_email, get_user_optional, get_user_by_email
 from .paper_query_utils import get_paper_or_404
 
@@ -70,9 +70,14 @@ class PaperResource(Resource):
         paper = get_paper_with_pdf(paper_id)
         if paper.is_private:
             user = get_user_optional()
-            if not user or not (paper.uploaded_by == user or has_permissions_to_paper(paper, user)):
+            permission = get_paper_permission_type(paper, user)
+            if permission == PermissionType.NONE:
                 abort(
                     403, message=f'You do not have permissions to view this paper. Please contact the owner - {paper.uploaded_by.username}')
+            if user and permission == PermissionType.TOKEN:
+                add_permissions_to_user(paper, user)
+                db.session.commit()
+
         paper.groups = get_paper_user_groups(paper)
         return paper
 
@@ -210,9 +215,7 @@ class PaperInvite(Resource):
             abort(403, message="Only the creator of the doc can update permissions")
 
     def _validate_user_has_permission(self, current_user: User, paper: Paper):
-        if paper.uploaded_by == current_user:
-            return True
-        if has_permissions_to_paper(paper, user):
+        if has_permissions_to_paper(paper, current_user):
             return True
         abort(403, message="User is not allowed to add permissions")
 
@@ -240,19 +243,6 @@ class PaperInvite(Resource):
             abort(403, message="Only authorized users can view permissions")
         return {"author": paper.uploaded_by, "users": users}
 
-    def _add_permissions_to_user(self, paper: Paper, user: User):
-        permissions = Permission(paper_id=paper.id, user_id=user.id)
-        db.session.add(permissions)
-        shared_collection = Collection.query.filter(
-            Collection.created_by_id == user.id, Collection.is_shared == True).first()
-        if not shared_collection:
-            shared_collection = Collection(creation_date=datetime.utcnow(), name="Shared",
-                                           created_by_id=user.id, is_shared=True)
-            shared_collection.users.append(user)
-            db.session.add(shared_collection)
-
-        shared_collection.papers.append(paper)
-
     def post(self, paper_id):
         # Check if paper exists
         parser = reqparse.RequestParser()
@@ -270,8 +260,8 @@ class PaperInvite(Resource):
         db.session.commit()
 
         for u in users:
-            if not has_permissions_to_paper(paper, u):
-                self._add_permissions_to_user(paper, u)
+            if not has_permissions_to_paper(paper, u, check_token=False):
+                add_permissions_to_user(paper, u)
                 # TODO: Switch to task queue later
                 threading.Thread(target=new_invite_notification, args=(
                     u.id, paper_id, current_user_name, data['message'])).start()
@@ -296,8 +286,35 @@ class PaperInvite(Resource):
         return {"message": "success"}
 
 
-api.add_resource(PaperInvite, "/<paper_id>/invite")
+class PaperSharingToken(Resource):
+    method_decorators = [jwt_required]
 
+    def _validate_permissions(self, paper: Paper):
+        current_user = get_user_by_email()
+        if is_paper_creator(paper, current_user):
+            return
+        abort(404, message='No permissions')
+
+    def get(self, paper_id):
+        paper: Paper = Paper.query.get_or_404(paper_id)
+        self._validate_permissions(paper)
+        return {'token': paper.token}
+
+    def post(self, paper_id):
+        parser = reqparse.RequestParser()
+        parser.add_argument('enable', type=bool, required=True, location='json')
+        data = parser.parse_args()
+        paper: Paper = Paper.query.get_or_404(paper_id)
+        if data.get('enable'):
+            paper.token = token_urlsafe()
+        else:
+            paper.token = None
+        db.session.commit()
+        return {'token': paper.token}
+
+
+api.add_resource(PaperSharingToken, "/<paper_id>/token")
+api.add_resource(PaperInvite, "/<paper_id>/invite")
 api.add_resource(PaperResource, "/<paper_id>")
 api.add_resource(PaperGroupsResource, "/<paper_id>/groups")
 api.add_resource(PaperReferencesResource, "/<paper_id>/references")

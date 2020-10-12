@@ -63,7 +63,6 @@ app.config['ENV'] = env
 cors = CORS(app, supports_credentials=True, origins=['*'])
 
 secret_key = os.environ.get('SECRET_KEY')
-print(secret_key)
 if not secret_key:
     logger.warning('SECRET_KEY is missing')
 app.config['SECRET_KEY'] = secret_key or 'devkey, should be in a file'

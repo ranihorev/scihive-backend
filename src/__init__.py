@@ -11,7 +11,7 @@ import os
 from .logger import logger_config
 from .patch_marshal import *
 
-load_dotenv(dotenv_path=os.environ.get('ENV_FILE'))
+load_dotenv(dotenv_path=os.environ.get('ENV_FILE'))  # Note: .env file we be loaded by default
 logger_config()
 
 app = Flask(__name__)

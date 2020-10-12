@@ -101,6 +101,7 @@ class Paper(db.Model):
     paper_with_code = db.relationship("PaperWithCode", uselist=False, lazy='joined')
     unsubscribed_users = db.relationship("User", back_populates="unsubscribed_papers", secondary=unsubscribe_table)
     permissions = db.relationship("Permission", lazy='joined')
+    token = db.Column(db.String, nullable=True)  # Used to share the paper with non-authorized users
 
     def __repr__(self):
         return f"{self.id} - {self.title}"

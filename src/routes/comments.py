@@ -9,7 +9,8 @@ from sqlalchemy import or_
 from typing import Optional
 from ..models import Collection, Comment, Paper, Reply, db, User
 
-from .paper_query_utils import PUBLIC_TYPES, enforce_permissions_to_paper
+from .permissions_utils import enforce_permissions_to_paper
+from .paper_query_utils import PUBLIC_TYPES
 from .user_utils import get_jwt_email, get_user_by_email, get_user_optional
 from .notifications.index import new_comment_notification
 import threading
@@ -80,7 +81,6 @@ class CommentsResource(Resource):
 
     @marshal_with(comment_fields, envelope='comments')
     def get(self, paper_id):
-        # TODO: check permissions
         parser = reqparse.RequestParser()
         parser.add_argument('group', required=False, location='args')
         group_id = parser.parse_args().get('group')

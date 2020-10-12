@@ -1,4 +1,5 @@
 import logging
+
 from .user_utils import get_user_optional
 from typing import List, Optional
 from flask_jwt_extended.utils import get_jwt_identity
@@ -7,7 +8,7 @@ from flask_restful import abort, fields
 from sqlalchemy import or_
 from .file_utils import get_uploader
 
-from ..models import Collection, Paper, Permission, User, db
+from ..models import Collection, Paper, db
 from ..scrapers.arxiv import fetch_entry
 
 logger = logging.getLogger(__name__)
@@ -35,18 +36,6 @@ paper_list_item_fields = {
     'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True),
     'comments_count': fields.Integer
 }
-
-
-def has_permissions_to_paper(paper: Paper, user: User) -> bool:
-    return Permission.query.filter(Permission.paper_id == paper.id, Permission.user_id == user.id).first()
-
-
-def enforce_permissions_to_paper(paper: Paper, user: Optional[User]) -> bool:
-    if not paper.is_private:
-        return True
-    if not user or (paper.uploaded_by_id != user.id and not has_permissions_to_paper(paper, user)):
-        abort(403, message='Missing paper perimssions')
-    return True
 
 
 def abs_to_pdf(url):
