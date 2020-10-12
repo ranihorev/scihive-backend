@@ -1,6 +1,5 @@
 import logging
 import os
-import click
 import copy
 
 from flask_jwt_extended.view_decorators import jwt_optional
@@ -63,10 +62,11 @@ app.config['ENV'] = env
 # TODO: fix this:
 cors = CORS(app, supports_credentials=True, origins=['*'])
 
-if os.path.isfile('secret_key.txt'):
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
-else:
-    app.config['SECRET_KEY'] = 'devkey, should be in a file'
+secret_key = os.environ.get('SECRET_KEY')
+print(secret_key)
+if not secret_key:
+    logger.warning('SECRET_KEY is missing')
+app.config['SECRET_KEY'] = secret_key or 'devkey, should be in a file'
 
 app.config['JWT_TOKEN_LOCATION'] = ['cookies']
 app.config['JWT_COOKIE_CSRF_PROTECT'] = False
@@ -75,7 +75,7 @@ app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False
 jwt = JWTManager(app)
 
 limiter = Limiter(app, key_func=get_remote_address, default_limits=[
-    "5000 per hour", "200 per minute"])
+    "10000 per hour", "500 per minute"])
 cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
 
@@ -112,9 +112,6 @@ app.register_blueprint(user_routes, url_prefix='/user')
 app.register_blueprint(groups_routes, url_prefix='/groups')
 app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
-
-# register_collab_blueprint(paper_routes, url_prefix='/collab/paper')
-# register_collab_blueprint(comments_routes, url_prefix='/collab/paper')
 
 
 @app.cli.command("fetch-arxiv")

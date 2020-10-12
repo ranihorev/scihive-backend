@@ -12,12 +12,9 @@ from time import sleep
 
 import pytz
 import tweepy
-from dotenv import load_dotenv
 from sqlalchemy import func
 from ..models import Paper, Tweet, db
 from .utils import catch_exceptions
-
-load_dotenv()
 
 # settings
 # -----------------------------------------------------------------------------

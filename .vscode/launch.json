@@ -24,7 +24,8 @@
       "env": {
         "FLASK_APP": "src/app.py",
         "FLASK_ENV": "development",
-        "FLASK_DEBUG": "1"
+        "FLASK_DEBUG": "1",
+        "ENV_FILE": ".local_env"
       },
       "args": ["run", "--no-debugger", "--port=5000"]
     },

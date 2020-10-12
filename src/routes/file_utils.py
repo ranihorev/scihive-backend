@@ -13,10 +13,8 @@ import boto3
 from urllib import request
 
 from boto3_type_annotations.s3.client import Client as S3Client
-from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
-load_dotenv()
 
 LOCAL_FILES_DIRECTORY = os.environ.get('LOCAL_FILES_DIRECTORY') or '/tmp/scihive-papers'
 EXTERNAL_BASE_URL = os.environ.get('EXTERNAL_BASE_URL') or 'http://localhost:5000'

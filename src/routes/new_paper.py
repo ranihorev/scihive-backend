@@ -1,4 +1,5 @@
 import logging
+import os
 from ..scrapers.arxiv import fetch_entry
 from ..scrapers.utils import parse_arxiv_url
 import xml.etree.ElementTree as ET
@@ -51,7 +52,10 @@ class AuthorMarshal(fields.Raw):
 
 def extract_paper_metadata(file_content) -> Tuple[bool, Dict[str, Any]]:
     try:
-        grobid_res = requests.post('http://cloud.science-miner.com/grobid/api/processHeaderDocument',
+        grobid_url = os.environ.get('GROBID_URL')
+        if not grobid_url:
+            raise KeyError('Grobid URL is missing')
+        grobid_res = requests.post(grobid_url + '/api/processHeaderDocument',
                                    data={'consolidateHeader': 1}, files={'input': file_content})
         if grobid_res.status_code == 503:
             raise Exception('Grobid is unavailable')
@@ -59,7 +63,7 @@ def extract_paper_metadata(file_content) -> Tuple[bool, Dict[str, Any]]:
         tree = ET.fromstring(content)
     except Exception as e:
         logger.error(f'Failed to extract metadata for paper - {e}')
-        return False, {'title': '', 'authors': [], 'abstract': '', 'date': datetime.now()}
+        return False, {'title': 'Untitled', 'authors': [], 'abstract': '', 'date': datetime.now()}
 
     title = get_tag_text(tree, 'title')
 

@@ -18,5 +18,13 @@ node_modules
 venv/
 .idea/
 
+.local_env
+.dev_env
+.prod_env
 .env
 src/new_backend/mongo_data/
+
+# Ignore DevSpace cache and log folder
+.devspace/
+
+
