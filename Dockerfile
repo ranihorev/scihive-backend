@@ -3,8 +3,8 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends \
   poppler-utils \
   pandoc
-RUN mkdir /usr/app/
-WORKDIR /usr/app/
+RUN mkdir /usr/app
+WORKDIR /usr/app
 COPY ./requirements.txt .
 RUN pip install -r requirements.txt
 # don't buffer log messages

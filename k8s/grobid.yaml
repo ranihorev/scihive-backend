@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: grobid
+  name: grobid
+  namespace: scihive-backend
+spec:
+  selector:
+    matchLabels:
+      app: grobid
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: grobid
+    spec:
+      containers:
+        - image: lfoppiano/grobid:0.6.1
+          name: grobid
+          ports:
+            - containerPort: 8070
+          resources: {}
+      restartPolicy: Always
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: grobid
+  name: grobid
+  namespace: scihive-backend
+spec:
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8070
+  selector:
+    app: grobid

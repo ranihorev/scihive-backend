@@ -223,5 +223,12 @@ class Tweet(db.Model):
     text = db.Column(db.String)
 
 
-sa.orm.configure_mappers()
-db.create_all()
+print('Connecting to backend')
+try:
+    sa.orm.configure_mappers()
+    db.create_all()
+except Exception as e:
+    print(e)
+    raise e
+
+print('Connected to DB successfully')
