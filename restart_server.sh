@@ -10,5 +10,5 @@ pkill flask
 
 flask db upgrade
 
-python app.py &
+python -m src.app &
 flask run-background-tasks &
