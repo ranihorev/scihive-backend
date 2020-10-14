@@ -1,19 +1,20 @@
 import logging
+import threading
 from datetime import datetime
+from typing import Optional
 
 from flask import Blueprint
 from flask_jwt_extended import get_jwt_identity, jwt_optional, jwt_required
-from flask_restful import (Api, Resource, abort, fields, inputs, marshal_with,
-                           reqparse)
+from flask_restful import (Api, Resource, abort, fields, inputs, marshal,
+                           marshal_with, reqparse)
+from flask_socketio import emit
 from sqlalchemy import or_
-from typing import Optional
-from ..models import Collection, Comment, Paper, Reply, db, User
 
-from .permissions_utils import enforce_permissions_to_paper
-from .paper_query_utils import PUBLIC_TYPES
-from .user_utils import get_jwt_email, get_user_by_email, get_user_optional
+from ..models import Collection, Comment, Paper, Reply, User, db
 from .notifications.index import new_comment_notification
-import threading
+from .paper_query_utils import PUBLIC_TYPES
+from .permissions_utils import enforce_permissions_to_paper
+from .user_utils import get_jwt_email, get_user_by_email, get_user_optional
 
 app = Blueprint('comments', __name__)
 api = Api(app)
@@ -58,7 +59,7 @@ comment_fields = {
     'username': fields.String(attribute=lambda x: anonymize_user(x, 'username')),
     'first_name': fields.String(attribute=lambda x: anonymize_user(x, 'first_name')),
     'last_name': fields.String(attribute=lambda x: anonymize_user(x, 'last_name')),
-    'canEdit': fields.String(attribute=lambda x: can_edit(x)),
+    'canEdit': fields.Boolean(attribute=lambda x: can_edit(x)),
     'createdAt': fields.DateTime(dt_format='rfc822', attribute='creation_date'),
     'replies': fields.List(fields.Nested(replies_fields)),
     'visibility': visibility_fields,
@@ -97,6 +98,13 @@ class CommentsResource(Resource):
             else:
                 query = query.filter(Comment.shared_with.in_(PUBLIC_TYPES))
         return query.all()
+
+
+def emit_update_to_paper_subscribers(paper_id: str, type: str, comment: Comment):
+    try:
+        emit('comment', {'type': type, 'data': marshal(comment, comment_fields)}, room=str(paper_id), namespace="/")
+    except Exception as e:
+        logger.error(e)
 
 
 class NewCommentResource(Resource):
@@ -149,13 +157,14 @@ class NewCommentResource(Resource):
         db.session.add(comment)
         db.session.commit()
         self.notify_if_needed(user_id, paper, comment)
+        emit_update_to_paper_subscribers(paper_id, 'new', comment)
         return comment
 
 
 class CommentResource(Resource):
     method_decorators = [jwt_required]
 
-    def _get_comment(self, comment_id):
+    def _get_comment(self, comment_id) -> Comment:
         comment = Comment.query.get_or_404(comment_id)
         current_user = get_jwt_email()
 
@@ -175,14 +184,18 @@ class CommentResource(Resource):
         comment.shared_with = data['visibility']['type']
         comment.collection_id = data['visibility']['id'] if data['visibility']['type'] == 'group' else None
         db.session.commit()
-
+        emit_update_to_paper_subscribers(comment.paper_id, 'update', comment)
         return comment
 
     def delete(self, comment_id):
         comment = self._get_comment(comment_id)
+        paper_id = str(comment.paper_id)
         db.session.delete(comment)
         db.session.commit()
-
+        try:
+            emit('comment', {'type': 'delete', 'id': comment_id}, room=paper_id, namespace='/')
+        except Exception as e:
+            logger.error(e)
         return {'message': 'success'}
 
 
@@ -204,6 +217,7 @@ class ReplyResource(Resource):
         db.session.add(reply)
         db.session.commit()
         db.session.refresh(comment)
+        emit_update_to_paper_subscribers(comment.paper_id, 'update', comment)
         return comment
 
 

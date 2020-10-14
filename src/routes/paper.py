@@ -4,6 +4,7 @@ from enum import Enum
 import threading
 from typing import List, Optional
 from cerberus import Validator
+from flask import session
 from sqlalchemy.sql.functions import user
 import pytz
 from flask import Blueprint, send_from_directory
@@ -14,7 +15,7 @@ from secrets import token_urlsafe
 from ..models import Author, Collection, Paper, db, User, Permission
 
 from .notifications.index import new_invite_notification
-from .permissions_utils import PermissionType, add_permissions_to_user, has_permissions_to_paper, get_paper_permission_type, is_paper_creator
+from .permissions_utils import PermissionType, add_permissions_to_user, get_paper_token_or_none, has_permissions_to_paper, get_paper_permission_type, is_paper_creator
 from .file_utils import LOCAL_FILES_DIRECTORY, s3_available
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
 from .paper_query_utils import get_paper_user_groups, get_paper_with_pdf, paper_with_code_fields
@@ -74,9 +75,12 @@ class PaperResource(Resource):
             if permission == PermissionType.NONE:
                 abort(
                     403, message=f'You do not have permissions to view this paper. Please contact the owner - {paper.uploaded_by.username}')
-            if user and permission == PermissionType.TOKEN:
-                add_permissions_to_user(paper, user)
-                db.session.commit()
+            elif permission == PermissionType.TOKEN:
+                if user:
+                    add_permissions_to_user(paper, user)
+                    db.session.commit()
+
+                session['paper_token'] = get_paper_token_or_none()
 
         paper.groups = get_paper_user_groups(paper)
         return paper
@@ -214,8 +218,9 @@ class PaperInvite(Resource):
         if not paper.uploaded_by == current_user:
             abort(403, message="Only the creator of the doc can update permissions")
 
-    def _validate_user_has_permission(self, current_user: User, paper: Paper):
-        if has_permissions_to_paper(paper, current_user):
+    def _throw_if_no_permissions(self, paper: Paper, current_user: User):
+        # TODO: merge with permissions_utils function
+        if has_permissions_to_paper(paper, current_user, check_token=False):
             return True
         abort(403, message="User is not allowed to add permissions")
 
@@ -252,7 +257,7 @@ class PaperInvite(Resource):
         current_user = get_user_by_email()
         current_user_name = current_user.first_name or current_user.username
         paper: Paper = get_paper_or_404(paper_id)
-        self._validate_user_has_permission(current_user, paper)
+        self._throw_if_no_permissions(paper, current_user)
 
         users: List[User] = []
         for u in data['users']:
@@ -274,7 +279,7 @@ class PaperInvite(Resource):
         data = parser.parse_args()
         paper: Paper = Paper.query.get_or_404(paper_id)
         current_user = get_user_by_email()
-        self._validate_user_has_permission(current_user, paper)
+        self._throw_if_no_permissions(paper, current_user)
         deleted_user = get_user_by_email(data.get('email'))
 
         Permission.query.filter(Permission.user_id == deleted_user.id, Permission.paper_id == paper_id).delete()
