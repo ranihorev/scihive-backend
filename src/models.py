@@ -10,15 +10,15 @@ from sqlalchemy_continuum import make_versioned
 from sqlalchemy.dialects.postgresql import ARRAY
 
 from datetime import datetime
-from . import app
+from . import flask_app
 
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_URI')
+flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+flask_app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_URI')
 
 make_versioned(user_cls=None)
 
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
+db = SQLAlchemy(flask_app)
+migrate = Migrate(flask_app, db)
 
 make_searchable(db.metadata)
 

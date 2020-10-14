@@ -1,33 +1,20 @@
 import logging
 import os
 import sys
-from . import app
 
+from . import flask_app, socketio_app
 env = os.environ.get('ENV', 'development')
+is_dev = env == 'development'
 
-# -----------------------------------------------------------------------------
-# int main
-# -----------------------------------------------------------------------------
+if __name__ == "__main__":
+    port = int(os.environ.get('PORT', 5000))
+    logger = logging.getLogger(__name__)
 
-port = int(os.environ.get('PORT', 5000))
-logger = logging.getLogger(__name__)
-
-# Don't run server if there are command arguments
-if len(sys.argv) == 1 or sys.argv[1] == 'run':
-    # start
-    if env == 'production':
-        # run on Tornado instead, since running raw Flask in prod is not recommended
-        logger.info(f'starting tornado on port {port}')
-        from tornado.wsgi import WSGIContainer
-        from tornado.httpserver import HTTPServer
-        from tornado.ioloop import IOLoop
-        from tornado.log import enable_pretty_logging
-
-        enable_pretty_logging()
-        http_server = HTTPServer(WSGIContainer(app))
-        http_server.listen(port)
-        IOLoop.instance().start()
-    elif env == 'development':
+    if sys.argv[0].endswith('flask'):
+        if sys.argv[1] != 'run':
+            logger.info('Running cli function')
+        else:
+            logger.info('Running flask in debug mode (without socket-io)')
+    else:
         logger.info(f'starting flask on port {port}')
-else:
-    logger.info('Running cli function')
+        socketio_app.run(app=flask_app, debug=is_dev, port=port, host='0.0.0.0' if is_dev else None)

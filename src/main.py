@@ -5,7 +5,7 @@ import copy
 from flask_jwt_extended.view_decorators import jwt_optional
 from werkzeug.exceptions import HTTPException
 
-from . import app
+from . import flask_app
 # create the DB:
 from .models import db, Paper, paper_collection_table
 from sqlalchemy import func
@@ -29,6 +29,7 @@ from sentry_sdk.integrations.flask import FlaskIntegration
 from .scrapers import twitter
 from .run_background_tasks import run_scheduled_tasks
 from flask import Blueprint, jsonify
+from . import websocket  # websocket handling
 
 
 env = os.environ.get('ENV', 'development')
@@ -57,28 +58,28 @@ if SENTRY_DSN:
         ignore_errors=['TooManyRequests']
     )
 
-app.config['ENV'] = env
+flask_app.config['ENV'] = env
 
 # TODO: fix this:
-cors = CORS(app, supports_credentials=True, origins=['*'])
+cors = CORS(flask_app, supports_credentials=True, origins=['*'])
 
 secret_key = os.environ.get('SECRET_KEY')
 if not secret_key:
     logger.warning('SECRET_KEY is missing')
-app.config['SECRET_KEY'] = secret_key or 'devkey, should be in a file'
+flask_app.config['SECRET_KEY'] = secret_key or 'devkey, should be in a file'
 
-app.config['JWT_TOKEN_LOCATION'] = ['cookies']
-app.config['JWT_COOKIE_CSRF_PROTECT'] = False
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False
+flask_app.config['JWT_TOKEN_LOCATION'] = ['cookies']
+flask_app.config['JWT_COOKIE_CSRF_PROTECT'] = False
+flask_app.config['JWT_ACCESS_TOKEN_EXPIRES'] = False
 
-jwt = JWTManager(app)
+jwt = JWTManager(flask_app)
 
-limiter = Limiter(app, key_func=get_remote_address, default_limits=[
+limiter = Limiter(flask_app, key_func=get_remote_address, default_limits=[
     "10000 per hour", "500 per minute"])
-cache = Cache(app, config={'CACHE_TYPE': 'simple'})
+cache = Cache(flask_app, config={'CACHE_TYPE': 'simple'})
 
 
-@app.errorhandler(HTTPException)
+@flask_app.errorhandler(HTTPException)
 def main_error_handler(error):
     message = ''
     try:
@@ -101,44 +102,44 @@ def register_collab_blueprint(bp: Blueprint, url_prefix: str):
         except (NoAuthorizationError, InvalidHeaderError):
             return jsonify({'msg': 'Unauthorized access'}), 403
 
-    app.register_blueprint(new_bp, url_prefix=url_prefix)
+    flask_app.register_blueprint(new_bp, url_prefix=url_prefix)
 
 
-app.register_blueprint(paper_list_routes, url_prefix='/papers')
-app.register_blueprint(paper_routes, url_prefix='/paper')
-app.register_blueprint(comments_routes, url_prefix='/paper')
-app.register_blueprint(user_routes, url_prefix='/user')
-app.register_blueprint(groups_routes, url_prefix='/groups')
-app.register_blueprint(admin_routes, url_prefix='/admin')
-app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
+flask_app.register_blueprint(paper_list_routes, url_prefix='/papers')
+flask_app.register_blueprint(paper_routes, url_prefix='/paper')
+flask_app.register_blueprint(comments_routes, url_prefix='/paper')
+flask_app.register_blueprint(user_routes, url_prefix='/user')
+flask_app.register_blueprint(groups_routes, url_prefix='/groups')
+flask_app.register_blueprint(admin_routes, url_prefix='/admin')
+flask_app.register_blueprint(new_paper_routes, url_prefix='/new_paper')
 
 
-@app.cli.command("fetch-arxiv")
+@flask_app.cli.command("fetch-arxiv")
 def fetch_arxiv():
     arxiv.run()
 
 
-@app.cli.command("fetch-paperswithcode")
+@flask_app.cli.command("fetch-paperswithcode")
 def fetch_papers_with_code():
     paperswithcode.run()
 
 
-@app.cli.command("fetch-twitter")
+@flask_app.cli.command("fetch-twitter")
 def fetch_twitter():
     twitter.main_twitter_fetcher()
 
 
-@app.cli.command("run-background-tasks")
+@flask_app.cli.command("run-background-tasks")
 def background_tasks():
     run_scheduled_tasks()
 
 
-@app.route('/test')
+@flask_app.route('/test')
 def hello_world():
     return 'Hello, World!'
 
 
-@app.cli.command("fix-stars-count")
+@flask_app.cli.command("fix-stars-count")
 def fix_stars_count():
     total_per_paper = db.session.query(paper_collection_table.c.paper_id, func.count(
         paper_collection_table.c.collection_id)).group_by(paper_collection_table.c.paper_id).all()
