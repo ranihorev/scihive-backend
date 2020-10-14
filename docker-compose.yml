@@ -1,18 +1,16 @@
-version: '3.5'
+version: "3.5"
 services:
   web:
     build: .
-    command: flask run --host 0.0.0.0 -p ${PORT}
     depends_on:
       - postgres
     volumes:
-      - .:/usr/src/app
+      - ./src:/usr/app/src
     ports:
       - "${PORT}:${PORT}"
     networks:
       - default
-    env_file:
-      .env
+    env_file: .env
   postgres:
     image: postgres
     ports:
