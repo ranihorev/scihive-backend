@@ -2,10 +2,9 @@ import logging
 import os
 import copy
 
-from flask_jwt_extended.view_decorators import jwt_optional
 from werkzeug.exceptions import HTTPException
 
-from . import flask_app
+from . import flask_app, cors_allowed_origins, env
 # create the DB:
 from .models import db, Paper, paper_collection_table
 from sqlalchemy import func
@@ -31,8 +30,6 @@ from .run_background_tasks import run_scheduled_tasks
 from flask import Blueprint, jsonify
 from . import websocket  # websocket handling
 
-
-env = os.environ.get('ENV', 'development')
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +58,7 @@ if SENTRY_DSN:
 flask_app.config['ENV'] = env
 
 # TODO: fix this:
-cors = CORS(flask_app, supports_credentials=True, origins=['*'])
+cors = CORS(flask_app, supports_credentials=True, origins=[cors_allowed_origins])
 
 secret_key = os.environ.get('SECRET_KEY')
 if not secret_key:

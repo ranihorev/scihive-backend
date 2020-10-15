@@ -128,7 +128,7 @@ def get_uploader():
             prefix='papers'
         )
     else:
-        logger.warning('S3 info is missing missing, using local file system instead')
+        logger.warning('S3 info is missing, using local file system instead')
         file_access_provider = LocalFileAccessProvider(
             base_path=LOCAL_FILES_DIRECTORY,
             external_base_url=EXTERNAL_BASE_URL
