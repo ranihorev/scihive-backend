@@ -19,7 +19,7 @@ venv/
 .idea/
 
 .local_env
-.dev_env
+.docker_env
 .prod_env
 .env
 src/new_backend/mongo_data/
