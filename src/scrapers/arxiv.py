@@ -161,6 +161,7 @@ def fetch_entry(paper_id) -> Optional[Paper]:
         return paper
     except Exception as e:
         logger.warning(f'Paper not found on arxiv - {paper_id}')
+        logger.warning(e)
         return None
 
 
