@@ -43,7 +43,7 @@ google-auth==1.20.0
 cerberus==1.3.2
 pytest==6.0.1
 flask-socketio==4.3.1
-eventlet @ git+https://github.com/ranihorev/eventlet.git@dd33c34b8793800b88a014427b179e57e97298b5
+eventlet-patched==0.28.0
 
 # linting
 autopep8
