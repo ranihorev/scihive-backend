@@ -10,5 +10,9 @@ RUN pip install -r requirements.txt
 # don't buffer log messages
 ENV PYTHONUNBUFFERED=1
 COPY ./src ./src
+COPY ./migrations ./migrations
 
-CMD python -m src.app
+ADD ./start.sh .
+RUN chmod +x ./start.sh
+
+CMD ["sh", "./start.sh"]
