@@ -2,9 +2,15 @@ import logging
 import os
 import sys
 
+env = os.environ.get('ENV', 'development')
+
+if env != 'development':
+    import eventlet
+    eventlet.monkey_patch()
+
 from . import flask_app, socketio_app
 
-env = os.environ.get('ENV', 'development')
+
 is_dev = env == 'development'
 
 if __name__ == "__main__":

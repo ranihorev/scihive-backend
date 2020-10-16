@@ -1,4 +1,3 @@
-import eventlet
 import os
 from flask import Flask
 from dotenv import load_dotenv
@@ -17,8 +16,6 @@ logger_config()
 app_logger = logging.getLogger(__name__)
 
 env = os.environ.get('FLASK_ENV', 'development')
-if env != 'development':
-    eventlet.monkey_patch()
 
 flask_app = Flask(__name__)
 cors_allowed_origins = os.environ.get('FRONTEND_URL')
