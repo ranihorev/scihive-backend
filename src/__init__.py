@@ -27,7 +27,7 @@ flask_app.url_map.strict_slashes = False
 if env == 'development':
     flask_app.wsgi_app = EasyProfileMiddleware(flask_app.wsgi_app)
 
-socketio_app = SocketIO(flask_app, cors_allowed_origins=[cors_allowed_origins])
+socketio_app = SocketIO(flask_app, cors_allowed_origins=[cors_allowed_origins], engineio_logger=False)
 
 
 from . import main

@@ -14,6 +14,7 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
 
     logging.getLogger('boto3').setLevel(logging.WARNING)
     logging.getLogger('botocore').setLevel(logging.WARNING)
+    logging.getLogger('engineio').setLevel(logging.WARNING)
 
     handlers = {
         "console": {
