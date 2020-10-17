@@ -95,8 +95,11 @@ def new_comment_notification(user_id: Optional[int], paper_id: int, comment_id: 
 
 
 def send_email(address: str, name: str, variables: Dict[str, str], subject: str, template: str):
+    if not MAILGUN_KEY:
+        logger.warning('Maingun key is missing. Skipping sending')
+        return
     try:
-        return requests.post(
+        response = requests.post(
             "https://api.mailgun.net/v3/email.scihive.org/messages",
             auth=("api", MAILGUN_KEY),
             data={"from": "Scihive <noreply@scihive.org>",
@@ -104,6 +107,8 @@ def send_email(address: str, name: str, variables: Dict[str, str], subject: str,
                   "subject": subject,
                   "template": template,
                   "h:X-Mailgun-Variables": f'{json.dumps(variables)}'})
+        logger.info(f'Email was sent successfully to {address}')
+        return response
     except Exception as e:
         logger.error(f'Failed to send email - {e}')
         return

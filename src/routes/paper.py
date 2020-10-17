@@ -268,6 +268,7 @@ class PaperInvite(Resource):
             if not has_permissions_to_paper(paper, u, check_token=False):
                 add_permissions_to_user(paper, u)
                 # TODO: Switch to task queue later
+                logger.info(f'Sending email to user - {u.username}')
                 threading.Thread(target=new_invite_notification, args=(
                     u.id, paper_id, current_user_name, data['message'])).start()
         db.session.commit()
