@@ -287,7 +287,10 @@ class PaperInvite(Resource):
         shared_collection: Collection = Collection.query.filter(
             Collection.created_by_id == deleted_user.id, Collection.is_shared == True).first()
         if shared_collection:
-            shared_collection.papers.remove(paper)
+            try:
+                shared_collection.papers.remove(paper)
+            except ValueError:
+                logger.warning(f'Failed to remove paper {paper_id} from shared collection - {shared_collection.id}')
         db.session.commit()
         return {"message": "success"}
 
