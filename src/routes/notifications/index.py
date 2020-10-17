@@ -50,7 +50,7 @@ def new_invite_notification(user_id: int, paper_id: int, invited_by_name: str, m
     variables = {
         "first_name": user.first_name or user.username,
         "text": message,
-        "link": urljoin(FRONTEND_BASE_URL, f'/collab/paper/{paper_id}'),
+        "link": urljoin(FRONTEND_BASE_URL, f'/paper/{paper_id}'),
     }
     subject = f"{invited_by_name} invited you to collaborate on {paper.title}"
     send_email(address=user.email, name=user.first_name or user.username,

@@ -88,18 +88,18 @@ def main_error_handler(error):
     return response
 
 
-def register_collab_blueprint(bp: Blueprint, url_prefix: str):
-    new_bp = copy.copy(bp)
-    new_bp.name = 'collab_' + new_bp.name
+# def register_collab_blueprint(bp: Blueprint, url_prefix: str):
+#     new_bp = copy.copy(bp)
+#     new_bp.name = 'collab_' + new_bp.name
 
-    @new_bp.before_request
-    def enforce_login():
-        try:
-            verify_jwt_in_request()
-        except (NoAuthorizationError, InvalidHeaderError):
-            return jsonify({'msg': 'Unauthorized access'}), 403
+#     @new_bp.before_request
+#     def enforce_login():
+#         try:
+#             verify_jwt_in_request()
+#         except (NoAuthorizationError, InvalidHeaderError):
+#             return jsonify({'msg': 'Unauthorized access'}), 403
 
-    flask_app.register_blueprint(new_bp, url_prefix=url_prefix)
+#     flask_app.register_blueprint(new_bp, url_prefix=url_prefix)
 
 
 flask_app.register_blueprint(paper_list_routes, url_prefix='/papers')
