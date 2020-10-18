@@ -16,20 +16,10 @@ deploy:
   kustomize:
     paths:
       - ./k8s
-  kubectl:
-    manifests:
-      - ./k8s/scihive-backend.yaml
-      - ./k8s/postgres.yaml
-      - ./k8s/web-server.yaml
-      - ./k8s/grobid.yaml
+
 portForward:
   - resourceType: Service
-    resourceName: web-server
+    resourceName: postgres
     namespace: scihive-backend
-    port: 5000
-    localPort: 5000
-  - resourceType: Service
-    resourceName: grobid
-    namespace: scihive-backend
-    port: 8080
-    localPort: 8080
+    port: 5433
+    localPort: 5432
