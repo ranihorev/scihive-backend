@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-server
+  namespace: scihive-backend
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: check-db-ready
+          image: postgres:11.7
+          command: ['sh', '-c', 
+            'until pg_isready -h postgres.scihive-backend -p 5432; 
+            do echo waiting for database; sleep 2; done;']

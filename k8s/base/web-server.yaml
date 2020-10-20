@@ -9,7 +9,7 @@ spec:
   selector:
     matchLabels:
       app: web-server
-  replicas: 2
+  replicas: 1
   template:
     metadata:
       labels:
@@ -112,15 +112,6 @@ spec:
                   key: GROBID_URL
                   name: web-env
                   optional: true
-      initContainers:
-        - name: init-postgres
-          image: busybox:1.28
-          command:
-            [
-              "sh",
-              "-c",
-              "until nslookup postgres.scihive-backend; do echo waiting for postgres; sleep 2; done",
-            ]
 ---
 apiVersion: v1
 kind: Service

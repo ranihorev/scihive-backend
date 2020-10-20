@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres-service
+  name: postgres
   namespace: scihive-backend
 spec:
   type: ExternalName
   # https://docs.docker.com/docker-for-mac/networking/#use-cases-and-workarounds
-  externalName: host.minikube.internal
+  externalName: postgres.local
   ports:
     - protocol: TCP
       port: 5432

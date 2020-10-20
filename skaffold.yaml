@@ -1,23 +1,46 @@
 apiVersion: skaffold/v2beta3
 kind: Config
-build:
-  artifacts:
-    - image: web-server-image
-      context: .
-      docker:
-        dockerfile: Dockerfile
-      sync:
-        infer:
-          - src/**/*
-  local:
-    push: false
-deploy:
-  kubeContext: minikube
-  kustomize:
-    paths:
-      - ./k8s
+
+profiles:
+  - name: dev
+    build:
+      artifacts:
+        - image: web-server-image
+          context: .
+          docker:
+            dockerfile: Dockerfile
+          sync:
+            infer:
+              - src/**/*
+      local:
+        push: false
+
+    deploy:
+      kubeContext: minikube
+      kustomize:
+        paths:
+          - ./k8s/dev
+  - name: prod
+    build:
+      googleCloudBuild: 
+        projectId: scihive-prod
+      artifacts:
+        - image: gcr.io/scihive-prod/web-server
+          context: .
+          docker:
+            dockerfile: Dockerfile
+    deploy:
+      kubeContext: gke_scihive-prod_us-central1_scihive-prod-gke
+      kustomize:
+        paths:
+          - ./k8s/prod
 
 portForward:
+  - resourceType: Service
+    resourceName: web-server
+    namespace: scihive-backend
+    port: 5000
+    localPort: 5000
   - resourceType: Service
     resourceName: postgres
     namespace: scihive-backend
