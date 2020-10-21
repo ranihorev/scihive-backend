@@ -10,7 +10,6 @@ if env != 'development':
 
 from . import flask_app, socketio_app
 
-
 is_dev = env == 'development'
 
 if __name__ == "__main__":

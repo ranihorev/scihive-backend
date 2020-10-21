@@ -6,6 +6,17 @@ Read, collaborate and talk about scientific papers.
 To get started, create a local copy of `.env_example` and modify according to your environment if needed.
 Without making any changes, you should be able to run the web worker out-of-the-box via docker. 
 
+### Develop using Kubernetes (recommended)
+- Install Kubernetes and Skaffold locally
+- Create `.secrets` file in `k8s/dev/.secrets` according to `.env_example` (you can skip the ones that are already hard-coded in `kustomization.yaml`)
+- Run `skaffold dev -p dev --port-forward` to create and run a new cluster with the webserver and PostgresDB
+- Check out [localhost:5000/health](http://localhost:5000/health)
+
+#### Useful commands
+-  Set local context -  `kubectl config use-context minikube`
+-  Set namespace - `kubectl config set-context --current --namespace=scihive-backend`
+-  Set Google cloud context - `cd terraform && gcloud container clusters get-credentials $(terraform output kubernetes_cluster_name) --region $(terraform output cluster_location) && cd ..`
+
 ### Develop using Docker
 Run `docker-compose up` to get a postgres DB and web worker up and running on docker images.
 
