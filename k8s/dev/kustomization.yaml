@@ -8,9 +8,19 @@ resources:
 
 patchesStrategicMerge:
     - web-server.yaml
-        
+
 secretGenerator:
-  - name: web-env
+  - name: web-server-secrets
     envs:
-      - .env
+      - .secrets
     type: Opaque
+
+configMapGenerator:
+  - name: web-server-config
+    literals:
+      - FLASK_ENV=development
+      - HOST=0.0.0.0
+      - FLASK_APP=src.app
+      - PORT=5000
+      - FRONTEND_URL=http://localhost:3000
+      - EXTERNAL_BASE_URL=http://localhost:5000

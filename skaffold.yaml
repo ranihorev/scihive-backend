@@ -3,9 +3,12 @@ kind: Config
 
 profiles:
   - name: dev
+    activation:
+      - kubeContext: minikube
+        command: dev
     build:
       artifacts:
-        - image: web-server-image
+        - image: web-server
           context: .
           docker:
             dockerfile: Dockerfile
@@ -16,11 +19,13 @@ profiles:
         push: false
 
     deploy:
-      kubeContext: minikube
       kustomize:
         paths:
           - ./k8s/dev
   - name: prod
+    activation:
+      - kubeContext: gke_scihive-prod_us-central1_scihive-prod-gke
+        command: dev
     build:
       googleCloudBuild: 
         projectId: scihive-prod
@@ -30,7 +35,7 @@ profiles:
           docker:
             dockerfile: Dockerfile
     deploy:
-      kubeContext: gke_scihive-prod_us-central1_scihive-prod-gke
+      statusCheckDeadlineSeconds: 600
       kustomize:
         paths:
           - ./k8s/prod

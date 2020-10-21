@@ -4,4 +4,3 @@ namespace: scihive-backend
 resources:
   - scihive-backend.yaml
   - web-server.yaml
-        

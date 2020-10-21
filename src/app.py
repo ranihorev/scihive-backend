@@ -23,6 +23,6 @@ if __name__ == "__main__":
         else:
             logger.info('Running flask in debug mode (without socket-io)')
     else:
-        logger.info(f'starting flask on port {port}')
         host = os.environ.get('HOST', '0.0.0.0' if not is_dev else None)
+        logger.info(f'starting flask on port {port} with host {host}')
         socketio_app.run(app=flask_app, debug=is_dev, port=port, host=host)

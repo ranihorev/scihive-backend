@@ -131,9 +131,9 @@ def background_tasks():
     run_scheduled_tasks()
 
 
-@flask_app.route('/test')
+@flask_app.route('/health')
 def hello_world():
-    return 'Hello, World!'
+    return 'Running!'
 
 
 @flask_app.cli.command("fix-stars-count")

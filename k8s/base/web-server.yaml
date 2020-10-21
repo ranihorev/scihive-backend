@@ -9,7 +9,7 @@ spec:
   selector:
     matchLabels:
       app: web-server
-  replicas: 1
+  replicas: 2
   template:
     metadata:
       labels:
@@ -17,101 +17,131 @@ spec:
     spec:
       containers:
         - name: web-server
-          image: web-server-image
-          resources: {}
+          image: web-server
+          resources: {} 
+          readinessProbe:
+            httpGet:
+                path: /health
+                port: main-port
+            initialDelaySeconds: 10
+            failureThreshold: 10
+            periodSeconds: 5    
           ports:
-            - containerPort: 5000
+            - name: main-port
+              containerPort: 5000
           env:
             - name: FLASK_APP
-              value: src/app.py
+              valueFrom:
+                configMapKeyRef:
+                  key: FLASK_APP
+                  name: web-server-config
+            - name: HOST
+              valueFrom:
+                configMapKeyRef:
+                  key: HOST
+                  name: web-server-config
             - name: FLASK_ENV
-              value: development
+              valueFrom:
+                configMapKeyRef:
+                  key: FLASK_ENV
+                  name: web-server-config
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  key: PORT
+                  name: web-server-config
+            - name: FRONTEND_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: FRONTEND_URL
+                  name: web-server-config
+            - name: EXTERNAL_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: EXTERNAL_BASE_URL
+                  name: web-server-config
             - name: DB_URI
               valueFrom:
                 secretKeyRef:
                   key: DB_URI
-                  name: web-env
-            - name: FRONTEND_URL
+                  name: web-server-secrets
+            - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  key: FRONTEND_URL
-                  name: web-env
+                  key: SECRET_KEY
+                  name: web-server-secrets
             - name: GOOGLE_CLIENT_ID
               valueFrom:
                 secretKeyRef:
                   key: GOOGLE_CLIENT_ID
-                  name: web-env
-            - name: MAILGUN_KEY
+                  name: web-server-secrets
+            - name: GROBID_URL
               valueFrom:
                 secretKeyRef:
-                  key: MAILGUN_KEY
-                  name: web-env
+                  key: GROBID_URL
+                  name: web-server-secrets
                   optional: true
-            - name: PAPERSWITHCODE_PASS
+            - name: S3_BUCKET
               valueFrom:
                 secretKeyRef:
-                  key: PAPERSWITHCODE_PASS
-                  name: web-env
+                  key: S3_BUCKET
+                  name: web-server-secrets
                   optional: true
-            - name: PAPERSWITHCODE_USER
-              valueFrom:
-                secretKeyRef:
-                  key: PAPERSWITHCODE_USER
-                  name: web-env
-                  optional: true
-            - name: PORT
-              valueFrom:
-                secretKeyRef:
-                  key: PORT
-                  name: web-env
             - name: S3_KEY
               valueFrom:
                 secretKeyRef:
                   key: S3_KEY
-                  name: web-env
+                  name: web-server-secrets
                   optional: true
             - name: S3_SECRET
               valueFrom:
                 secretKeyRef:
                   key: S3_SECRET
-                  name: web-env
-                  optional: true
-            - name: SECRET_KEY
-              valueFrom:
-                secretKeyRef:
-                  key: SECRET_KEY
-                  name: web-env
+                  name: web-server-secrets
                   optional: true
             - name: SENTRY_DSN
               valueFrom:
                 secretKeyRef:
                   key: SENTRY_DSN
-                  name: web-env
-                  optional: true
-            - name: SERIALIZER_KEY
-              valueFrom:
-                secretKeyRef:
-                  key: SERIALIZER_KEY
-                  name: web-env
+                  name: web-server-secrets
                   optional: true
             - name: TWITTER_KEY
               valueFrom:
                 secretKeyRef:
                   key: TWITTER_KEY
-                  name: web-env
+                  name: web-server-secrets
                   optional: true
             - name: TWITTER_SECRET
               valueFrom:
                 secretKeyRef:
                   key: TWITTER_SECRET
-                  name: web-env
+                  name: web-server-secrets
                   optional: true
-            - name: GROBID_URL
+            - name: PAPERSWITHCODE_PASS
               valueFrom:
                 secretKeyRef:
-                  key: GROBID_URL
-                  name: web-env
+                  key: PAPERSWITHCODE_PASS
+                  name: web-server-secrets
                   optional: true
+            - name: PAPERSWITHCODE_USER
+              valueFrom:
+                secretKeyRef:
+                  key: PAPERSWITHCODE_USER
+                  name: web-server-secrets
+                  optional: true
+            - name: MAILGUN_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: MAILGUN_KEY
+                  name: web-server-secrets
+                  optional: true
+            - name: SERIALIZER_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: SERIALIZER_KEY
+                  name: web-server-secrets
+                  optional: true
+
 ---
 apiVersion: v1
 kind: Service
@@ -126,4 +156,4 @@ spec:
       targetPort: 5000
   selector:
     app: web-server
-  type: LoadBalancer
+  type: NodePort
