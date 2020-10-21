@@ -150,6 +150,8 @@ metadata:
     app: web-server
   name: web-server
   namespace: scihive-backend
+  annotations:
+    cloud.google.com/backend-config: '{"default": "web-server-backendconfig"}'
 spec:
   ports:
     - port: 5000
