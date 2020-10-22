@@ -1,5 +1,8 @@
 import logging
 from logging.config import dictConfig
+import google.cloud.logging
+import os
+from google.cloud.logging.handlers import CloudLoggingHandler
 
 is_init = False
 
@@ -76,3 +79,15 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
     )
     is_init = True
     dictConfig(logging_config)
+
+    # Setup google client
+    if os.environ.get('GOOGLE'):
+        try:
+            client = google.cloud.logging.Client()
+            handler = CloudLoggingHandler(client)
+            cloud_logger = logging.getLogger('cloudLogger')
+            cloud_logger.setLevel(logging.INFO)  # defaults to WARN
+            cloud_logger.addHandler(handler)
+            cloud_logger.info('Google cloud logger was installed successfully')
+        except Exception as e:
+            print('Failed to add Google Cloud logger')
