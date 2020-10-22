@@ -4,10 +4,6 @@ import sys
 
 env = os.environ.get('FLASK_ENV', 'development')
 
-if env != 'development':
-    import eventlet
-    eventlet.monkey_patch()
-
 from . import flask_app, socketio_app
 
 is_dev = env == 'development'
