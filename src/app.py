@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 
-env = os.environ.get('ENV', 'development')
+env = os.environ.get('FLASK_ENV', 'development')
 
 if env != 'development':
     import eventlet
