@@ -33,6 +33,11 @@ resource "google_container_cluster" "primary" {
   network    = google_compute_network.vpc.name
   subnetwork = google_compute_subnetwork.subnet.name
 
+  ip_allocation_policy {
+    cluster_secondary_range_name  = "pods"
+    services_secondary_range_name = "services"
+  }
+
   master_auth {
     username = var.gke_username
     password = var.gke_password
@@ -80,4 +85,8 @@ output "kubernetes_cluster_name" {
 output "cluster_location" {
   value = var.cluster_location
   description = "Location of the cluster (region or zone)"
+}
+
+resource "google_compute_global_address" "ingress_address" {
+  name = "main-ingress-ip"
 }
