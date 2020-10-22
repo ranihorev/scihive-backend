@@ -21,9 +21,14 @@ EXTERNAL_BASE_URL = os.environ.get('EXTERNAL_BASE_URL') or 'http://localhost:500
 
 S3_KEY = os.environ.get('S3_KEY')
 S3_SECRET = os.environ.get('S3_SECRET')
-S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME')
+S3_BUCKET = os.environ.get('S3_BUCKET')
 
-s3_available = S3_KEY and S3_SECRET and S3_BUCKET_NAME
+s3_available = S3_KEY and S3_SECRET and S3_BUCKET
+
+if not s3_available:
+    logger.warn(
+        f'S3 env vars are missing - Key: {bool(S3_KEY)}, Secret: {bool(S3_SECRET)}, Bucket: {bool(S3_BUCKET)}')
+
 s3_client_instance: Optional[S3Client] = boto3.client(
     's3',
     aws_access_key_id=S3_KEY,
@@ -68,7 +73,9 @@ class S3FileAccessProvider(FileAccessProvider):
         return f'{self._external_base_url}/{self._prefix}/{path}'
 
     def save_file(self, filename: str, content: IO) -> None:
-        self._s3_client.upload_fileobj(content, self._s3_bucket, f'{self._prefix}/{filename}')
+        upload_to = f'{self._prefix}/{filename}'
+        self._s3_client.upload_fileobj(content, self._s3_bucket, upload_to)
+        logger.info(f'File was uploaded to S3 - {upload_to}')
 
 
 class LocalFileAccessProvider(FileAccessProvider):
@@ -123,7 +130,7 @@ def get_uploader():
     if s3_available:
         file_access_provider = S3FileAccessProvider(
             s3_client=s3_client_instance,
-            s3_bucket=S3_BUCKET_NAME,
+            s3_bucket=S3_BUCKET,
             external_base_url=EXTERNAL_BASE_URL,
             prefix='papers'
         )

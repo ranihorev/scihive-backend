@@ -114,6 +114,7 @@ class NewPaper(Resource):
 
         # Upload the file
         file_content, file_hash, pdf_link = get_uploader().upload_from_file(file_stream)
+        logger.info(f'Uploaded file {pdf_link}')
 
         # get paper meta data
         metadata, _ = cache.get(file_hash, expire_time=True)

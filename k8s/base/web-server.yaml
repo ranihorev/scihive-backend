@@ -60,6 +60,12 @@ spec:
                 configMapKeyRef:
                   key: EXTERNAL_BASE_URL
                   name: web-server-config
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  key: REDIS_URL
+                  name: web-server-config
+                  optional: true
             - name: DB_URI
               valueFrom:
                 secretKeyRef:
