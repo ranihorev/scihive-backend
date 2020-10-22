@@ -2,6 +2,8 @@ apiVersion: networking.k8s.io/v1beta1
 kind: Ingress
 metadata:
   name: main-ingress
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: main-ingress-ip
 spec:
   rules:
   - http:
