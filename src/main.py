@@ -9,8 +9,8 @@ from . import flask_app, cors_allowed_origins, env
 from .models import db, Paper, paper_collection_table
 from sqlalchemy import func
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager, verify_jwt_in_request
-from flask_jwt_extended.exceptions import InvalidHeaderError, NoAuthorizationError
+from flask_jwt_extended import JWTManager
+from flask_jwt_extended.exceptions import NoAuthorizationError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_caching import Cache
@@ -27,7 +27,7 @@ import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from .scrapers import twitter
 from .run_background_tasks import run_scheduled_tasks
-from flask import Blueprint, jsonify
+from flask import jsonify
 from . import websocket  # websocket handling
 
 
