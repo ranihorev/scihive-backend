@@ -1,3 +1,4 @@
+import enum
 import os
 
 import sqlalchemy as sa
@@ -70,6 +71,13 @@ class User(db.Model):
         return self.username
 
 
+class MetadataState(enum.Enum):
+    missing = 0
+    fetching = 1
+    error = 2
+    ready = 3
+
+
 class Paper(db.Model):
     __tablename__ = 'paper'
     __versioned__ = {
@@ -102,6 +110,8 @@ class Paper(db.Model):
     unsubscribed_users = db.relationship("User", back_populates="unsubscribed_papers", secondary=unsubscribe_table)
     permissions = db.relationship("Permission", lazy='joined')
     token = db.Column(db.String, nullable=True)  # Used to share the paper with non-authorized users
+    metadata_state = db.Column(db.Enum(MetadataState), nullable=True, default=MetadataState.ready)
+    doi = db.Column(db.String, nullable=True)
 
     def __repr__(self):
         return f"{self.id} - {self.title}"

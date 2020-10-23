@@ -1,4 +1,5 @@
 #!/bin/bash
 
 flask db upgrade
-python -m src.app
+gunicorn --worker-class eventlet -w 1 -b $HOST:$PORT src.app:flask_app
+

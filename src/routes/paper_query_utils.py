@@ -8,7 +8,7 @@ from flask_restful import abort, fields
 from sqlalchemy import or_
 from .file_utils import get_uploader
 
-from ..models import Collection, Paper, db
+from ..models import Collection, MetadataState, Paper, db
 from ..scrapers.arxiv import fetch_entry
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,33 @@ paper_list_item_fields = {
     'num_stars': fields.Integer,
     'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True),
     'comments_count': fields.Integer
+}
+
+metadata_fields = {
+    'id': fields.String,
+    'title': fields.String,
+    'authors': fields.Nested({'name': fields.String, 'id': fields.String}),
+    'time_published': fields.DateTime(attribute='publication_date', dt_format='rfc822'),
+    'abstract': fields.String
+}
+
+
+class MetadataField(fields.Raw):
+    def format(self, value):
+        if value in [MetadataState.missing, MetadataState.fetching]:
+            return 'Fetching'
+        else:
+            return 'Ready'
+
+
+paper_fields = {
+    **metadata_fields,
+    'url': fields.String(attribute='local_pdf'),
+    'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True),
+    'groups': fields.List(fields.String(attribute='id'), attribute='groups'),
+    'is_editable': fields.Boolean(attribute='is_private', default=False),
+    'arxiv_id': fields.String(attribute='original_id', default=''),
+    'metadata_state': MetadataField(attribute='metadata_state')
 }
 
 

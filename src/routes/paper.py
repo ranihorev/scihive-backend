@@ -1,43 +1,34 @@
 import logging
+import threading
 from datetime import datetime
 from enum import Enum
-import threading
+from secrets import token_urlsafe
 from typing import List, Optional
-from cerberus import Validator
-from flask import session
-from sqlalchemy.sql.functions import user
+
 import pytz
-from flask import Blueprint, send_from_directory
+from cerberus import Validator
+from flask import Blueprint, send_from_directory, session
 from flask_jwt_extended import jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
-from secrets import token_urlsafe
 
-from ..models import Author, Collection, Paper, db, User, Permission
-
-from .notifications.index import new_invite_notification
-from .permissions_utils import PermissionType, add_permissions_to_user, get_paper_token_or_none, has_permissions_to_paper, get_paper_permission_type, is_paper_creator
+from .. import socketio_app
+from ..models import (Author, Collection, MetadataState, Paper, Permission,
+                      User, db)
 from .file_utils import LOCAL_FILES_DIRECTORY, s3_available
 from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
-from .paper_query_utils import get_paper_user_groups, get_paper_with_pdf, paper_with_code_fields
-from .user_utils import get_jwt_email, get_user_optional, get_user_by_email
-from .paper_query_utils import get_paper_or_404
+from .metadata_utils import extract_paper_metadata
+from .notifications.index import new_invite_notification
+from .paper_query_utils import (get_paper_or_404, get_paper_user_groups,
+                                get_paper_with_pdf, paper_fields)
+from .permissions_utils import (PermissionType, add_permissions_to_user,
+                                get_paper_permission_type,
+                                get_paper_token_or_none,
+                                has_permissions_to_paper, is_paper_creator)
+from .user_utils import get_jwt_email, get_user_by_email, get_user_optional
 
 app = Blueprint('paper', __name__)
 api = Api(app)
 logger = logging.getLogger(__name__)
-
-paper_fields = {
-    'id': fields.String,
-    'url': fields.String(attribute='local_pdf'),
-    'title': fields.String,
-    'authors': fields.Nested({'name': fields.String, 'id': fields.String}),
-    'time_published': fields.DateTime(attribute='publication_date', dt_format='rfc822'),
-    'abstract': fields.String,
-    'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True),
-    'groups': fields.List(fields.String(attribute='id'), attribute='groups'),
-    'is_editable': fields.Boolean(attribute='is_private', default=False),
-    'arxiv_id': fields.String(attribute='original_id', default=''),
-}
 
 user_fields = {
     'username': fields.String(),
@@ -82,6 +73,8 @@ class PaperResource(Resource):
 
                 session['paper_token'] = get_paper_token_or_none()
 
+        if paper.metadata_state == MetadataState.missing:
+            socketio_app.start_background_task(target=extract_paper_metadata, paper_id=paper.id)
         paper.groups = get_paper_user_groups(paper)
         return paper
 

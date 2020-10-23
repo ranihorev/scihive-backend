@@ -112,7 +112,7 @@ class FileUploader:
 
     def upload_from_file(self, file_stream: IO) -> Tuple[bytes, str, str]:
         content = file_stream.read()
-        file_hash = self._calc_hash(content)
+        file_hash = self.calc_hash(content)
         filename = f'{file_hash}.pdf'
         pdf_link = self._file_access_provider.get_link_to_file(filename)
         if not self._file_access_provider.exists(filename):
@@ -121,7 +121,7 @@ class FileUploader:
         return content, file_hash, pdf_link
 
     @staticmethod
-    def _calc_hash(content):
+    def calc_hash(content):
         return hashlib.md5(content).hexdigest()
 
 
