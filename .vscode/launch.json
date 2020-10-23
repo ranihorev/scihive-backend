@@ -5,6 +5,17 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Run Server",
+      "type": "python",
+      "request": "launch",
+      "module": "src.app",
+      "justMyCode": false,
+      "console": "integratedTerminal",
+      "env": {
+        "ENV_FILE": ".local_env"
+      }
+    },
+    {
       "name": "Fetch Arxiv",
       "type": "python",
       "request": "launch",
@@ -17,14 +28,17 @@
       "args": ["fetch-arxiv"]
     },
     {
-      "name": "Run",
+      "name": "Run Gunicorn",
       "type": "python",
       "request": "launch",
-      "module": "src.app",
       "justMyCode": false,
       "console": "integratedTerminal",
+      "gevent": true,
+      "program": "./venv/bin/gunicorn",
+      "args": ["src.app:flask_app", "--reload", "--worker-class", "eventlet", "-w", "1", "-b 127.0.0.1:5000"],
       "env": {
-        "ENV_FILE": ".local_env"
+        "ENV_FILE": ".local_env",
+        "OBJC_DISABLE_INITIALIZE_FORK_SAFETY": "YES"
       }
     },
     {
