@@ -4,9 +4,11 @@ import google.cloud.logging
 import os
 from google.cloud.logging.handlers import CloudLoggingHandler
 
+
 is_init = False
 
 BASE_FORMAT = '%(asctime)s - %(name)-12s %(levelname)-8s %(message)s'
+is_google_cloud = os.environ.get('GOOGLE')
 
 
 def logger_config(path='', info_filename='info.log', num_backups=5):
@@ -35,7 +37,6 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
             "backupCount": num_backups,
             "encoding": "utf8"
         }
-
     }
 
     loggers = {
@@ -61,7 +62,7 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
         },
     }
 
-    root_handlers = ["console", "info_file_handler", ]
+    root_handlers = ["console", "info_file_handler"]
 
     logging_config = dict(
         version=1,
@@ -73,7 +74,7 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
         handlers=handlers,
         loggers=loggers,
         root={
-            "level": "DEBUG",
+            "level": "INFO",
             "handlers": root_handlers
         }
     )
@@ -81,13 +82,13 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
     dictConfig(logging_config)
 
     # Setup google client
-    if os.environ.get('GOOGLE'):
+    if is_google_cloud or True:
         try:
             client = google.cloud.logging.Client()
             handler = CloudLoggingHandler(client)
-            cloud_logger = logging.getLogger('cloudLogger')
-            cloud_logger.setLevel(logging.INFO)  # defaults to WARN
-            cloud_logger.addHandler(handler)
-            cloud_logger.info('Google cloud logger was installed successfully')
+            handler.setLevel(logging.INFO)
+            root_logger = logging.getLogger()
+            root_logger.addHandler(handler)
+            logging.info('Google cloud logger was installed successfully')
         except Exception as e:
             print('Failed to add Google Cloud logger')
