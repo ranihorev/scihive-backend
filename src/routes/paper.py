@@ -156,6 +156,7 @@ class EditPaperResource(Resource):
                             required=True,
                             dest="publication_date")
         parser.add_argument('abstract', type=str, required=True)
+        parser.add_argument('doi', type=str, required=True)
         parser.add_argument('authors', type=validateAuthor, required=False, action="append")
         parser.add_argument('removed_authors', type=str, required=False, action="append", default=[])
         paper_data = parser.parse_args()
@@ -168,6 +169,7 @@ class EditPaperResource(Resource):
         paper.last_update_date = datetime.utcnow()
 
         paper.title = paper_data['title']
+        paper.doi = paper_data['doi']
         paper.publication_date = paper_data['publication_date']
         paper.abstract = paper_data['abstract']
 

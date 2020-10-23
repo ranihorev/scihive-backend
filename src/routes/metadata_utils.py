@@ -70,6 +70,7 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
         else:
             abstract = abstract.text
 
+    doi = get_tag_text(tree, 'idno')
     publish_date = None
     publish_date_raw = tree.find('.//date')
     if publish_date_raw is not None:
@@ -79,7 +80,7 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
         except Exception as e:
             logger.error(f'Failed to extract date for {publish_date_raw.text}')
 
-    return True, {'title': title or None, 'authors': authors, 'abstract': abstract, 'date': publish_date}
+    return True, {'title': title or None, 'authors': authors, 'abstract': abstract, 'date': publish_date, 'doi': doi}
 
 
 def extract_paper_metadata(paper_id: str):
@@ -107,6 +108,7 @@ def extract_paper_metadata(paper_id: str):
             paper.abstract = metadata['abstract']
         if metadata['date']:
             paper.date = metadata['date']
+        paper.doi = metadata['doi']
 
         # Create authors
         for current_author in metadata['authors']:

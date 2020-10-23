@@ -42,7 +42,8 @@ metadata_fields = {
     'title': fields.String,
     'authors': fields.Nested({'name': fields.String, 'id': fields.String}),
     'time_published': fields.DateTime(attribute='publication_date', dt_format='rfc822'),
-    'abstract': fields.String
+    'abstract': fields.String,
+    'doi': fields.String,
 }
 
 
