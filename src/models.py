@@ -1,6 +1,6 @@
 import enum
 import os
-
+import logging
 import sqlalchemy as sa
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -12,6 +12,8 @@ from sqlalchemy.dialects.postgresql import ARRAY
 
 from datetime import datetime
 from . import flask_app
+
+logger = logging.getLogger(__name__)
 
 flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 flask_app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_URI')
@@ -233,12 +235,12 @@ class Tweet(db.Model):
     text = db.Column(db.String)
 
 
-print('Connecting to DB')
+logger.info('Connecting to DB')
 try:
     sa.orm.configure_mappers()
     db.create_all()
 except Exception as e:
-    print(e)
+    logger.error(f'Failed to connect to DB - {e}')
     raise e
 
-print('Connected to DB successfully')
+logger.info('Connected to DB successfully')
