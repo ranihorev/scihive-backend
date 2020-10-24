@@ -1,34 +1,4 @@
 apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: redis-pv
-  labels:
-    type: local
-spec:
-  storageClassName: manual
-  capacity:
-    storage: 500Mi
-  accessModes:
-    - ReadWriteOnce
-  hostPath:
-    path: /mnt1/redis-data
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: redis-pvc
-  labels:
-    type: local
-spec:
-  storageClassName: manual
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 500Mi
-  volumeName: redis-pv
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: redis-conf
@@ -86,7 +56,7 @@ spec:
                 path: redis.conf
         - name: redis-data-mount
           persistentVolumeClaim:
-            claimName: redis-pvc
+            claimName: redis-volume-claim
 
 ---
 apiVersion: v1

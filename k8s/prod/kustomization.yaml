@@ -6,6 +6,7 @@ bases:
 
 resources:
     - ingress.yaml
+    - redis-volume.yaml
 
 secretGenerator:
   - name: web-server-secrets

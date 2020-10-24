@@ -4,6 +4,7 @@ namespace: scihive-backend
 bases:
     - ../base
 resources:
+  - redis-volume.yaml
   - postgres.yaml
 
 patchesStrategicMerge:
