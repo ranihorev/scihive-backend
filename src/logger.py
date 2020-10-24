@@ -26,16 +26,6 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
             "class": "logging.StreamHandler",
             "level": "DEBUG",
             "formatter": "f"
-        },
-
-        "info_file_handler": {
-            "class": "logging.handlers.RotatingFileHandler",
-            "level": "INFO",
-            "formatter": "f",
-            "filename": path + info_filename,
-            "maxBytes": 10485760,
-            "backupCount": num_backups,
-            "encoding": "utf8"
         }
     }
 
@@ -60,9 +50,12 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
             "level": "WARNING",
             "propagate": "no"
         },
+        "socketio.server": {
+            "level": "WARNING"
+        }
     }
 
-    root_handlers = ["console", "info_file_handler"]
+    root_handlers = ["console"] if not is_google_cloud else []
 
     logging_config = dict(
         version=1,
@@ -71,7 +64,7 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
             'f': {'format': BASE_FORMAT},
             'syslog_f': {}
         },
-        handlers=handlers,
+        handlers=handlers if not is_google_cloud else [],
         loggers=loggers,
         root={
             "level": "INFO",
@@ -82,7 +75,7 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
     dictConfig(logging_config)
 
     # Setup google client
-    if is_google_cloud or True:
+    if is_google_cloud:
         try:
             client = google.cloud.logging.Client()
             handler = CloudLoggingHandler(client)

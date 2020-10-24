@@ -60,6 +60,7 @@ class PaperResource(Resource):
     @marshal_with(paper_fields)
     def get(self, paper_id):
         paper = get_paper_with_pdf(paper_id)
+        logger.info(f'Fetching paper - {paper.id} - private: {paper.is_private}')
         if paper.is_private:
             user = get_user_optional()
             permission = get_paper_permission_type(paper, user)
