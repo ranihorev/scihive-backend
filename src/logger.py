@@ -9,9 +9,10 @@ is_init = False
 
 BASE_FORMAT = '%(asctime)s - %(name)-12s %(levelname)-8s %(message)s'
 is_google_cloud = os.environ.get('GOOGLE')
+env = os.environ.get('FLASK_ENV', 'development')
 
 
-def logger_config(path='', info_filename='info.log', num_backups=5):
+def logger_config():
     global is_init
     if is_init:
         logging.warning('logger is already initialized')
@@ -51,7 +52,7 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
             "propagate": "no"
         },
         "socketio.server": {
-            "level": "WARNING"
+            "level": "INFO" if env == 'development' else "WARNING"
         }
     }
 
@@ -80,7 +81,7 @@ def logger_config(path='', info_filename='info.log', num_backups=5):
             client = google.cloud.logging.Client()
             handler = CloudLoggingHandler(client)
             handler.setLevel(logging.INFO)
-            root_logger = logging.getLogger()
+            root_logger = logging.getLogger('root')
             root_logger.addHandler(handler)
             logging.info('Google cloud logger was installed successfully')
         except Exception as e:

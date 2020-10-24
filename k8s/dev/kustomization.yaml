@@ -24,3 +24,4 @@ configMapGenerator:
       - PORT=5000
       - FRONTEND_URL=http://localhost:3000
       - EXTERNAL_BASE_URL=https://arxiv.lyrn.ai
+      - REDIS_URL=redis://redis.scihive-backend.svc.cluster.local:6379

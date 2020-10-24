@@ -27,3 +27,4 @@ configMapGenerator:
       - FRONTEND_URL=https://new.scihive.org
       - EXTERNAL_BASE_URL=https://arxiv.lyrn.ai
       - GOOGLE=1
+      - REDIS_URL=redis://redis.scihive-backend.svc.cluster.local:6379
