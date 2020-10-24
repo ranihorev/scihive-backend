@@ -15,8 +15,6 @@ profiles:
           sync:
             infer:
               - src/**/*
-      local:
-        push: false
 
     deploy:
       kustomize:
@@ -25,7 +23,6 @@ profiles:
   - name: prod
     activation:
       - kubeContext: gke_scihive-prod_us-central1_scihive-prod-gke
-        command: dev
     build:
       googleCloudBuild: 
         projectId: scihive-prod
