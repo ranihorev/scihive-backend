@@ -4,7 +4,6 @@ import google.cloud.logging
 import os
 from google.cloud.logging.handlers import CloudLoggingHandler
 
-
 is_init = False
 
 BASE_FORMAT = '%(asctime)s - %(name)-12s %(levelname)-8s %(message)s'
@@ -22,11 +21,17 @@ def logger_config():
     logging.getLogger('botocore').setLevel(logging.WARNING)
     logging.getLogger('engineio').setLevel(logging.WARNING)
 
+    root_module = __name__.split('.')[0]
+    formatters = {
+        'f': {'format': BASE_FORMAT},
+        'json': {'format': '%(asctime)s %(name)s %(levelname)s %(message)s', "class": f'{root_module}.formatter.CustomJsonFormatter'}
+    }
+
     handlers = {
         "console": {
             "class": "logging.StreamHandler",
             "level": "DEBUG",
-            "formatter": "f"
+            "formatter": "json"
         }
     }
 
@@ -61,10 +66,7 @@ def logger_config():
     logging_config = dict(
         version=1,
         disable_existing_loggers=False,
-        formatters={
-            'f': {'format': BASE_FORMAT},
-            'syslog_f': {}
-        },
+        formatters=formatters,
         handlers=handlers if not is_google_cloud else [],
         loggers=loggers,
         root={
