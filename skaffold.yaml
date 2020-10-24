@@ -29,12 +29,12 @@ profiles:
     build:
       googleCloudBuild: 
         projectId: scihive-prod
-        kanikoImage: gcr.io/kaniko-project/executor
       artifacts:
         - image: gcr.io/scihive-prod/web-server
           context: .
           kaniko:
             dockerfile: Dockerfile
+            cache: {}
     deploy:
       statusCheckDeadlineSeconds: 600
       kustomize:
