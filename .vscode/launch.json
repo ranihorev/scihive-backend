@@ -35,7 +35,7 @@
       "console": "integratedTerminal",
       "gevent": true,
       "program": "./venv/bin/gunicorn",
-      "args": ["src.app:flask_app", "--reload", "--worker-class", "eventlet", "-w", "1", "-b 127.0.0.1:5000"],
+      "args": ["src.app:flask_app", "--reload", "--worker-class", "eventlet", "-w", "1", "-b", "127.0.0.1:5000", "-t", "10000"],
       "env": {
         "ENV_FILE": ".local_env",
         "OBJC_DISABLE_INITIALIZE_FORK_SAFETY": "YES"
