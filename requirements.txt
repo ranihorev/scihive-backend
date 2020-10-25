@@ -35,7 +35,7 @@ Flask-Migrate==2.5.3
 psycopg2-binary==2.8.4
 Flask-SQLAlchemy==2.4.1
 SQLAlchemy-Searchable==1.1.0
-SQLAlchemy-Continuum==1.3.9
+SQLAlchemy-Continuum==1.3.11
 sqlalchemy-utils==0.36.3
 sqlalchemy-easy-profile==1.1.0
 itsdangerous==1.1.0
