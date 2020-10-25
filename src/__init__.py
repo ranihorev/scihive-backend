@@ -6,8 +6,10 @@ from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
 from easy_profile import EasyProfileMiddleware
 import os
+
 from flask_socketio import SocketIO
 from .logger import logger_config
+from .error_logger import init_sentry
 from .patch_marshal import *
 import logging
 
@@ -15,6 +17,7 @@ load_dotenv(dotenv_path=os.environ.get('ENV_FILE'))
 
 env = os.environ.get('FLASK_ENV', 'development')
 logger_config()
+init_sentry(env)
 
 app_logger = logging.getLogger(__name__)
 

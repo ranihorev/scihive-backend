@@ -10,7 +10,6 @@ from .models import db, Paper, paper_collection_table
 from sqlalchemy import func
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
-from flask_jwt_extended.exceptions import NoAuthorizationError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_caching import Cache
@@ -23,37 +22,12 @@ from .routes.admin import app as admin_routes
 from .routes.new_paper import app as new_paper_routes
 from .scrapers import arxiv
 from .scrapers import paperswithcode
-import sentry_sdk
-from sentry_sdk.integrations.flask import FlaskIntegration
 from .scrapers import twitter
-from .run_background_tasks import run_scheduled_tasks
 from flask import jsonify
 from . import websocket  # websocket handling
 
 
 logger = logging.getLogger(__name__)
-
-SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
-
-
-def before_send(event, hint):
-    if 'exc_info' in hint:
-        exc_type, exc_value, tb = hint['exc_info']
-        if isinstance(exc_value, NoAuthorizationError):
-            req = event.get('request', '')
-            logger.warning(f'Unauthorized access - {req}')
-            return None
-    return event
-
-
-if SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        integrations=[FlaskIntegration()],
-        environment=env,
-        before_send=before_send,
-        ignore_errors=['TooManyRequests']
-    )
 
 flask_app.config['ENV'] = env
 
@@ -124,11 +98,6 @@ def fetch_papers_with_code():
 @flask_app.cli.command("fetch-twitter")
 def fetch_twitter():
     twitter.main_twitter_fetcher()
-
-
-@flask_app.cli.command("run-background-tasks")
-def background_tasks():
-    run_scheduled_tasks()
 
 
 @flask_app.route('/health')

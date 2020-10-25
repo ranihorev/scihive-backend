@@ -24,7 +24,7 @@ tweepy==3.9.0
 
 TexSoup==0.3.1
 
-sentry-sdk[flask]==0.8.0
+sentry-sdk[flask]==0.19.1
 pypandoc==1.4
 diskcache==4.1.0
 dnspython==1.16.0
