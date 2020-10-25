@@ -17,10 +17,6 @@ def logger_config():
         logging.warning('logger is already initialized')
         return
 
-    logging.getLogger('boto3').setLevel(logging.WARNING)
-    logging.getLogger('botocore').setLevel(logging.WARNING)
-    logging.getLogger('engineio').setLevel(logging.WARNING)
-
     root_module = __name__.split('.')[0]
     formatters = {
         'f': {'format': BASE_FORMAT},
@@ -36,9 +32,14 @@ def logger_config():
     }
 
     loggers = {
-        "elasticsearch": {
+        "boto3": {
             "level": "WARNING",
-            "propagate": "no"
+        },
+        "botocore": {
+            "level": "WARNING",
+        },
+        "engineio": {
+            "level": "WARNING",
         },
         "urllib3": {
             "level": "WARNING",
@@ -58,6 +59,9 @@ def logger_config():
         },
         "socketio.server": {
             "level": "INFO" if env == 'development' else "WARNING"
+        },
+        "sqlalchemy": {
+            "level": "WARNING",
         }
     }
 
