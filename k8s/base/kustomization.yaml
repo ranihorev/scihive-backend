@@ -5,3 +5,4 @@ resources:
   - scihive-backend.yaml
   - web-server.yaml
   - redis.yaml
+  - jobs.yaml

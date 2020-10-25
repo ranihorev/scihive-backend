@@ -1,0 +1,21 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: fetch-arxiv
+spec:
+  schedule: "0 */4 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: web-server
+            image: web-server
+            command: ["flask", "fetch-arxiv"]
+            envFrom:
+            - configMapRef:
+                name: web-server-config
+            - secretRef:
+                name: web-server-secrets
+          restartPolicy: OnFailure
+          
