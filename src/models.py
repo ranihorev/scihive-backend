@@ -83,7 +83,7 @@ class MetadataState(enum.Enum):
 class Paper(db.Model):
     __tablename__ = 'paper'
     __versioned__ = {
-        'exclude': ['authors', 'tags', 'collections', 'comments', 'tweets', 'unsubscribed_users']
+        'exclude': ['authors', 'tags', 'collections', 'comments', 'tweets', 'unsubscribed_users', 'metadata_state']
     }
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
