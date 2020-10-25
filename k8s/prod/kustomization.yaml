@@ -25,7 +25,7 @@ configMapGenerator:
       - HOST=0.0.0.0
       - FLASK_APP=src.app
       - PORT=5000
-      - FRONTEND_URL=https://new.scihive.org
+      - FRONTEND_URL=https://www.scihive.org
       - EXTERNAL_BASE_URL=https://arxiv.lyrn.ai
       - GOOGLE=1
       - REDIS_URL=redis://redis.scihive-backend.svc.cluster.local:6379
