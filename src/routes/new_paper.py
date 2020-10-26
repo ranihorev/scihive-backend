@@ -25,6 +25,8 @@ class NewPaper(Resource):
     method_decorators = [jwt_required]
 
     def _handle_non_arxiv_paper(self, data, user: User):
+        upload_via = 'link' if bool(data.link) else 'file'
+        logger.info(f'Uploading private paper via {upload_via}')
         # Let's stream directly from the link instead of buffering the file
         if data.link:
             response = requests.get(data.link, stream=True)
@@ -51,6 +53,7 @@ class NewPaper(Resource):
         return paper
 
     def _handle_arxiv_paper(self, link: str, user: User):
+        logger.info('Uploading private paper from arxiv')
         try:
             paper_id, _ = parse_arxiv_url(link)
         except (AttributeError, ValueError):
@@ -81,6 +84,7 @@ class NewPaper(Resource):
         else:
             paper = self._handle_non_arxiv_paper(data, user)
 
+        logger.info('Paper created successfully')
         # Check if user has a collection for uploads (and that they are still in that group)
         uploads_collection = Collection.query.filter(
             Collection.created_by_id == user.id, Collection.users.any(id=user.id), Collection.is_uploads == True).first()
