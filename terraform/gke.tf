@@ -28,7 +28,7 @@ resource "google_container_cluster" "primary" {
 
   remove_default_node_pool = true
   initial_node_count       = 1
-  node_locations = var.node_locations
+  node_locations           = var.node_locations
 
   network    = google_compute_network.vpc.name
   subnetwork = google_compute_subnetwork.subnet.name
@@ -58,7 +58,7 @@ resource "google_container_node_pool" "primary_nodes" {
   node_locations = var.node_locations
 
   node_config {
-    preemptible  = true
+    preemptible = true
     oauth_scopes = [
       "https://www.googleapis.com/auth/logging.write",
       "https://www.googleapis.com/auth/monitoring",
@@ -69,11 +69,15 @@ resource "google_container_node_pool" "primary_nodes" {
       env = var.project_id
     }
 
-    machine_type = "custom-1-2048"
+    machine_type = "custom-2-2048"
     tags         = ["gke-node", "${var.project_id}-gke"]
     metadata = {
       disable-legacy-endpoints = "true"
     }
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
@@ -83,7 +87,7 @@ output "kubernetes_cluster_name" {
 }
 
 output "cluster_location" {
-  value = var.cluster_location
+  value       = var.cluster_location
   description = "Location of the cluster (region or zone)"
 }
 
