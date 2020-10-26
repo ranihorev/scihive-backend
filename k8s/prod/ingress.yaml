@@ -5,13 +5,9 @@ metadata:
   annotations:
     kubernetes.io/ingress.global-static-ip-name: main-ingress-ip
 spec:
-  rules:
-  - http:
-      paths:
-      - path: /*
-        backend:
-          serviceName: web-server
-          servicePort: 5000
+  backend:
+    serviceName: web-server
+    servicePort: 5000
 ---
 apiVersion: cloud.google.com/v1beta1
 kind: BackendConfig
