@@ -128,7 +128,6 @@ class Papers(Resource):
     @marshal_with(papers_list_fields)
     def get(self):
         query_parser = reqparse.RequestParser()
-        # query_parser.add_argument('q', type=str, required=False)
         query_parser.add_argument('author', type=str, required=False, location='args')
         query_parser.add_argument('page_num', type=int, required=False, default=1, location='args')
         query_parser.add_argument('sort', type=str, required=False, choices=list(

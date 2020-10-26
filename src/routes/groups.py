@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 import threading
-
+from sqlalchemy import func
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
 from flask_restful import (Api, Resource, abort, fields, inputs, marshal_with,
@@ -33,8 +33,14 @@ def get_user_groups(user: User) -> List[Collection]:
     return Collection.query.filter(Collection.users.any(email=user.email)).all()
 
 
-def get_user_groups_by_email(email: str) -> List[Collection]:
-    return Collection.query.filter(Collection.users.any(email=email)).all()
+class GroupsDetailed(Resource):
+    method_decorators = [jwt_required]
+
+    @marshal_with({**group_fields, "num_papers": fields.Integer})
+    def get(self):
+        email = get_jwt_email()
+        user_filter = Collection.users.any(email=email)
+        return db.session.query(Collection, func.count(Paper.id).label('num_papers')).filter(user_filter).join(Paper).group_by(Paper).all()
 
 
 class Groups(Resource):
@@ -43,7 +49,7 @@ class Groups(Resource):
     @marshal_with(group_fields)
     def get(self):
         email = get_jwt_email()
-        return get_user_groups_by_email(email)
+        return db.session.query(Collection).filter(Collection.users.any(email=email)).all()
 
     @marshal_with(group_fields)
     def post(self):
@@ -163,5 +169,6 @@ class Group(Resource):
 
 
 api.add_resource(Groups, '/all')
+api.add_resource(GroupsDetailed, '/all/detailed')
 api.add_resource(NewGroup, '/new')
 api.add_resource(Group, '/group/<group_id>')
