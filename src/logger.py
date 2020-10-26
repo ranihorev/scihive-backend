@@ -57,12 +57,13 @@ def logger_config():
             "level": "WARNING",
             "propagate": "no"
         },
-        "socketio.server": {
+        "socketio": {
             "level": "INFO" if env == 'development' else "WARNING"
         },
         "sqlalchemy": {
             "level": "WARNING",
         }
+
     }
 
     root_handlers = ["console"] if not is_google_cloud else []

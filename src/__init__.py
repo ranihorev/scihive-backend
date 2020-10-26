@@ -1,4 +1,6 @@
 import os
+import eventlet
+eventlet.monkey_patch()
 from flask import Flask
 from dotenv import load_dotenv
 # This is required to patch marshal
