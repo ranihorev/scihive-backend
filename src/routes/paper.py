@@ -165,7 +165,7 @@ class EditPaperResource(Resource):
         paper = Paper.query.get_or_404(paper_id)
 
         if not paper.is_private:
-            abort(403, 'Only uploaded papers can be edited')
+            abort(403, message='Only uploaded papers can be edited')
 
         paper.last_update_date = datetime.utcnow()
 

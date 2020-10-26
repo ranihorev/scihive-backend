@@ -51,9 +51,9 @@ class UserLogin(Resource):
         if not current_user:
             abort(401, message='User {} doesn\'t exist'.format(data['email']))
         elif current_user.pending:
-            abort(403, 'User is pending. Please log in via Google')
+            abort(403, message='User is pending. Please log in via Google')
         elif current_user.provider:
-            abort(403, 'Please log in via Google')
+            abort(403, message='Please log in via Google')
 
         if verify_hash(data['password'], current_user.password):
             access_token = create_access_token(identity=data['email'])
