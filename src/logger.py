@@ -27,7 +27,8 @@ def logger_config():
         "console": {
             "class": "logging.StreamHandler",
             "level": "DEBUG",
-            "formatter": "json"
+            "formatter": "json",
+            "stream": "ext://sys.stdout"
         }
     }
 
@@ -66,13 +67,13 @@ def logger_config():
 
     }
 
-    root_handlers = ["console"] if not is_google_cloud else []
+    root_handlers = ["console"]
 
     logging_config = dict(
         version=1,
         disable_existing_loggers=False,
         formatters=formatters,
-        handlers=handlers if not is_google_cloud else [],
+        handlers=handlers,
         loggers=loggers,
         root={
             "level": "INFO",
