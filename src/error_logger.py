@@ -18,7 +18,7 @@ def init_sentry(env: str):
     if SENTRY_DSN:
         sentry_sdk.init(
             dsn=SENTRY_DSN,
-            integrations=[FlaskIntegration()],
+            # integrations=[FlaskIntegration()],
             environment=env,
             before_send=before_send,
             ignore_errors=['TooManyRequests']
