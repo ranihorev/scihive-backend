@@ -1,0 +1,11 @@
+steps:
+  - name: gcr.io/cloud-builders/gcloud
+    entrypoint: 'bash'
+    args: [ '-c', "gcloud secrets versions access latest --secret=\"web-server-secrets\" > ./k8s/prod/.secrets"]
+  - name: gcr.io/cloud-builders/gcloud
+    args: ["container", "clusters", "get-credentials", "scihive-prod-gke", "--region", "us-central1-c"]
+  - name: gcr.io/scihive-prod/skaffold:v1.15.0
+    args: ['run', '-p', 'prod']
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=us-central1-c'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=scihive-prod-gke'
