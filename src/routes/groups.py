@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required
 from flask_restful import (Api, Resource, abort, fields, inputs, marshal_with,
                            reqparse)
 from typing import List
-from ..models import Collection, Paper, db, User
+from ..models import Collection, Paper, db, User, paper_collection_table
 
 from .user_utils import get_jwt_email, get_user_by_email
 
@@ -24,8 +24,13 @@ class Count(fields.Raw):
 group_fields = {
     'id': fields.String,
     'name': fields.String,
-    'created_at': fields.DateTime(dt_format='rfc822', attribute='creation_date'),
     'color': fields.String,
+}
+
+detailed_group_fields = {
+    **group_fields,
+    "num_papers": fields.Integer,
+    'created_at': fields.DateTime(dt_format='rfc822', attribute='creation_date'),
 }
 
 
@@ -36,11 +41,17 @@ def get_user_groups(user: User) -> List[Collection]:
 class GroupsDetailed(Resource):
     method_decorators = [jwt_required]
 
-    @marshal_with({**group_fields, "num_papers": fields.Integer})
+    @marshal_with(detailed_group_fields)
     def get(self):
         email = get_jwt_email()
         user_filter = Collection.users.any(email=email)
-        return db.session.query(Collection, func.count(Paper.id).label('num_papers')).filter(user_filter).join(Paper).group_by(Paper).all()
+        data = db.session.query(Collection, func.count(paper_collection_table.c.paper_id).label(
+            'num_papers')).filter(user_filter).join(paper_collection_table).group_by(Collection.id).all()
+        collections = []
+        for collection, num_papers in data:
+            collection.num_papers = num_papers
+            collections.append(collection)
+        return collections
 
 
 class Groups(Resource):
