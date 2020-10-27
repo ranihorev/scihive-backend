@@ -10,9 +10,11 @@
       "request": "launch",
       "module": "src.app",
       "justMyCode": false,
+      "gevent": true,
       "console": "integratedTerminal",
       "env": {
-        "ENV_FILE": ".local_env"
+        "ENV_FILE": ".local_env",
+        "GEVENT_SUPPORT": "True"
       }
     },
     {
