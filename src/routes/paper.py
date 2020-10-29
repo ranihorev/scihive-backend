@@ -203,7 +203,8 @@ def validateUsersList(value):
     user_validator = Validator()
     valid = user_validator.validate(value, schema)
     if not valid:
-        raise ValueError(user_validator.errors)
+        email = value.get('email', '')
+        raise ValueError(f'Email address is invalid - {email}')
     return value
 
 
@@ -215,17 +216,17 @@ class PaperInvite(Resource):
         if not paper.uploaded_by == current_user:
             abort(403, message="Only the creator of the doc can update permissions")
 
-    def _throw_if_no_permissions(self, paper: Paper, current_user: User):
+    def _abort_if_no_permissions(self, paper: Paper, current_user: User):
         # TODO: merge with permissions_utils function
         if has_permissions_to_paper(paper, current_user, check_token=False):
             return True
         abort(403, message="User is not allowed to add permissions")
 
     def _get_or_create_user(self, user_data) -> User:
-        email: str = user_data['email']
+        email: str = user_data['email'].lower()
         user: Optional[user] = User.query.filter_by(email=email).first()
         if not user:
-            name: str = user_data['name']
+            name: str = user_data['name'] or ''
             name_parts = name.rsplit(' ', 1)
             first_name = name_parts[0]
             last_name = name_parts[1] if len(name_parts) >= 2 else ''
@@ -254,7 +255,7 @@ class PaperInvite(Resource):
         current_user = get_user_by_email()
         current_user_name = current_user.first_name or current_user.username
         paper: Paper = get_paper_or_404(paper_id)
-        self._throw_if_no_permissions(paper, current_user)
+        self._abort_if_no_permissions(paper, current_user)
 
         users: List[User] = []
         for u in data['users']:
@@ -277,7 +278,7 @@ class PaperInvite(Resource):
         data = parser.parse_args()
         paper: Paper = Paper.query.get_or_404(paper_id)
         current_user = get_user_by_email()
-        self._throw_if_no_permissions(paper, current_user)
+        self._abort_if_no_permissions(paper, current_user)
         deleted_user = get_user_by_email(data.get('email'))
 
         Permission.query.filter(Permission.user_id == deleted_user.id, Permission.paper_id == paper_id).delete()
