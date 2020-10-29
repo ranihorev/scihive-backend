@@ -4,14 +4,15 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Any, Dict, List, Tuple, NamedTuple
+from flask.app import Flask
 from flask_restful import marshal
 
+from flask import current_app
 import requests
 from diskcache import Cache
 from flask_socketio import emit
 from sqlalchemy.orm.exc import NoResultFound
 
-from .. import flask_app
 from ..models import Author, MetadataState, Paper, db
 from .file_utils import FileUploader
 from .paper_query_utils import metadata_fields
@@ -83,8 +84,8 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
     return True, {'title': title or None, 'authors': authors, 'abstract': abstract, 'date': publish_date, 'doi': doi}
 
 
-def extract_paper_metadata(paper_id: str):
-    with flask_app.app_context():
+def extract_paper_metadata(app: Flask, paper_id: str):
+    with app.app_context():
         paper: Paper = Paper.query.get_or_404(paper_id)
         paper.metadata_state = MetadataState.fetching  # TODO: move this to redis
         db.session.commit()

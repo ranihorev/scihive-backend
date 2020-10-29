@@ -4,6 +4,7 @@ from datetime import datetime
 from enum import Enum
 from secrets import token_urlsafe
 from typing import List, Optional
+from flask.globals import current_app
 
 import pytz
 from cerberus import Validator
@@ -11,7 +12,6 @@ from flask import Blueprint, send_from_directory, session
 from flask_jwt_extended import jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
-from .. import socketio_app
 from ..models import (Author, Collection, MetadataState, Paper, Permission,
                       User, db)
 from .file_utils import LOCAL_FILES_DIRECTORY, s3_available
@@ -75,7 +75,10 @@ class PaperResource(Resource):
                 session['paper_token'] = get_paper_token_or_none()
 
         if paper.metadata_state == MetadataState.missing:
-            socketio_app.start_background_task(target=extract_paper_metadata, paper_id=paper.id)
+            socketio_app = getattr(current_app, 'socketio_app', None)
+            if socketio_app:
+                socketio_app.start_background_task(target=extract_paper_metadata,
+                                                   app=current_app._get_current_object(), paper_id=paper.id)
         paper.groups = get_paper_user_groups(paper)
         return paper
 

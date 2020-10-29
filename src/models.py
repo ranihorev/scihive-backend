@@ -1,6 +1,7 @@
 import enum
 import os
 import logging
+from flask import Flask
 import sqlalchemy as sa
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -11,17 +12,12 @@ from sqlalchemy_continuum import make_versioned
 from sqlalchemy.dialects.postgresql import ARRAY
 
 from datetime import datetime
-from . import flask_app
 
 logger = logging.getLogger(__name__)
 
-flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-flask_app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_URI')
-
 make_versioned(user_cls=None)
 
-db = SQLAlchemy(flask_app)
-migrate = Migrate(flask_app, db)
+db = SQLAlchemy()
 
 make_searchable(db.metadata)
 
@@ -235,12 +231,17 @@ class Tweet(db.Model):
     text = db.Column(db.String)
 
 
-logger.info('Connecting to DB')
-try:
-    sa.orm.configure_mappers()
-    db.create_all()
-except Exception as e:
-    logger.error(f'Failed to connect to DB - {e}')
-    raise e
+def init_db(flask_app: Flask):
+    flask_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    flask_app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_URI')
+    db.init_app(flask_app)
+    Migrate(flask_app, db)
+    logger.info('Connecting to DB')
+    try:
+        sa.orm.configure_mappers()
+        db.create_all(app=flask_app)
+    except Exception as e:
+        logger.error(f'Failed to connect to DB - {e}')
+        raise e
 
-logger.info('Connected to DB successfully')
+    logger.info('Connected to DB successfully')
