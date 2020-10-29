@@ -31,6 +31,8 @@ USERS_FILENAME = 'src/twitter_users.json'
 def get_api_connector():
     key = os.environ.get('TWITTER_KEY')
     secret = os.environ.get('TWITTER_SECRET')
+    if not key or not secret:
+        return None
     auth = tweepy.AppAuthHandler(key, secret)
     return tweepy.API(auth, wait_on_rate_limit=True, wait_on_rate_limit_notify=True)
 
@@ -175,6 +177,9 @@ def process_tweets(api, tweets_raw_data):
 @catch_exceptions(logger=logger)
 def main_twitter_fetcher():
     api = get_api_connector()
+    if not api:
+        logger.error('Twitter API keys are missing. Skipping')
+        return
     tweets = fetch_tweets(api)
     papers_to_update = process_tweets(api, tweets)
     summarize_tweets(papers_to_update)
