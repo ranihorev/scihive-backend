@@ -53,7 +53,7 @@ class UserLogin(Resource):
         elif current_user.pending:
             abort(403, message='User is pending. Please log in via Google')
         elif current_user.provider:
-            abort(403, message='Please log in via Google')
+            abort(403, message='For security reasons, please log in via Google')
 
         if verify_hash(data['password'], current_user.password):
             access_token = create_access_token(identity=data['email'])
