@@ -2,6 +2,7 @@ import os
 import sentry_sdk
 from sentry_sdk.integrations.flask import FlaskIntegration
 from flask_jwt_extended.exceptions import NoAuthorizationError
+from werkzeug.exceptions import Forbidden, NotFound
 
 
 def before_send(event, hint):
@@ -21,5 +22,5 @@ def init_sentry(env: str):
             integrations=[FlaskIntegration()],
             environment=env,
             before_send=before_send,
-            ignore_errors=['TooManyRequests']
+            ignore_errors=['TooManyRequests', NotFound, NoAuthorizationError, Forbidden]
         )
