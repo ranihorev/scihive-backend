@@ -316,7 +316,7 @@ class PaperSharingToken(Resource):
         else:
             paper.token = None
         db.session.commit()
-        return {'token': paper.token}
+        return {'token': paper.token, 'canEdit': True}
 
 
 api.add_resource(PaperSharingToken, "/<paper_id>/token")
