@@ -265,8 +265,8 @@ class PaperInvite(Resource):
                 add_permissions_to_user(paper, u)
                 # TODO: Switch to task queue later
                 logger.info(f'Sending email to user - {u.username}')
-                socketio_app.start_background_task(target=new_invite_notification, user_id=u.id,
-                                                   paper_id=paper_id, invited_by_name=current_user_name, message=data['message'])
+                start_background_task(target=new_invite_notification, user_id=u.id,
+                                      paper_id=paper_id, invited_by_name=current_user_name, message=data['message'])
         db.session.commit()
         return {"message": "success"}
 
