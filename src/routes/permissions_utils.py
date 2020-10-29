@@ -58,7 +58,7 @@ def enforce_permissions_to_paper(paper: Paper, user: Optional[User], check_token
     if not paper.is_private:
         return True
     if not has_permissions_to_paper(paper, user, check_token=check_token, token=token):
-        abort(403, message='Missing paper perimssions')
+        abort(403, message='Missing paper permissions')
     return True
 
 

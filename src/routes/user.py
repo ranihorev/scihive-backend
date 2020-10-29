@@ -139,8 +139,8 @@ class GoogleLogin(Resource):
 
         # create user if not missing
         user = User.query.filter_by(email=email).first()
-        first_name: str = info['given_name']
-        last_name: str = info['family_name']
+        first_name: str = info.get('given_name')
+        last_name: str = info.get('family_name')
         if not user:
             username = first_name + ' ' + last_name
             username.replace(' ', '_')

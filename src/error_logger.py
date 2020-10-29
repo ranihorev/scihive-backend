@@ -5,15 +5,6 @@ from flask_jwt_extended.exceptions import NoAuthorizationError
 from werkzeug.exceptions import Forbidden, NotFound
 
 
-def before_send(event, hint):
-    if 'exc_info' in hint:
-        exc_type, exc_value, tb = hint['exc_info']
-        if isinstance(exc_value, NoAuthorizationError):
-            req = event.get('request', '')
-            return None
-    return event
-
-
 def init_sentry(env: str):
     SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
     if SENTRY_DSN:
@@ -21,6 +12,5 @@ def init_sentry(env: str):
             dsn=SENTRY_DSN,
             integrations=[FlaskIntegration()],
             environment=env,
-            before_send=before_send,
             ignore_errors=['TooManyRequests', NotFound, NoAuthorizationError, Forbidden]
         )
