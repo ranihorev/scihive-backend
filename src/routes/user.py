@@ -169,16 +169,3 @@ api.add_resource(UserLogoutAccess, '/logout')
 api.add_resource(TokenRefresh, '/token/refresh')
 api.add_resource(ValidateUser, '/validate')
 api.add_resource(Unsubscribe, '/unsubscribe/<token>')
-
-
-# # new reply
-
-#  try:
-#             comment_user_email = comment.get('user').get('email')
-#             current_user_email = get_jwt_identity()
-#             if comment_user_email and comment_user_email != current_user_email:
-#                 paper = get_paper_by_id(paper_id, {"title": 1})
-#                 threading.Thread(target=new_reply_notification, args=(
-#                     comment_user_email, comment['user']['username'], paper_id, paper['title'])).start()
-#         except Exception as e:
-#             logger.error(f'Failed to notify on a new reply - {e}')

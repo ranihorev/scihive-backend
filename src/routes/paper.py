@@ -1,5 +1,4 @@
 import logging
-import threading
 from datetime import datetime
 from enum import Enum
 from secrets import token_urlsafe
@@ -8,10 +7,10 @@ from typing import List, Optional
 import pytz
 from cerberus import Validator
 from flask import Blueprint, send_from_directory, session
+from flask.globals import current_app
 from flask_jwt_extended import jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
-from .. import socketio_app
 from ..models import (Author, Collection, MetadataState, Paper, Permission,
                       User, db)
 from .file_utils import LOCAL_FILES_DIRECTORY, s3_available
@@ -25,6 +24,7 @@ from .permissions_utils import (PermissionType, add_permissions_to_user,
                                 get_paper_token_or_none,
                                 has_permissions_to_paper, is_paper_creator)
 from .user_utils import get_jwt_email, get_user_by_email, get_user_optional
+from .utils import start_background_task
 
 app = Blueprint('paper', __name__)
 api = Api(app)
@@ -75,7 +75,7 @@ class PaperResource(Resource):
                 session['paper_token'] = get_paper_token_or_none()
 
         if paper.metadata_state == MetadataState.missing:
-            socketio_app.start_background_task(target=extract_paper_metadata, paper_id=paper.id)
+            start_background_task(target=extract_paper_metadata, paper_id=paper.id)
         paper.groups = get_paper_user_groups(paper)
         return paper
 
@@ -265,8 +265,8 @@ class PaperInvite(Resource):
                 add_permissions_to_user(paper, u)
                 # TODO: Switch to task queue later
                 logger.info(f'Sending email to user - {u.username}')
-                threading.Thread(target=new_invite_notification, args=(
-                    u.id, paper_id, current_user_name, data['message'])).start()
+                socketio_app.start_background_task(target=new_invite_notification, user_id=u.id,
+                                                   paper_id=paper_id, invited_by_name=current_user_name, message=data['message'])
         db.session.commit()
         return {"message": "success"}
 
