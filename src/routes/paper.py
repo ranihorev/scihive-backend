@@ -20,6 +20,7 @@ from .notifications.index import new_invite_notification
 from .paper_query_utils import (get_paper_or_404, get_paper_user_groups,
                                 get_paper_with_pdf, paper_fields)
 from .permissions_utils import (PermissionType, add_permissions_to_user,
+                                enforce_permissions_to_paper,
                                 get_paper_permission_type,
                                 get_paper_token_or_none,
                                 has_permissions_to_paper, is_paper_creator)
@@ -294,22 +295,21 @@ class PaperInvite(Resource):
 class PaperSharingToken(Resource):
     method_decorators = [jwt_required]
 
-    def _validate_permissions(self, paper: Paper):
-        current_user = get_user_by_email()
-        if is_paper_creator(paper, current_user):
-            return
-        abort(404, message='No permissions')
-
     def get(self, paper_id):
         paper: Paper = Paper.query.get_or_404(paper_id)
-        self._validate_permissions(paper)
-        return {'token': paper.token}
+        user = get_user_by_email()
+        if paper.is_private:
+            enforce_permissions_to_paper(paper, user, check_token=False)
+
+        return {'token': paper.token, 'canEdit': get_paper_permission_type(paper, user) == PermissionType.CREATOR}
 
     def post(self, paper_id):
         parser = reqparse.RequestParser()
         parser.add_argument('enable', type=bool, required=True, location='json')
         data = parser.parse_args()
         paper: Paper = Paper.query.get_or_404(paper_id)
+        if not is_paper_creator(paper, get_user_by_email()):
+            abort(403, message='Only the creator of the paper can share change link sharing settings')
         if data.get('enable'):
             paper.token = token_urlsafe()
         else:
