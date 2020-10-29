@@ -1,5 +1,4 @@
 import logging
-import threading
 from datetime import datetime
 from typing import Optional
 
@@ -10,11 +9,12 @@ from flask_restful import (Api, Resource, abort, fields, inputs, marshal,
 from flask_socketio import emit
 from sqlalchemy import or_
 
-from ..models import Collection, Comment, Paper, Reply, User, db
-from .notifications.index import new_comment_notification
+from ..models import Collection, Comment, Paper, Reply, db
+from .notifications.index import new_comment_notification, new_reply_notification
 from .paper_query_utils import PUBLIC_TYPES
 from .permissions_utils import enforce_permissions_to_paper
 from .user_utils import get_jwt_email, get_user_by_email, get_user_optional
+from .utils import start_background_task
 
 app = Blueprint('comments', __name__)
 api = Api(app)
@@ -112,8 +112,8 @@ class NewCommentResource(Resource):
 
     def notify_if_needed(self, user_id: Optional[int], paper: Paper, comment: Comment):
         try:
-            # TODO: Filter unsubscribes
-            threading.Thread(target=new_comment_notification, args=(user_id, paper.id, comment.id)).start()
+            start_background_task(target=new_comment_notification, user_id=user_id,
+                                  paper_id=paper.id, comment_id=comment.id)
         except Exception as e:
             logger.error(f'Failed to notify on a new comment - {e}')
 
@@ -218,6 +218,11 @@ class ReplyResource(Resource):
         db.session.commit()
         db.session.refresh(comment)
         emit_update_to_paper_subscribers(comment.paper_id, 'update', comment)
+        try:
+            start_background_task(target=new_reply_notification, user_id=user.id,
+                                  paper_id=comment.paper_id, reply_id=reply.id)
+        except Exception as e:
+            logger.error(f'Failed to notify on a new comment - {e}')
         return comment
 
 

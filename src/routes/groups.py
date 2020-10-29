@@ -1,15 +1,16 @@
 import logging
 from datetime import datetime
-import threading
-from sqlalchemy import func
+from typing import List
+
 from flask import Blueprint
 from flask_jwt_extended import jwt_required
 from flask_restful import (Api, Resource, abort, fields, inputs, marshal_with,
                            reqparse)
-from typing import List
-from ..models import Collection, Paper, db, User, paper_collection_table
+from sqlalchemy import func
 
+from ..models import Collection, Paper, User, db, paper_collection_table
 from .user_utils import get_jwt_email, get_user_by_email
+from .utils import start_background_task
 
 app = Blueprint('groups', __name__)
 api = Api(app)
@@ -172,7 +173,7 @@ class Group(Resource):
                 pass
 
         db.session.commit()
-        threading.Thread(target=update_num_stars, args=(paper.id,)).start()
+        start_background_task(target=update_num_stars, paper_id=paper.id)
 
         paper_groups = Collection.query.filter(Collection.papers.any(
             id=paper.id), Collection.users.any(id=user.id)).all()

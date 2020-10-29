@@ -84,45 +84,44 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
     return True, {'title': title or None, 'authors': authors, 'abstract': abstract, 'date': publish_date, 'doi': doi}
 
 
-def extract_paper_metadata(app: Flask, paper_id: str):
-    with app.app_context():
-        paper: Paper = Paper.query.get_or_404(paper_id)
-        paper.metadata_state = MetadataState.fetching  # TODO: move this to redis
-        db.session.commit()
-        file_content = requests.get(paper.local_pdf).content
-        file_hash = FileUploader.calc_hash(file_content)
-        # metadata, _ = cache.get(file_hash, expire_time=True)
-        metadata = None
-        if not metadata:
-            logger.info(f'Fetching data from grobid for paper - {paper_id}')
-            success, metadata = fetch_data_from_grobid(file_content)
-            if success:
-                logger.info(f'Fetched data from grobid! - {paper_id}')
-                cache.set(file_hash, metadata, expire=24 * 60 * 60)
-            else:
-                emit('paperInfo', {'success': False}, namespace='/', room=str(paper.id))
-                return
+def extract_paper_metadata(paper_id: str):
+    paper: Paper = Paper.query.get_or_404(paper_id)
+    paper.metadata_state = MetadataState.fetching  # TODO: move this to redis
+    db.session.commit()
+    file_content = requests.get(paper.local_pdf).content
+    file_hash = FileUploader.calc_hash(file_content)
+    # metadata, _ = cache.get(file_hash, expire_time=True)
+    metadata = None
+    if not metadata:
+        logger.info(f'Fetching data from grobid for paper - {paper_id}')
+        success, metadata = fetch_data_from_grobid(file_content)
+        if success:
+            logger.info(f'Fetched data from grobid! - {paper_id}')
+            cache.set(file_hash, metadata, expire=24 * 60 * 60)
+        else:
+            emit('paperInfo', {'success': False}, namespace='/', room=str(paper.id))
+            return
 
-        if metadata['title']:
-            paper.title = metadata['title']
-        if metadata['abstract']:
-            paper.abstract = metadata['abstract']
-        if metadata['date']:
-            paper.date = metadata['date']
-        paper.doi = metadata['doi']
+    if metadata['title']:
+        paper.title = metadata['title']
+    if metadata['abstract']:
+        paper.abstract = metadata['abstract']
+    if metadata['date']:
+        paper.date = metadata['date']
+    paper.doi = metadata['doi']
 
-        # Create authors
-        for current_author in metadata['authors']:
-            try:
-                author = Author.query.filter(
-                    Author.first_name == current_author.first_name, Author.last_name == current_author.last_name).one()
-            except NoResultFound:
-                author = Author(name=f'{current_author.first_name} {current_author.last_name}',
-                                first_name=current_author.first_name, last_name=current_author.last_name, organization=current_author.org)
-                db.session.add(author)
-            author.papers.append(paper)
+    # Create authors
+    for current_author in metadata['authors']:
+        try:
+            author = Author.query.filter(
+                Author.first_name == current_author.first_name, Author.last_name == current_author.last_name).one()
+        except NoResultFound:
+            author = Author(name=f'{current_author.first_name} {current_author.last_name}',
+                            first_name=current_author.first_name, last_name=current_author.last_name, organization=current_author.org)
+            db.session.add(author)
+        author.papers.append(paper)
 
-        paper.last_update_date = datetime.now()
-        paper.metadata_state = MetadataState.ready
-        db.session.commit()
-        emit('paperInfo', {'success': True, 'data': marshal(paper, metadata_fields)}, namespace='/', room=str(paper.id))
+    paper.last_update_date = datetime.now()
+    paper.metadata_state = MetadataState.ready
+    db.session.commit()
+    emit('paperInfo', {'success': True, 'data': marshal(paper, metadata_fields)}, namespace='/', room=str(paper.id))
