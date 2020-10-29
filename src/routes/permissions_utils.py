@@ -8,12 +8,10 @@ from ..models import Collection, Paper, Permission, User, db
 
 
 def get_paper_token_or_none():
-    if session.get('paper_token'):
-        return session.get('paper_token')
     parser = reqparse.RequestParser()
     parser.add_argument('token', required=False, location='args')
     data = parser.parse_args()
-    return data.get('token')
+    return data.get('token', session.get('paper_token', None))
 
 
 def has_valid_token(paper: Paper, token: Optional[str] = None) -> bool:
