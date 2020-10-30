@@ -56,15 +56,11 @@ class UserLogin(Resource):
             abort(403, message='For security reasons, please log in via Google')
 
         if verify_hash(data['password'], current_user.password):
-            access_token = create_access_token(identity=data['email'])
-            # refresh_token = create_refresh_token(identity=data['email'])
+            access_token = create_access_token(identity=dict(email=data['email']))
 
-            resp = jsonify({'message': 'You are now logged in!',
-                            'username': current_user.username,
-                            'email': current_user.email}
-                           )
+            resp = jsonify(get_user_profile(current_user))
             set_access_cookies(resp, access_token)
-            return get_user_profile(current_user)
+            return resp
         else:
             return abort(401, message="Wrong credentials")
 
