@@ -47,6 +47,14 @@ spec:
               mountPath: /var/lib/redis
             - name: redis-conf
               mountPath: /etc/redis
+          readinessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - if [ $(redis-cli ping) == "PONG" ]; then echo "ready!"; exit 0; else echo "not ready"; exit 1; fi;
+            initialDelaySeconds: 5
+            failureThreshold: 10
       volumes:
         - name: redis-conf
           configMap:
