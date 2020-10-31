@@ -1,13 +1,12 @@
 import logging
 import os
 import re
+import dateparser
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Any, Dict, List, Tuple, NamedTuple
-from flask.app import Flask
 from flask_restful import marshal
 
-from flask import current_app
 import requests
 from diskcache import Cache
 from flask_socketio import emit
@@ -45,7 +44,7 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
         grobid_url = os.environ.get('GROBID_URL')
         if not grobid_url:
             raise KeyError('Grobid URL is missing')
-        grobid_res = requests.post(grobid_url + '/api/processHeaderDocument',
+        grobid_res = requests.post(grobid_url + '/api/processFulltextDocument',
                                    data={'consolidateHeader': 1}, files={'input': file_content})
         if grobid_res.status_code == 503:
             raise Exception('Grobid is unavailable')
@@ -55,29 +54,27 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
         logger.error(f'Failed to extract metadata for paper - {e}')
         return False, {'title': 'Untitled', 'authors': [], 'abstract': '', 'date': datetime.now()}
 
-    title = get_tag_text(tree, 'title')
+    header = tree.find('.//teiHeader')
+    title = get_tag_text(header, 'title')
 
-    authors_tree = tree.findall('.//author')
+    authors_tree = header.findall('.//author')
     authors: List[AuthorObj] = []
     for author_tree in authors_tree:
         author = AuthorObj(first_name=get_tag_text(author_tree, 'forename'),
                            last_name=get_tag_text(author_tree, 'surname'),
                            org=get_all_tag_texts(author_tree, 'orgName'))
         authors.append(author)
-    abstract: str = tree.find('.//abstract') or ''
-    if abstract:
-        if abstract.getchildren():
-            abstract = abstract.getchildren()[0].text
-        else:
-            abstract = abstract.text
+    abstract_node = header.find('.//abstract')
+    abstract = ''
+    if abstract_node:
+        abstract = ' '.join([n.strip() for n in abstract_node.itertext()]).strip()
 
-    doi = get_tag_text(tree, 'idno')
+    doi = getattr(header.find(".//idno[@type='DOI']"), 'text', None)
     publish_date = None
-    publish_date_raw = tree.find('.//date')
+    publish_date_raw = header.find('.//date')
     if publish_date_raw is not None:
         try:
-            publish_date = publish_date_raw.get('when')
-            publish_date = datetime.strptime(publish_date, "%Y-%m-%d")
+            publish_date = dateparser.parse(publish_date_raw.get('when'))
         except Exception as e:
             logger.error(f'Failed to extract date for {publish_date_raw.text}')
 
