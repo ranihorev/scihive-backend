@@ -30,13 +30,43 @@ class AuthorObj(NamedTuple):
 
 
 def get_tag_text(tree, tag, default_value='') -> str:
-    element = tree.find(f'.//{tag}')
-    return element.text if element is not None else default_value
+    return getattr(tree.find(f'.//{tag}'), 'text', default_value)
 
 
 def get_all_tag_texts(tree, tag):
     element = tree.findall(f'.//{tag}')
     return [e.text for e in element]
+
+
+def parse_coordinates(elem: ET.Element):
+    boxes_raw = elem.get('coords', '').split(';')
+    bounding_boxes = []
+    for box_raw in boxes_raw:
+        page, x, y, h, w = box_raw.split(',')
+        bounding_boxes.append(dict(page=int(page), x=float(x), y=float(y), h=float(h), w=float(w)))
+    return bounding_boxes
+
+
+def get_table_of_contents(tree: ET.Element):
+    content_tags = ['head', 'figure']
+    all_coord_elements = tree.findall('.//*[@coords]')
+    elements = []
+    for elem in all_coord_elements:
+        tag = elem.tag
+        if tag not in content_tags:
+            continue
+        text = elem.text
+        if tag == 'figure':
+            tag = elem.get('type', tag)  # Get more accurate tag
+            figure_head = getattr(elem.find('.//head'), 'text', '')
+            figure_desc = getattr(elem.find('.//figDesc'), 'text', '')
+            if figure_head.replace(' ', '') in figure_desc.replace(' ', ''):
+                figure_head = ''
+            text = ' - '.join(filter(None, [figure_head, figure_desc]))
+
+        elements.append(dict(tag=tag, text=text, coordinates=parse_coordinates(elem)))
+
+    return elements
 
 
 def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
@@ -45,11 +75,11 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
         if not grobid_url:
             raise KeyError('Grobid URL is missing')
         grobid_res = requests.post(grobid_url + '/api/processFulltextDocument',
-                                   data={'consolidateHeader': 1}, files={'input': file_content})
+                                   data={'consolidateHeader': 1, 'teiCoordinates': ['head', 'figure']}, files={'input': file_content})
         if grobid_res.status_code == 503:
             raise Exception('Grobid is unavailable')
         content = re.sub(' xmlns="[^"]+"', '', grobid_res.text)
-        tree = ET.fromstring(content)
+        tree: ET.Element = ET.fromstring(content)
     except Exception as e:
         logger.error(f'Failed to extract metadata for paper - {e}')
         return False, {'title': 'Untitled', 'authors': [], 'abstract': '', 'date': datetime.now()}
@@ -58,6 +88,13 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
     title = get_tag_text(header, 'title')
 
     authors_tree = header.findall('.//author')
+
+    try:
+        table_of_contents = get_table_of_contents(tree)
+    except Exception as e:
+        logger.error(f'Failed to extract table of contents - {e}')
+        table_of_contents = []
+
     authors: List[AuthorObj] = []
     for author_tree in authors_tree:
         author = AuthorObj(first_name=get_tag_text(author_tree, 'forename'),
@@ -78,7 +115,7 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
         except Exception as e:
             logger.error(f'Failed to extract date for {publish_date_raw.text}')
 
-    return True, {'title': title or None, 'authors': authors, 'abstract': abstract, 'date': publish_date, 'doi': doi}
+    return True, {'title': title or None, 'authors': authors, 'abstract': abstract, 'date': publish_date, 'doi': doi, 'table_of_contents': table_of_contents}
 
 
 def extract_paper_metadata(paper_id: str):
@@ -87,8 +124,7 @@ def extract_paper_metadata(paper_id: str):
     db.session.commit()
     file_content = requests.get(paper.local_pdf).content
     file_hash = FileUploader.calc_hash(file_content)
-    # metadata, _ = cache.get(file_hash, expire_time=True)
-    metadata = None
+    metadata, _ = cache.get(file_hash, expire_time=True)
     if not metadata:
         logger.info(f'Fetching data from grobid for paper - {paper_id}')
         success, metadata = fetch_data_from_grobid(file_content)
@@ -99,13 +135,11 @@ def extract_paper_metadata(paper_id: str):
             emit('paperInfo', {'success': False}, namespace='/', room=str(paper.id))
             return
 
-    if metadata['title']:
-        paper.title = metadata['title']
-    if metadata['abstract']:
-        paper.abstract = metadata['abstract']
-    if metadata['date']:
-        paper.date = metadata['date']
-    paper.doi = metadata['doi']
+    paper.title = metadata.get('title', paper.title)
+    paper.abstract = metadata.get('abstract', paper.abstract)
+    paper.publication_date = metadata.get('date', paper.publication_date)
+    paper.doi = metadata.get('doi', paper.doi)
+    paper.table_of_contents = metadata.get('table_of_contents', paper.table_of_contents)
 
     # Create authors
     for current_author in metadata['authors']:

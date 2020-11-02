@@ -41,9 +41,10 @@ metadata_fields = {
     'id': fields.String,
     'title': fields.String,
     'authors': fields.Nested({'name': fields.String, 'id': fields.String}),
-    'time_published': fields.DateTime(attribute='publication_date', dt_format='rfc822'),
+    'timePublished': fields.DateTime(attribute='publication_date', dt_format='rfc822'),
     'abstract': fields.String,
     'doi': fields.String,
+    'tableOfContents': fields.Raw(attribute='table_of_contents')
 }
 
 
@@ -60,9 +61,9 @@ paper_fields = {
     'url': fields.String(attribute='local_pdf'),
     'code': fields.Nested(paper_with_code_fields, attribute='paper_with_code', allow_null=True),
     'groups': fields.List(fields.String(attribute='id'), attribute='groups'),
-    'is_editable': fields.Boolean(attribute='is_private', default=False),
-    'arxiv_id': fields.String(attribute='original_id', default=''),
-    'metadata_state': MetadataField(attribute='metadata_state')
+    'isEditable': fields.Boolean(attribute='is_private', default=False),
+    'arxivId': fields.String(attribute='original_id', default=''),
+    'metadataState': MetadataField(attribute='metadata_state'),
 }
 
 
