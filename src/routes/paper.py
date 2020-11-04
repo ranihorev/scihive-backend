@@ -7,15 +7,13 @@ from typing import List, Optional
 import pytz
 from cerberus import Validator
 from flask import Blueprint, send_from_directory, session
-from flask.globals import current_app
 from flask_jwt_extended import jwt_optional, jwt_required
 from flask_restful import Api, Resource, abort, fields, marshal_with, reqparse
 
 from ..models import (Author, Collection, MetadataState, Paper, Permission,
                       User, db)
 from .file_utils import LOCAL_FILES_DIRECTORY, s3_available
-from .latex_utils import REFERENCES_VERSION, extract_references_from_latex
-from .metadata_utils import extract_paper_metadata
+from .metadata_utils import METADATA_VERSION, extract_paper_metadata
 from .notifications.index import new_invite_notification
 from .paper_query_utils import (get_paper_or_404, get_paper_user_groups,
                                 get_paper_with_pdf, paper_fields)
@@ -75,7 +73,7 @@ class PaperResource(Resource):
 
                 session['paper_token'] = get_paper_token_or_none()
 
-        if paper.metadata_state == MetadataState.missing:
+        if paper.metadata_state == MetadataState.missing or paper.metadata_version < METADATA_VERSION:
             start_background_task(target=extract_paper_metadata, paper_id=paper.id)
         paper.groups = get_paper_user_groups(paper)
         return paper
@@ -118,24 +116,6 @@ def get_paper_item(paper, item, latex_fn, version=None, force_update=False):
             logger.error(f'Failed to retrieve {item} for {paper.id} - {e}')
             abort(500, message=f'Failed to retrieve {item}')
     return new_value, old_value, state
-
-
-class PaperReferencesResource(Resource):
-    method_decorators = [jwt_optional]
-
-    def get(self, paper_id):
-        query_parser = reqparse.RequestParser()
-        query_parser.add_argument('force', type=str, required=False)
-        paper = get_paper_or_404(paper_id)
-
-        # Rani: how to address private papers?
-        if paper.is_private:
-            return []
-
-        force_update = bool(query_parser.parse_args().get('force'))
-        references, _, _ = get_paper_item(paper, 'references', extract_references_from_latex, REFERENCES_VERSION,
-                                          force_update=force_update)
-        return references['data']
 
 
 def validateAuthor(value):
@@ -323,7 +303,6 @@ api.add_resource(PaperSharingToken, "/<paper_id>/token")
 api.add_resource(PaperInvite, "/<paper_id>/invite")
 api.add_resource(PaperResource, "/<paper_id>")
 api.add_resource(PaperGroupsResource, "/<paper_id>/groups")
-api.add_resource(PaperReferencesResource, "/<paper_id>/references")
 api.add_resource(EditPaperResource, "/<paper_id>/edit")
 
 # We only want this endpoint if we're using local filesystem to store PDFs
