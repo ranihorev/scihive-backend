@@ -44,7 +44,8 @@ metadata_fields = {
     'timePublished': fields.DateTime(attribute='publication_date', dt_format='rfc822'),
     'abstract': fields.String,
     'doi': fields.String,
-    'tableOfContents': fields.Raw(attribute='table_of_contents')
+    'tableOfContents': fields.Raw(attribute='table_of_contents'),
+    'references': fields.Raw,
 }
 
 

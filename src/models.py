@@ -79,7 +79,7 @@ class MetadataState(enum.Enum):
 class Paper(db.Model):
     __tablename__ = 'paper'
     __versioned__ = {
-        'exclude': ['authors', 'tags', 'collections', 'comments', 'tweets', 'unsubscribed_users', 'metadata_state', 'table_of_contents']
+        'exclude': ['authors', 'tags', 'collections', 'comments', 'tweets', 'unsubscribed_users', 'metadata_state', 'table_of_contents', 'metadata_version']
     }
 
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -110,6 +110,7 @@ class Paper(db.Model):
     token = db.Column(db.String, nullable=True)  # Used to share the paper with non-authorized users
     metadata_state = db.Column(db.Enum(MetadataState), nullable=True, default=MetadataState.ready)
     table_of_contents = db.Column(db.JSON, nullable=True)
+    metadata_version = db.Column(db.Integer, default=0)
 
     doi = db.Column(db.String, nullable=True)
 

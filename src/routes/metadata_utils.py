@@ -19,6 +19,8 @@ from .paper_query_utils import metadata_fields
 cache = Cache('cache')
 logger = logging.getLogger(__name__)
 
+METADATA_VERSION = 1
+
 
 class AuthorObj(NamedTuple):
     first_name: str
@@ -42,7 +44,7 @@ def parse_coordinates(elem: ET.Element):
     boxes_raw = elem.get('coords', '').split(';')
     bounding_boxes = []
     for box_raw in boxes_raw:
-        page, x, y, h, w = box_raw.split(',')
+        page, x, y, w, h = box_raw.split(',')
         bounding_boxes.append(dict(page=int(page), x=float(x), y=float(y), h=float(h), w=float(w)))
     return bounding_boxes
 
@@ -69,13 +71,41 @@ def get_table_of_contents(tree: ET.Element):
     return elements
 
 
+def get_references_and_bibliography(tree: ET.Element):
+    citations = []
+    for elem in tree.findall('.//ref'):
+        if elem.get('type') != 'bibr':
+            continue
+        if not elem.get('coords'):
+            logger.warning('Coordinates are missing')
+            continue
+        target = elem.get('target', '').replace('#', '')
+        if not target:
+            logger.error('citation target is missing')
+            continue
+        citations.append(dict(target=target, coordinates=parse_coordinates(elem)))
+
+    bibliography = {}
+    for elem in tree.findall('.//listBibl/biblStruct'):
+        bib_text = elem.find('.//note').text
+        bib_id = elem.get('{http://www.w3.org/XML/1998/namespace}id')
+        if not bib_id:
+            logger.error('Bibliography ID is missing')
+            continue
+        bibliography[bib_id] = dict(text=bib_text, coordinates=parse_coordinates(elem))  # TODO: parse fields
+
+    return dict(citations=citations, bibliography=bibliography)
+
+
 def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
     try:
         grobid_url = os.environ.get('GROBID_URL')
         if not grobid_url:
             raise KeyError('Grobid URL is missing')
         grobid_res = requests.post(grobid_url + '/api/processFulltextDocument',
-                                   data={'consolidateHeader': 1, 'teiCoordinates': ['head', 'figure']}, files={'input': file_content})
+                                   data={'consolidateHeader': 1, 'includeRawCitations': 1,
+                                         'teiCoordinates': ['ref', 'biblStruct', 'head', 'figure']},
+                                   files={'input': file_content})
         if grobid_res.status_code == 503:
             raise Exception('Grobid is unavailable')
         content = re.sub(' xmlns="[^"]+"', '', grobid_res.text)
@@ -94,6 +124,12 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
     except Exception as e:
         logger.error(f'Failed to extract table of contents - {e}')
         table_of_contents = []
+
+    try:
+        references = get_references_and_bibliography(tree)
+    except Exception as e:
+        logger.error(f'Failed to extract references - {e}')
+        references = []
 
     authors: List[AuthorObj] = []
     for author_tree in authors_tree:
@@ -115,7 +151,8 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
         except Exception as e:
             logger.error(f'Failed to extract date for {publish_date_raw.text}')
 
-    return True, {'title': title or None, 'authors': authors, 'abstract': abstract, 'date': publish_date, 'doi': doi, 'table_of_contents': table_of_contents}
+    return True, {'title': title or None, 'authors': authors, 'abstract': abstract, 'date': publish_date,
+                  'doi': doi, 'table_of_contents': table_of_contents, 'references': references, 'version': METADATA_VERSION}
 
 
 def extract_paper_metadata(paper_id: str):
@@ -124,8 +161,9 @@ def extract_paper_metadata(paper_id: str):
     db.session.commit()
     file_content = requests.get(paper.local_pdf).content
     file_hash = FileUploader.calc_hash(file_content)
-    metadata, _ = cache.get(file_hash, expire_time=True)
-    if not metadata:
+    metadata = None
+    # metadata, _ = cache.get(file_hash, expire_time=True)
+    if not metadata or metadata.get('version', 0) < METADATA_VERSION:
         logger.info(f'Fetching data from grobid for paper - {paper_id}')
         success, metadata = fetch_data_from_grobid(file_content)
         if success:
@@ -134,12 +172,16 @@ def extract_paper_metadata(paper_id: str):
         else:
             emit('paperInfo', {'success': False}, namespace='/', room=str(paper.id))
             return
+    else:
+        logger.info(f'Using metadata from cache for - {paper_id}')
 
     paper.title = metadata.get('title', paper.title)
     paper.abstract = metadata.get('abstract', paper.abstract)
     paper.publication_date = metadata.get('date', paper.publication_date)
     paper.doi = metadata.get('doi', paper.doi)
     paper.table_of_contents = metadata.get('table_of_contents', paper.table_of_contents)
+    paper.references = metadata.get('references', paper.references)
+    paper.metadata_version = METADATA_VERSION
 
     # Create authors
     for current_author in metadata['authors']:
