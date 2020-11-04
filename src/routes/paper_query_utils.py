@@ -45,7 +45,7 @@ metadata_fields = {
     'abstract': fields.String,
     'doi': fields.String,
     'tableOfContents': fields.Raw(attribute='table_of_contents'),
-    'references': fields.Raw,
+    'references': fields.Raw(default=None),
 }
 
 

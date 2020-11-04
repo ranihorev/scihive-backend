@@ -87,7 +87,7 @@ def get_references_and_bibliography(tree: ET.Element):
 
     bibliography = {}
     for elem in tree.findall('.//listBibl/biblStruct'):
-        bib_text = elem.find('.//note').text
+        bib_text = elem.find(".//note[@type='raw_reference']").text
         bib_id = elem.get('{http://www.w3.org/XML/1998/namespace}id')
         if not bib_id:
             logger.error('Bibliography ID is missing')
@@ -161,8 +161,8 @@ def extract_paper_metadata(paper_id: str):
     db.session.commit()
     file_content = requests.get(paper.local_pdf).content
     file_hash = FileUploader.calc_hash(file_content)
-    metadata = None
-    # metadata, _ = cache.get(file_hash, expire_time=True)
+    # metadata = None
+    metadata, _ = cache.get(file_hash, expire_time=True)
     if not metadata or metadata.get('version', 0) < METADATA_VERSION:
         logger.info(f'Fetching data from grobid for paper - {paper_id}')
         success, metadata = fetch_data_from_grobid(file_content)
