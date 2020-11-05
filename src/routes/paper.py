@@ -73,7 +73,7 @@ class PaperResource(Resource):
 
                 session['paper_token'] = get_paper_token_or_none()
 
-        if paper.metadata_state == MetadataState.missing or paper.metadata_version < METADATA_VERSION:
+        if paper.metadata_state == MetadataState.missing or (paper.metadata_state == MetadataState.ready and (paper.metadata_version or 0) < METADATA_VERSION):
             start_background_task(target=extract_paper_metadata, paper_id=paper.id)
         paper.groups = get_paper_user_groups(paper)
         return paper
