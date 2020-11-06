@@ -60,8 +60,8 @@ def get_table_of_contents(tree: ET.Element):
         text = elem.text
         if tag == 'figure':
             tag = elem.get('type', tag)  # Get more accurate tag
-            figure_head = getattr(elem.find('.//head'), 'text', '')
-            figure_desc = getattr(elem.find('.//figDesc'), 'text', '')
+            figure_head = getattr(elem.find('.//head'), 'text', '') or ''
+            figure_desc = getattr(elem.find('.//figDesc'), 'text', '') or ''
             if figure_head.replace(' ', '') in figure_desc.replace(' ', ''):
                 figure_head = ''
             text = ' - '.join(filter(None, [figure_head, figure_desc]))
@@ -147,7 +147,7 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
     publish_date_raw = header.find('.//date')
     if publish_date_raw is not None:
         try:
-            publish_date = dateparser.parse(publish_date_raw.get('when'))
+            publish_date = dateparser.parse(publish_date_raw.get('when') or '')
         except Exception as e:
             logger.exception(f'Failed to extract date for {publish_date_raw.text} - {e}')
 
