@@ -81,7 +81,7 @@ def get_references_and_bibliography(tree: ET.Element):
             continue
         target = elem.get('target', '').replace('#', '')
         if not target:
-            logger.error('citation target is missing')
+            logger.warning(f'citation target is missing - {elem}')
             continue
         citations.append(dict(target=target, coordinates=parse_coordinates(elem)))
 
@@ -175,10 +175,14 @@ def extract_paper_metadata(paper_id: str):
     else:
         logger.info(f'Using metadata from cache for - {paper_id}')
 
-    paper.title = metadata.get('title', paper.title)
-    paper.abstract = metadata.get('abstract', paper.abstract)
-    paper.publication_date = metadata.get('date', paper.publication_date)
-    paper.doi = metadata.get('doi', paper.doi)
+    if paper.is_private:  # These fields already exist for non private papers
+        paper.title = metadata.get('title', paper.title)
+        paper.abstract = metadata.get('abstract', paper.abstract)
+        paper.publication_date = metadata.get('date', paper.publication_date)
+
+    if not paper.doi:  # We don't want to override it if already exists
+        paper.doi = metadata.get('doi', paper.doi)
+
     paper.table_of_contents = metadata.get('table_of_contents', paper.table_of_contents)
     paper.references = metadata.get('references', paper.references)
     paper.metadata_version = METADATA_VERSION

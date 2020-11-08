@@ -104,7 +104,7 @@ def handle_entry(e) -> Tuple[Paper, bool, bool]:
         local_pdf = None
 
         paper = Paper(title=paper_data['title'], link=paper_data['link'], original_pdf=pdf_link, local_pdf=local_pdf, publication_date=paper_data['time_published'],
-                      abstract=paper_data['summary'], original_id=paper_data['_rawid'], last_update_date=paper_data['time_updated'])
+                      abstract=paper_data['summary'], original_id=paper_data['_rawid'], doi=paper_data.get('arxiv_doi'), last_update_date=paper_data['time_updated'])
 
         # Adding new authors to the paper
         for author in paper_data['authors']:
