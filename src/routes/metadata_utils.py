@@ -97,7 +97,7 @@ def get_references_and_bibliography(tree: ET.Element):
     return dict(citations=citations, bibliography=bibliography)
 
 
-def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
+def fetch_data_from_grobid(paper_id: int, file_content: bytes) -> Tuple[bool, Dict[str, Any]]:
     try:
         grobid_url = os.environ.get('GROBID_URL')
         if not grobid_url:
@@ -111,7 +111,7 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
         content = re.sub(' xmlns="[^"]+"', '', grobid_res.text)
         tree: ET.Element = ET.fromstring(content)
     except Exception as e:
-        logger.exception(f'Failed to extract metadata for paper - {e}')
+        logger.exception(f'Failed to extract metadata for paper - {paper_id} - {e}')
         return False, {'title': 'Untitled', 'authors': [], 'abstract': '', 'date': datetime.now()}
 
     header = tree.find('.//teiHeader')
@@ -122,13 +122,13 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
     try:
         table_of_contents = get_table_of_contents(tree)
     except Exception as e:
-        logger.exception(f'Failed to extract table of contents - {e}')
+        logger.exception(f'Failed to extract table of contents - paper: {paper_id} - {e}')
         table_of_contents = []
 
     try:
         references = get_references_and_bibliography(tree)
     except Exception as e:
-        logger.exception(f'Failed to extract references - {e}')
+        logger.exception(f'Failed to extract references - paper: {paper_id} - {e}')
         references = []
 
     authors: List[AuthorObj] = []
@@ -149,13 +149,13 @@ def fetch_data_from_grobid(file_content) -> Tuple[bool, Dict[str, Any]]:
         try:
             publish_date = dateparser.parse(publish_date_raw.get('when') or '')
         except Exception as e:
-            logger.exception(f'Failed to extract date for {publish_date_raw.text} - {e}')
+            logger.exception(f'Failed to extract date for {publish_date_raw.text} - paper: {paper_id} - {e}')
 
     return True, {'title': title or None, 'authors': authors, 'abstract': abstract, 'date': publish_date,
                   'doi': doi, 'table_of_contents': table_of_contents, 'references': references, 'version': METADATA_VERSION}
 
 
-def extract_paper_metadata(paper_id: str):
+def extract_paper_metadata(paper_id: int):
     paper: Paper = Paper.query.get_or_404(paper_id)
     paper.metadata_state = MetadataState.fetching  # TODO: move this to redis
     db.session.commit()
@@ -165,7 +165,7 @@ def extract_paper_metadata(paper_id: str):
     metadata, _ = cache.get(file_hash, expire_time=True)
     if not metadata or metadata.get('version', 0) < METADATA_VERSION:
         logger.info(f'Fetching data from grobid for paper - {paper_id}')
-        success, metadata = fetch_data_from_grobid(file_content)
+        success, metadata = fetch_data_from_grobid(paper_id, file_content)
         if success:
             logger.info(f'Fetched data from grobid! - {paper_id}')
             cache.set(file_hash, metadata, expire=24 * 60 * 60)
