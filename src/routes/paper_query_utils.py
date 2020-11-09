@@ -28,7 +28,7 @@ paper_list_item_fields = {
     'id': fields.String,
     'title': fields.String,
     'authors': fields.Nested({'name': fields.String}),
-    'time_published': fields.DateTime(dt_format='rfc822', attribute="publication_date"),
+    'timePublished': fields.DateTime(dt_format='rfc822', attribute="publication_date"),
     'abstract': fields.String(attribute="abstract"),
     'groups': fields.Raw(attribute='collection_ids', default=[]),
     'twitter_score': fields.Integer,
