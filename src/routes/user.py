@@ -138,7 +138,7 @@ class GoogleLogin(Resource):
         first_name: str = info.get('given_name')
         last_name: str = info.get('family_name')
         if not user:
-            username = first_name + ' ' + last_name
+            username = '_'.join(filter(None, [first_name, last_name])) or email.split('@')[0]
             username.replace(' ', '_')
             new_user = User(username=username,
                             email=email, password='', first_name=first_name, last_name=last_name, provider='Google')
