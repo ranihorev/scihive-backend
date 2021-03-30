@@ -208,10 +208,17 @@ class PaperInvite(Resource):
 
     def _get_or_create_user(self, user_data) -> User:
         email: str = user_data['email'].lower()
-        user: Optional[user] = User.query.filter_by(email=email).first()
+        user: Optional[User] = User.query.filter_by(email=email).first()
         if not user:
-            name: str = user_data['name'] or ''
+            name: str = user_data.get('name') or ''
             name_parts = name.rsplit(' ', 1)
+            if not name:
+                try:
+                    name = email.split('@')[0]
+                    name_parts = name.split('.') if '.' in name else name.split('_')
+                except Exception as e:
+                    logger.error(e)
+
             first_name = name_parts[0]
             last_name = name_parts[1] if len(name_parts) >= 2 else ''
             username = name.replace(' ', '') if name else email.split('@')[0]
