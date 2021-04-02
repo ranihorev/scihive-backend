@@ -73,6 +73,9 @@ class PaperResource(Resource):
 
                 session['paper_token'] = get_paper_token_or_none()
 
+        if self.endpoint == 'metadata':
+            return paper
+
         is_metadata_missing = not paper.metadata_state or paper.metadata_state == MetadataState.missing
         is_metatdata_old = paper.metadata_state == MetadataState.ready and (
             paper.metadata_version or 0) < METADATA_VERSION
@@ -81,27 +84,6 @@ class PaperResource(Resource):
             start_background_task(target=extract_paper_metadata, paper_id=paper.id)
         paper.groups = get_paper_user_groups(paper)
         return paper
-
-
-def get_visibility(comment):
-    if isinstance(comment['visibility'], dict):
-        return comment['visibility'].get('type', '')
-    return comment['visibility']
-
-
-def add_metadata(comments):
-    current_user = get_jwt_email()
-
-    def add_single_meta(comment):
-        comment['canEdit'] = (current_user and current_user == comment['user'].get('email', -1))
-        if get_visibility(comment) == 'anonymous':
-            comment['user']['username'] = 'Anonymous'
-
-    if isinstance(comments, list):
-        for c in comments:
-            add_single_meta(c)
-    else:
-        add_single_meta(comments)
 
 
 def get_paper_item(paper, item, latex_fn, version=None, force_update=False):
@@ -312,7 +294,8 @@ class PaperSharingToken(Resource):
 
 api.add_resource(PaperSharingToken, "/<paper_id>/token")
 api.add_resource(PaperInvite, "/<paper_id>/invite")
-api.add_resource(PaperResource, "/<paper_id>")
+api.add_resource(PaperResource, "/<paper_id>/metadata", endpoint="metadata")
+api.add_resource(PaperResource, "/<paper_id>", endpoint="paper")
 api.add_resource(PaperGroupsResource, "/<paper_id>/groups")
 api.add_resource(EditPaperResource, "/<paper_id>/edit")
 

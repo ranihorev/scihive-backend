@@ -7,6 +7,8 @@ profiles:
       - kubeContext: minikube
         command: dev
     build:
+      local:
+        push: false
       artifacts:
         - image: web-server
           context: .

@@ -102,7 +102,7 @@ class CommentsResource(Resource):
 
 def emit_update_to_paper_subscribers(paper_id: str, type: str, comment: Comment):
     try:
-        emit('comment', {'type': type, 'data': marshal(comment, comment_fields)}, room=str(paper_id), namespace="/")
+        emit('comment', {'type': type, 'data': marshal(comment, comment_fields)}, to=str(paper_id), namespace="/")
     except Exception as e:
         logger.error(e)
 
@@ -193,7 +193,7 @@ class CommentResource(Resource):
         db.session.delete(comment)
         db.session.commit()
         try:
-            emit('comment', {'type': 'delete', 'id': comment_id}, room=paper_id, namespace='/')
+            emit('comment', {'type': 'delete', 'id': comment_id}, to=paper_id, namespace='/')
         except Exception as e:
             logger.error(e)
         return {'message': 'success'}

@@ -170,7 +170,7 @@ def extract_paper_metadata(paper_id: int):
             logger.info(f'Fetched data from grobid! - {paper_id}')
             cache.set(file_hash, metadata, expire=24 * 60 * 60)
         else:
-            emit('paperInfo', {'success': False}, namespace='/', room=str(paper.id))
+            emit('paperInfo', {'success': False}, namespace='/', to=str(paper.id))
             return
     else:
         logger.info(f'Using metadata from cache for - {paper_id}')
@@ -201,4 +201,4 @@ def extract_paper_metadata(paper_id: int):
     paper.last_update_date = datetime.now()
     paper.metadata_state = MetadataState.ready
     db.session.commit()
-    emit('paperInfo', {'success': True, 'data': marshal(paper, metadata_fields)}, namespace='/', room=str(paper.id))
+    emit('paperInfo', {'success': True, 'data': marshal(paper, metadata_fields)}, namespace='/', to=str(paper.id))

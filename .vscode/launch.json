@@ -18,6 +18,19 @@
       }
     },
     {
+      "name": "Update DB",
+      "type": "python",
+      "request": "launch",
+      "module": "flask",
+      "gevent": true,
+      "env": {
+        "ENV_FILE": ".local_env",
+        "FLASK_APP": "src/app.py",
+        "FLASK_DEBUG": "0"
+      },
+      "args": ["db", "upgrade"]
+    },
+    {
       "name": "Fetch Arxiv",
       "type": "python",
       "request": "launch",
@@ -66,18 +79,6 @@
         "FLASK_DEBUG": "0"
       },
       "args": ["fetch-paperswithcode"]
-    },
-    {
-      "name": "Migrate DB",
-      "type": "python",
-      "request": "launch",
-      "module": "flask",
-      "env": {
-        "FLASK_APP": "src/app.py",
-        "FLASK_ENV": "development",
-        "FLASK_DEBUG": "0"
-      },
-      "args": ["migrate-db", "--path", "../backup"]
     },
     {
       "name": "Fix stars",
