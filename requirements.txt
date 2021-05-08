@@ -46,7 +46,7 @@ pytest==6.0.1
 flask-socketio==5.0.1
 redis==3.5.3
 google-cloud-logging==1.15.1
-eventlet==0.29.1
+eventlet==0.31.0
 gunicorn==20.0.4
 python-json-logger==2.0.1
 dateparser==1.0.0
