@@ -18,7 +18,7 @@ boto3==1.14.38
 boto3-type-annotations==0.3.1
 Flask-RESTful==0.3.8
 Flask-JWT-Extended==3.24.1
-PyJWT==1.7.1
+PyJWT==2.4.0
 Flask-Cors==3.0.8
 
 tweepy==3.9.0
